@@ -35,8 +35,8 @@ auditability and explicit failure handling; it is not a V1 feature.
 - OCR: Python; simple display-specific recognition first, PyTorch if needed.
 - API/data: FastAPI, PostgreSQL; SQLAlchemy/Alembic for the database baseline.
 - Identity: Keycloak; device credentials designed separately from user login.
-- Web: React; minimal current balance, history and device-status screens.
-- Development: Docker Compose under `software/`; not implemented yet.
+- Web: React with Material UI; minimal current balance, history and device-status screens.
+- Development: Docker Compose under `software/dev.docker-compose.yaml`.
 
 Long inference time is acceptable for the initial reading experiment, but
 memory fit and accuracy still need measurement. Monthly reporting does not
@@ -63,9 +63,9 @@ monitor/
     `-- ocr/
 ```
 
-Documentation stays in these READMEs; no `docs/` directory. Future
-`docker-compose.dev.yml`, Docker build files and `.env.example` live under
-`software/`; real `.env` files are ignored. There is no runnable app yet.
+Documentation stays in these READMEs; no `docs/` directory. Development
+Compose, Docker build files and `.env.example` live under `software/`; real
+`.env` files are ignored.
 
 ## Implementation progress
 
@@ -76,7 +76,7 @@ Work records use `agents/work/NNN-short-title/` and may reference roadmap ticket
 ### Phase 1: Repository & development foundation
 
 - [x] Ticket 1: Repository Bootstrap — structure, workflow and roadmap (Task 001).
-- [ ] Ticket 2: Development Docker Stack — four services with backend/frontend reload and placeholder health checks.
+- [x] Ticket 2: Development Docker Stack — four services with backend/frontend reload and placeholder health checks.
 - [ ] Ticket 3: Backend Baseline — FastAPI configuration, health endpoint and tests (after 2).
 - [ ] Ticket 4: Database Baseline — PostgreSQL schema/migration setup (after 3).
 - [ ] Ticket 5: Authentication Baseline — development realm/client integration (after 2, 3).

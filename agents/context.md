@@ -22,11 +22,10 @@ not an assurance that every installation is suitable for an untrained user.
 - `software/backend/`: FastAPI REST service; no MQTT for V1.
 - `software/database/`: PostgreSQL and planned SQLAlchemy/Alembic migrations.
 - `software/keycloak/`: user authentication; device credentials are a separate decision.
-- `software/frontend/`: planned React application.
+- `software/frontend/`: React and Material UI application.
 
-Only documentation/workflow scaffolding exists after Task 001. Do not describe
-the stack as runnable. Docker files, Compose and environment examples will
-live under `software/`. Real environment files/secrets must not be committed.
+Task 002 adds the local four-service development stack under `software/` in
+`dev.docker-compose.yaml`. Real environment files/secrets must not be committed.
 No `docs/` directory: use the nearest README. No production/cloud deployment
 or infrastructure without an approved ticket.
 

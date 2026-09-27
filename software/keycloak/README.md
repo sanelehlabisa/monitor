@@ -9,4 +9,5 @@ sanitised reproducible configuration, never real accounts or tokens.
 Browser clients must not contain a client secret. Device submission credentials
 and owner-scoped access belong to Ticket 10, not copied user credentials.
 
-No production identity configuration or runnable realm exists yet.
+Task 002 starts Keycloak in development mode against its own local database.
+No configured realm, client or production identity configuration exists yet.

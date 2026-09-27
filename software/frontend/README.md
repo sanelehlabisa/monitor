@@ -1,9 +1,10 @@
 # Frontend
 
-Planned React application. Ticket 6 creates the smallest shell connected to
-the API and user authentication. Tickets 17-21 add current balance, timestamp,
-history, graph, warning threshold and device/reading freshness.
+React and Material UI development placeholder created with Task 002. Ticket 6
+connects the shell to the API and user authentication. Tickets 17-21 add
+current balance, timestamp, history, graph, warning threshold and
+device/reading freshness.
 
 Distinguish stale or uncertain readings from a current balance. Do not display
-anomaly flags as proof of theft. No frontend implementation exists yet; select
-and pin tooling during the approved development-stack ticket.
+anomaly flags as proof of theft. The current screen proves only that the
+development container and Material UI render correctly.

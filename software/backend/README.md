@@ -9,5 +9,6 @@ uploads. Keycloak handles user authentication, not an assumed device password.
 Define units, UTC timestamps, duplicate/retry semantics, validation errors and
 confidence rejection with Tickets 8-9. Do not invent missing OCR values.
 
-Use clear typed Python with docstrings and reusable functions. No API code,
-deployed service or production settings exist yet.
+Use clear typed Python with docstrings and reusable functions. Task 002 adds
+only a development health placeholder; API behaviour and production settings
+do not exist yet.
