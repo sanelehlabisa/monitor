@@ -77,7 +77,7 @@ Work records use `agents/work/NNN-short-title/` and may reference roadmap ticket
 
 - [x] Ticket 1: Repository Bootstrap — structure, workflow and roadmap (Task 001).
 - [x] Ticket 2: Development Docker Stack — four services with backend/frontend reload and placeholder health checks.
-- [ ] Ticket 3: Backend Baseline — FastAPI configuration, health endpoint and tests (after 2).
+- [x] Ticket 3: Backend Baseline — FastAPI configuration, health endpoint and tests (Task 003).
 - [ ] Ticket 4: Database Baseline — PostgreSQL schema/migration setup (after 3).
 - [ ] Ticket 5: Authentication Baseline — development realm/client integration (after 2, 3).
 - [ ] Ticket 6: Frontend Baseline — minimal React shell connected to the API (after 3, 5).

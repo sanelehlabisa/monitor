@@ -51,6 +51,9 @@ services:
     build:
       context: ./backend
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      MONITOR_ENVIRONMENT: ${MONITOR_ENVIRONMENT:-development}
+      MONITOR_LOG_LEVEL: ${MONITOR_LOG_LEVEL:-INFO}
     volumes:
       - ./backend:/app
     depends_on:

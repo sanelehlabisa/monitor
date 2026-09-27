@@ -26,6 +26,8 @@ not an assurance that every installation is suitable for an untrained user.
 
 Task 002 adds the local four-service development stack under `software/` in
 `dev.docker-compose.yaml`. Real environment files/secrets must not be committed.
+Task 003 adds the FastAPI application factory, `MONITOR_` settings and a
+process-only health contract; database and authentication checks remain later work.
 No `docs/` directory: use the nearest README. No production/cloud deployment
 or infrastructure without an approved ticket.
 
