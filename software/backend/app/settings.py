@@ -18,3 +18,4 @@ class Settings(BaseSettings):
     keycloak_jwks_url: str = (
         "http://keycloak:8080/realms/monitor/protocol/openid-connect/certs"
     )
+    cors_origin: str = "http://localhost:5173"

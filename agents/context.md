@@ -32,6 +32,8 @@ Task 004 uses direct Psycopg connections and versioned SQL without an ORM. For
 fast initial iteration, OCR may run in the backend before device fit is evaluated.
 Task 005 adds the local `monitor` Keycloak realm, a secret-free PKCE browser
 client and backend user-token validation. Device credentials remain separate.
+Task 006 connects the Material UI shell to Keycloak and `/auth/me`; meter data
+screens remain in their later tickets. Development CORS permits only the UI origin.
 No `docs/` directory: use the nearest README. No production/cloud deployment
 or infrastructure without an approved ticket.
 

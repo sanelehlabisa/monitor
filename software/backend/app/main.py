@@ -3,6 +3,7 @@
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app import __version__
@@ -24,6 +25,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application_settings = settings or Settings()
     application = FastAPI(title="Monitor API", version=__version__)
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=[application_settings.cors_origin],
+        allow_methods=["GET"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
     application.state.settings = application_settings
     application.state.token_validator = TokenValidator(application_settings)
 

@@ -80,7 +80,7 @@ Work records use `agents/work/NNN-short-title/` and may reference roadmap ticket
 - [x] Ticket 3: Backend Baseline — FastAPI configuration, health endpoint and tests (Task 003).
 - [x] Ticket 4: Database Baseline — raw SQL connectivity and migrations (Task 004).
 - [x] Ticket 5: Authentication Baseline — development realm and API token validation (Task 005).
-- [ ] Ticket 6: Frontend Baseline — minimal React shell connected to the API (after 3, 5).
+- [x] Ticket 6: Frontend Baseline — authenticated Material UI shell connected to the API (Task 006).
 
 ### Phase 2: Meter reading data model
 

@@ -40,8 +40,15 @@ Backend and frontend source directories are bind-mounted for reload. Rebuild
 after changing Python or npm dependencies. Actual `.env` files stay local and
 ignored. The committed defaults are development-only and must not be exposed.
 
-The API baseline, raw SQL migrations, Keycloak realm and backend token
-validation are implemented. Frontend login and API integration remain Ticket 6.
+The API baseline, raw SQL migrations, Keycloak realm, backend token validation
+and authenticated Material UI shell are implemented.
+
+After changing frontend dependencies, refresh an existing named dependency
+volume before restarting the frontend:
+
+```powershell
+docker compose -f dev.docker-compose.yaml run --rm --no-deps frontend npm ci
+```
 
 Production deployment, MQTT, payment integration and OCR implementation are
 out of scope. Backend-hosted OCR is the preferred first integration for rapid
