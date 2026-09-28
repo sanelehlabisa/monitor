@@ -30,6 +30,8 @@ Task 003 adds the FastAPI application factory, `MONITOR_` settings and a
 process-only health contract; database and authentication checks remain later work.
 Task 004 uses direct Psycopg connections and versioned SQL without an ORM. For
 fast initial iteration, OCR may run in the backend before device fit is evaluated.
+Task 005 adds the local `monitor` Keycloak realm, a secret-free PKCE browser
+client and backend user-token validation. Device credentials remain separate.
 No `docs/` directory: use the nearest README. No production/cloud deployment
 or infrastructure without an approved ticket.
 

@@ -20,7 +20,7 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.3
-    command: start-dev
+    command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev_only}
@@ -34,6 +34,8 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      - ./keycloak/realm:/opt/keycloak/data/import:ro
     healthcheck:
       test:
         - CMD
@@ -57,6 +59,9 @@ services:
       MONITOR_ENVIRONMENT: ${MONITOR_ENVIRONMENT:-development}
       MONITOR_LOG_LEVEL: ${MONITOR_LOG_LEVEL:-INFO}
       MONITOR_DATABASE_URL: postgresql://${POSTGRES_USER:-monitor}:${POSTGRES_PASSWORD:-monitor_dev_only}@database:5432/${POSTGRES_DB:-monitor}
+      MONITOR_KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8080}/realms/monitor
+      MONITOR_KEYCLOAK_AUDIENCE: monitor-api
+      MONITOR_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/monitor/protocol/openid-connect/certs
     volumes:
       - ./backend:/app
       - ./database/migrations:/migrations:ro

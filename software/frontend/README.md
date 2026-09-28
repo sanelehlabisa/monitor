@@ -1,7 +1,8 @@
 # Frontend
 
-React and Material UI development placeholder created with Task 002. Ticket 6
-connects the shell to the API and user authentication. Tickets 17-21 add
+React and Material UI development placeholder created with Task 002. The
+`monitor-web` public Keycloak client is ready for Authorization Code + PKCE;
+Ticket 6 connects the shell to login and the API. Tickets 17-21 add
 current balance, timestamp, history, graph, warning threshold and
 device/reading freshness.
 

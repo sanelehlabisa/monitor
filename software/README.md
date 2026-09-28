@@ -40,8 +40,8 @@ Backend and frontend source directories are bind-mounted for reload. Rebuild
 after changing Python or npm dependencies. Actual `.env` files stay local and
 ignored. The committed defaults are development-only and must not be exposed.
 
-The API baseline and raw SQL migrations are implemented. Realm integration (5)
-and frontend behaviour (6) remain separate.
+The API baseline, raw SQL migrations, Keycloak realm and backend token
+validation are implemented. Frontend login and API integration remain Ticket 6.
 
 Production deployment, MQTT, payment integration and OCR implementation are
 out of scope. Backend-hosted OCR is the preferred first integration for rapid

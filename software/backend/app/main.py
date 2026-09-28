@@ -1,11 +1,12 @@
 """FastAPI application entry point."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
 from app import __version__
+from app.auth import AuthenticatedUser, TokenValidator, require_identity
 from app.settings import Settings
 
 
@@ -24,6 +25,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application_settings = settings or Settings()
     application = FastAPI(title="Monitor API", version=__version__)
     application.state.settings = application_settings
+    application.state.token_validator = TokenValidator(application_settings)
 
     @application.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
@@ -34,6 +36,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             version=__version__,
             environment=application_settings.environment,
         )
+
+    @application.get("/auth/me", response_model=AuthenticatedUser)
+    def auth_me(
+        identity: Annotated[AuthenticatedUser, Depends(require_identity)],
+    ) -> AuthenticatedUser:
+        """Return identity claims from a validated user access token."""
+
+        return identity
 
     return application
 

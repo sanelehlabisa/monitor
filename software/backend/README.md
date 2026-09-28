@@ -13,9 +13,10 @@ docker compose -f dev.docker-compose.yaml run --rm backend python -m pytest
 ```
 
 `GET /health` reports the service name, version and configured environment. It
-remains process-only and does not check PostgreSQL or Keycloak. Ticket 9 adds
-reading submission and latest/history queries after the device and reading
-models exist.
+remains process-only and does not check PostgreSQL or Keycloak. `GET /auth/me`
+requires a Keycloak bearer token and returns only the validated subject,
+username and optional email. Ticket 9 adds reading submission and latest/history
+queries after the device and reading models exist.
 
 Ticket 10 must enforce scoped device credentials and ownership before real
 uploads. Keycloak handles user authentication, not an assumed device password.

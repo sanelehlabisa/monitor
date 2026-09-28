@@ -79,7 +79,7 @@ Work records use `agents/work/NNN-short-title/` and may reference roadmap ticket
 - [x] Ticket 2: Development Docker Stack — four services with backend/frontend reload and placeholder health checks.
 - [x] Ticket 3: Backend Baseline — FastAPI configuration, health endpoint and tests (Task 003).
 - [x] Ticket 4: Database Baseline — raw SQL connectivity and migrations (Task 004).
-- [ ] Ticket 5: Authentication Baseline — development realm/client integration (after 2, 3).
+- [x] Ticket 5: Authentication Baseline — development realm and API token validation (Task 005).
 - [ ] Ticket 6: Frontend Baseline — minimal React shell connected to the API (after 3, 5).
 
 ### Phase 2: Meter reading data model
