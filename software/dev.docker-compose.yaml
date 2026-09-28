@@ -11,43 +11,11 @@ services:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
-
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.7.3
-    command: start-dev --import-realm
-    environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev_only}
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://database:5432/keycloak
-      KC_DB_USERNAME: ${POSTGRES_USER:-monitor}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-monitor_dev_only}
-      KC_HEALTH_ENABLED: "true"
-    depends_on:
-      database:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:${KEYCLOAK_PORT:-8080}:8080"
-    volumes:
-      - ./keycloak/realm:/opt/keycloak/data/import:ro
-    healthcheck:
-      test:
-        - CMD
-        - bash
-        - -ec
-        - >-
-          { printf 'HEAD /health/ready HTTP/1.0\r\n\r\n' >&0;
-          grep 'HTTP/1.0 200'; } 0<>/dev/tcp/127.0.0.1/9000
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 20s
 
   backend:
     build:
@@ -59,9 +27,6 @@ services:
       MONITOR_ENVIRONMENT: ${MONITOR_ENVIRONMENT:-development}
       MONITOR_LOG_LEVEL: ${MONITOR_LOG_LEVEL:-INFO}
       MONITOR_DATABASE_URL: postgresql://${POSTGRES_USER:-monitor}:${POSTGRES_PASSWORD:-monitor_dev_only}@database:5432/${POSTGRES_DB:-monitor}
-      MONITOR_KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8080}/realms/monitor
-      MONITOR_KEYCLOAK_AUDIENCE: monitor-api
-      MONITOR_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/monitor/protocol/openid-connect/certs
       MONITOR_CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-5173}
     volumes:
       - ./backend:/app
@@ -85,11 +50,6 @@ services:
     build:
       context: ./frontend
     command: npm run dev -- --host 0.0.0.0
-    environment:
-      VITE_API_URL: http://localhost:${BACKEND_PORT:-8000}
-      VITE_KEYCLOAK_URL: http://localhost:${KEYCLOAK_PORT:-8080}
-      VITE_KEYCLOAK_REALM: monitor
-      VITE_KEYCLOAK_CLIENT_ID: monitor-web
     volumes:
       - ./frontend:/app
       - frontend-node-modules:/app/node_modules

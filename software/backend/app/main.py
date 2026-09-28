@@ -1,13 +1,12 @@
 """FastAPI application entry point."""
 
-from typing import Annotated, Literal
+from typing import Literal
 
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app import __version__
-from app.auth import AuthenticatedUser, TokenValidator, require_identity
 from app.settings import Settings
 
 
@@ -29,10 +28,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=[application_settings.cors_origin],
         allow_methods=["GET"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Content-Type"],
     )
     application.state.settings = application_settings
-    application.state.token_validator = TokenValidator(application_settings)
 
     @application.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
@@ -43,14 +41,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             version=__version__,
             environment=application_settings.environment,
         )
-
-    @application.get("/auth/me", response_model=AuthenticatedUser)
-    def auth_me(
-        identity: Annotated[AuthenticatedUser, Depends(require_identity)],
-    ) -> AuthenticatedUser:
-        """Return identity claims from a validated user access token."""
-
-        return identity
 
     return application
 

@@ -13,16 +13,33 @@ docker compose -f dev.docker-compose.yaml run --rm backend python -m pytest
 ```
 
 `GET /health` reports the service name, version and configured environment. It
-remains process-only and does not check PostgreSQL or Keycloak. `GET /auth/me`
-requires a Keycloak bearer token and returns only the validated subject,
-username and optional email. Ticket 9 adds reading submission and latest/history
-queries after the device and reading models exist.
+remains process-only and does not check PostgreSQL. The superseded Keycloak
+bearer-token endpoint has been removed; authentication endpoints do not exist
+until the email OTP and secure cookie-session tickets implement them. Ticket 9
+adds protected latest/history queries after the access and reading models exist.
 
 Development CORS allows only the configured `MONITOR_CORS_ORIGIN`; Compose sets
 this to the loopback frontend URL. Do not broaden it without an approved client.
 
+## Planned access boundaries
+
+Human authentication will expose `/api/auth/request-otp`,
+`/api/auth/verify-otp`, `/api/auth/logout` and `/api/me`. Request responses must
+not reveal whether an email is authorised. Codes must be random six-digit
+values, stored only as hashes, expire within the approved 5-10 minute window,
+allow limited attempts and work once. Successful verification creates an
+expiring HTTP-only cookie session with an appropriate SameSite policy and the
+Secure flag outside local HTTP development; the browser must not store
+credentials or sessions in local storage.
+
+Device ingestion will use `/api/device/readings`, a device UUID and a scoped,
+revocable credential. It must not accept a human cookie as device proof. SMTP
+delivery stays behind an abstraction with safe development capture or console
+behavior so the API does not depend directly on one provider.
+
 Ticket 10 must enforce scoped device credentials and ownership before real
-uploads. Keycloak handles user authentication, not an assumed device password.
+uploads. Human passwordless email sessions must never double as device
+credentials.
 Define units, UTC timestamps, duplicate/retry semantics, validation errors and
 confidence rejection with Tickets 8-9. Do not invent missing OCR values.
 

@@ -21,19 +21,25 @@ not an assurance that every installation is suitable for an untrained user.
 - `software/ocr/`: PC photo tests and simple Python recognition; PyTorch if needed.
 - `software/backend/`: FastAPI REST service and the preferred initial OCR runtime; no MQTT for V1.
 - `software/database/`: PostgreSQL with explicit, versioned SQL migrations through Psycopg.
-- `software/keycloak/`: user authentication; device credentials are a separate decision.
 - `software/frontend/`: React and Material UI application.
 
-Task 002 adds the local four-service development stack under `software/` in
-`dev.docker-compose.yaml`. Real environment files/secrets must not be committed.
+Task 002 originally added a four-service development stack. After the Task 007
+authentication pivot, only PostgreSQL, backend and frontend remain under
+`software/` in `dev.docker-compose.yaml`. Real environment files/secrets must
+not be committed.
 Task 003 adds the FastAPI application factory, `MONITOR_` settings and a
 process-only health contract; database and authentication checks remain later work.
 Task 004 uses direct Psycopg connections and versioned SQL without an ORM. For
 fast initial iteration, OCR may run in the backend before device fit is evaluated.
-Task 005 adds the local `monitor` Keycloak realm, a secret-free PKCE browser
-client and backend user-token validation. Device credentials remain separate.
-Task 006 connects the Material UI shell to Keycloak and `/auth/me`; meter data
-screens remain in their later tickets. Development CORS permits only the UI origin.
+Tasks 005-006 are retained as historical records of the superseded Keycloak
+baseline. Task 007 removes that active integration and keeps the Material UI
+shell as an honest placeholder. Planned human authentication uses authorised
+email addresses, short-lived hashed one-time codes and secure HTTP-only cookie
+sessions. Device authentication stays separate: each device has a UUID and
+revocable credential, with many-to-many user/device access. Development CORS
+permits only the configured UI origin.
+First-time device setup is planned through a temporary local access point using
+an owner email, but firmware and provisioning security are not implemented yet.
 No `docs/` directory: use the nearest README. No production/cloud deployment
 or infrastructure without an approved ticket.
 

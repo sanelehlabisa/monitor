@@ -34,7 +34,8 @@ auditability and explicit failure handling; it is not a V1 feature.
 - Device: ESP32-class camera hardware and C/C++; final board not selected.
 - OCR: Python; simple display-specific recognition first, PyTorch if needed.
 - API/data: FastAPI, PostgreSQL and explicit SQL through Psycopg; no ORM.
-- Identity: Keycloak; device credentials designed separately from user login.
+- Identity: passwordless email OTP with secure cookie sessions; device UUIDs and
+  scoped credentials remain separate from human login.
 - Web: React with Material UI; minimal current balance, history and device-status screens.
 - Development: Docker Compose under `software/dev.docker-compose.yaml`.
 
@@ -42,6 +43,10 @@ Long inference time is acceptable for the initial reading experiment, but
 memory fit and accuracy still need measurement. Monthly reporting does not
 mean monthly-only capture; low-balance alerts and consumption estimates need
 a separately chosen reading frequency.
+
+Near-term build priority is one real-device capture, backend-hosted OCR, secure
+device upload, raw-SQL storage, passwordless email access, then the dashboard.
+This ordering keeps the PoC focused on proving the meter-reading path.
 
 ## Repository structure
 
@@ -59,7 +64,6 @@ monitor/
     |-- backend/
     |-- frontend/
     |-- database/
-    |-- keycloak/
     `-- ocr/
 ```
 
@@ -76,18 +80,30 @@ Work records use `agents/work/NNN-short-title/` and may reference roadmap ticket
 ### Phase 1: Repository & development foundation
 
 - [x] Ticket 1: Repository Bootstrap — structure, workflow and roadmap (Task 001).
-- [x] Ticket 2: Development Docker Stack — four services with backend/frontend reload and placeholder health checks.
+- [x] Ticket 2: Development Docker Stack — originally four services; now three after the approved authentication pivot.
 - [x] Ticket 3: Backend Baseline — FastAPI configuration, health endpoint and tests (Task 003).
 - [x] Ticket 4: Database Baseline — raw SQL connectivity and migrations (Task 004).
-- [x] Ticket 5: Authentication Baseline — development realm and API token validation (Task 005).
-- [x] Ticket 6: Frontend Baseline — authenticated Material UI shell connected to the API (Task 006).
+- [x] Ticket 5: Authentication Baseline — historical Keycloak baseline, superseded by Ticket 42 (Task 005).
+- [x] Ticket 6: Frontend Baseline — historical Keycloak-connected shell, superseded by Ticket 42 (Task 006).
+
+### V1 authentication and access pivot
+
+Human and device authentication are intentionally separate. Human users will
+receive short-lived, one-use email codes and use secure HTTP-only cookie
+sessions. Devices will use a UUID and independently revocable credential.
+
+- [x] Ticket 42: Remove Keycloak — return the active stack and documentation to a clean email-OTP foundation (Task 007).
+- [ ] Ticket 43: OTP Storage & Policy — hashed six-digit codes, expiry, one-use enforcement, attempts and rate limiting (after 7, 42).
+- [ ] Ticket 44: Email Delivery — SMTP abstraction, development capture/console mode and enumeration-safe responses (after 43).
+- [ ] Ticket 45: Cookie Sessions & Human Auth API — request/verify/logout/me with secure HTTP-only cookies (after 44).
+- [ ] Ticket 46: Email Login UI — email, OTP verification and authenticated dashboard transition in Material UI (after 45).
 
 ### Phase 2: Meter reading data model
 
-- [ ] Ticket 7: Device Model — unique device identity and ownership (after 4, 5).
+- [ ] Ticket 7: User & Device Access Model — users, devices and many-to-many ownership/access through raw SQL (after 4, 42).
 - [ ] Ticket 8: Reading Model — timestamp, value/unit, confidence and optional image metadata (after 7).
-- [ ] Ticket 9: Reading API — submit readings and retrieve latest/history (after 8).
-- [ ] Ticket 10: Device Authentication — scoped credentials and ownership checks before real uploads (after 9).
+- [ ] Ticket 9: Human Reading API — protected latest/history access for authorised device users (after 8, 45).
+- [ ] Ticket 10: Device Authentication — UUID, scoped credential and ownership checks before real uploads (after 7).
 
 ### Phase 3: Camera & OCR PoC
 
@@ -102,7 +118,7 @@ Saved-photo recognition can proceed alongside the software foundation.
 
 ### Phase 4: User visibility
 
-- [ ] Ticket 17: Current Balance — latest valid value, unit and timestamp (after 6, 9).
+- [ ] Ticket 17: Current Balance — latest valid value, unit and timestamp (after 9, 46).
 - [ ] Ticket 18: Reading History — history API and table (after 17).
 - [ ] Ticket 19: Balance Trend — simple graph with gaps/invalid samples made clear (after 18).
 - [ ] Ticket 20: Low-Balance Warning — threshold and capture-frequency requirements (after 17).
@@ -152,7 +168,7 @@ Beyond the initial PoC; no implementation now.
 
 - [Agent workflow](AGENTS.md), [context](agents/context.md), [engineering rules](agents/rules.md).
 - [Hardware](hardware/README.md), [software](software/README.md), [OCR](software/ocr/README.md).
-- [Task 001](agents/work/001-repository-bootstrap/changes.md), [PR template](.github/pull_request_template.md).
+- [Task 001](agents/work/001-repository-bootstrap/changes.md), [Task 007](agents/work/007-authentication-architecture-pivot/changes.md), [PR template](.github/pull_request_template.md).
 
 ## License
 
