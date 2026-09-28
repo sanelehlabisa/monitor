@@ -17,7 +17,9 @@ Saved-photo tests exercise the pipeline, not a full ESP32-CAM emulator.
 An exported model runs through a compatible embedded inference runtime, not
 desktop PyTorch installed on the MCU. Five-minute inference may be acceptable
 for an experiment but does not remove memory limits or prove monthly reading
-reliability. Backend inference remains an option if device fit is unsuitable.
+reliability. Backend-hosted inference is the preferred initial integration for
+fast iteration. Device inference remains a later measured option; this direction
+does not prove accuracy, latency or embedded suitability.
 
 Keep large/private local datasets and weights in ignored `data/` and
 `models/`; document provenance and reproducible training/export when added.

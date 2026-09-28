@@ -1,7 +1,13 @@
 # Database
 
-Planned PostgreSQL, with SQLAlchemy/Alembic introduced in Ticket 4. Ticket 7
-defines device identity/ownership; Ticket 8 defines timestamped readings.
+PostgreSQL uses explicit SQL through Psycopg; the project does not use an ORM.
+Versioned files live in `migrations/` and the backend records each applied
+filename in `schema_migrations`. Compose runs pending migrations before the API
+starts. Ticket 7 defines device identity/ownership; Ticket 8 defines timestamped
+readings.
+
+Keep migrations forward-only, focused and safe to run in a transaction. Never
+edit an applied migration; add the next numbered `.sql` file instead.
 
 Before schema implementation, settle units (kWh versus money), decimal
 precision, capture/receipt times, confidence, optional image metadata and

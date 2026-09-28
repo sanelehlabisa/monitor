@@ -4,16 +4,18 @@ FastAPI REST service with a reusable application factory, typed configuration
 and a process-only health endpoint. Settings use the `MONITOR_` prefix; see
 `.env.example` for supported development values.
 
-Run the focused test suite from this directory:
+The backend connects directly through Psycopg and applies pending SQL files
+before Compose starts Uvicorn. Run the suite against the development database
+from `software/`:
 
 ```powershell
-python -m pytest
+docker compose -f dev.docker-compose.yaml run --rm backend python -m pytest
 ```
 
 `GET /health` reports the service name, version and configured environment. It
-does not check PostgreSQL or Keycloak; those integrations belong to Tickets 4
-and 5. Ticket 9 adds reading submission and latest/history queries after the
-device and reading models exist.
+remains process-only and does not check PostgreSQL or Keycloak. Ticket 9 adds
+reading submission and latest/history queries after the device and reading
+models exist.
 
 Ticket 10 must enforce scoped device credentials and ownership before real
 uploads. Keycloak handles user authentication, not an assumed device password.

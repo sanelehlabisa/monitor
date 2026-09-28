@@ -19,8 +19,8 @@ not an assurance that every installation is suitable for an untrained user.
 - `hardware/mechanical/`: external mounts/enclosures and grouped print outputs.
 - `hardware/experiments/`: measured hardware feasibility and test notes.
 - `software/ocr/`: PC photo tests and simple Python recognition; PyTorch if needed.
-- `software/backend/`: FastAPI REST service; no MQTT for V1.
-- `software/database/`: PostgreSQL and planned SQLAlchemy/Alembic migrations.
+- `software/backend/`: FastAPI REST service and the preferred initial OCR runtime; no MQTT for V1.
+- `software/database/`: PostgreSQL with explicit, versioned SQL migrations through Psycopg.
 - `software/keycloak/`: user authentication; device credentials are a separate decision.
 - `software/frontend/`: React and Material UI application.
 
@@ -28,6 +28,8 @@ Task 002 adds the local four-service development stack under `software/` in
 `dev.docker-compose.yaml`. Real environment files/secrets must not be committed.
 Task 003 adds the FastAPI application factory, `MONITOR_` settings and a
 process-only health contract; database and authentication checks remain later work.
+Task 004 uses direct Psycopg connections and versioned SQL without an ORM. For
+fast initial iteration, OCR may run in the backend before device fit is evaluated.
 No `docs/` directory: use the nearest README. No production/cloud deployment
 or infrastructure without an approved ticket.
 

@@ -33,7 +33,7 @@ auditability and explicit failure handling; it is not a V1 feature.
 
 - Device: ESP32-class camera hardware and C/C++; final board not selected.
 - OCR: Python; simple display-specific recognition first, PyTorch if needed.
-- API/data: FastAPI, PostgreSQL; SQLAlchemy/Alembic for the database baseline.
+- API/data: FastAPI, PostgreSQL and explicit SQL through Psycopg; no ORM.
 - Identity: Keycloak; device credentials designed separately from user login.
 - Web: React with Material UI; minimal current balance, history and device-status screens.
 - Development: Docker Compose under `software/dev.docker-compose.yaml`.
@@ -78,7 +78,7 @@ Work records use `agents/work/NNN-short-title/` and may reference roadmap ticket
 - [x] Ticket 1: Repository Bootstrap — structure, workflow and roadmap (Task 001).
 - [x] Ticket 2: Development Docker Stack — four services with backend/frontend reload and placeholder health checks.
 - [x] Ticket 3: Backend Baseline — FastAPI configuration, health endpoint and tests (Task 003).
-- [ ] Ticket 4: Database Baseline — PostgreSQL schema/migration setup (after 3).
+- [x] Ticket 4: Database Baseline — raw SQL connectivity and migrations (Task 004).
 - [ ] Ticket 5: Authentication Baseline — development realm/client integration (after 2, 3).
 - [ ] Ticket 6: Frontend Baseline — minimal React shell connected to the API (after 3, 5).
 
