@@ -17,6 +17,16 @@ services:
       timeout: 5s
       retries: 10
 
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    ports:
+      - "127.0.0.1:8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./backend
@@ -29,11 +39,19 @@ services:
       MONITOR_DATABASE_URL: postgresql://${POSTGRES_USER:-monitor}:${POSTGRES_PASSWORD:-monitor_dev_only}@database:5432/${POSTGRES_DB:-monitor}
       MONITOR_CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-5173}
       MONITOR_OTP_HMAC_SECRET: ${MONITOR_OTP_HMAC_SECRET:-monitor_dev_otp_secret_change_me}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@monitor.local}
     volumes:
       - ./backend:/app
       - ./database/migrations:/migrations:ro
     depends_on:
       database:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"

@@ -115,7 +115,7 @@ retained authentication IDs appear before newer product tickets.
 
 - [x] Ticket 48: Active V1 Cleanup — aligned the runtime shell and confirmed obsolete automation assumptions are absent (Task 009).
 - [x] Ticket 43: OTP Storage & Policy — open signup, HMAC-only challenges and enforced limits (Task 010).
-- [ ] Ticket 44: Email Delivery — SMTP abstraction, Mailpit development capture and enumeration-safe responses (after 43).
+- [x] Ticket 44: Email Delivery — SMTP abstraction and isolated Mailpit development capture (Task 011).
 - [ ] Ticket 45: Cookie Sessions & Human Auth API — request/verify/logout/me with secure cookies (after 44).
 - [ ] Ticket 46: Email Login UI — email and OTP flow in Material UI (after 45).
 - [ ] Ticket 49: User & Meter Profiles — user-owned nickname-only meter/property profiles through raw SQL (after 45).
@@ -156,7 +156,7 @@ and must never modify either sibling repository.
 
 - [Agent workflow](AGENTS.md), [context](agents/context.md), [engineering rules](agents/rules.md).
 - [Hardware](hardware/README.md), [software](software/README.md), [OCR](software/ocr/README.md).
-- [Task 007](agents/work/007-authentication-architecture-pivot/changes.md), [Task 008](agents/work/008-software-only-product-refocus/changes.md), [PR template](.github/pull_request_template.md).
+- [Task 007](agents/work/007-authentication-architecture-pivot/changes.md), [Task 008](agents/work/008-software-only-product-refocus/changes.md), [Task 011](agents/work/011-mailpit-email-delivery/changes.md), [PR template](.github/pull_request_template.md).
 
 ## License
 

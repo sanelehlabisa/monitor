@@ -186,6 +186,22 @@ def verify_otp(
     return user
 
 
+def invalidate_otp_challenge(
+    connection: Connection[Any],
+    challenge_id: UUID,
+    now: datetime | None = None,
+) -> None:
+    """Make a delivered challenge unusable while retaining its request record."""
+
+    invalidated_at = now or datetime.now(UTC)
+    with connection.transaction():
+        connection.execute(
+            """UPDATE monitor.otp_challenges SET invalidated_at = %s
+               WHERE id = %s AND used_at IS NULL AND invalidated_at IS NULL""",
+            (invalidated_at, challenge_id),
+        )
+
+
 def _lock_email(connection: Connection[Any], email: str) -> None:
     """Serialize policy decisions for one normalized email within a transaction."""
 

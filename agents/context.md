@@ -51,7 +51,7 @@ actual reading and its observation time beside forecast output.
 - `software/ocr/`: deferred research only, not an active dependency.
 - `hardware/`: deferred research only, not an active V1 dependency.
 
-Development runs PostgreSQL, backend and frontend through
+Development runs PostgreSQL, Mailpit, backend and frontend through
 `software/dev.docker-compose.yaml`. No production/cloud infrastructure should be
 added without an approved ticket.
 
@@ -59,10 +59,12 @@ added without an approved ticket.
 
 Tasks 005-006 are historical records of the superseded Keycloak baseline. Task
 007 removed that integration. Task 010 allows open email signup and implements
-normalized user/OTP storage plus HMAC-only challenge policy. A user is created
-only after successful verification. HTTP endpoints, Mailpit/SMTP delivery and
-secure HTTP-only cookie sessions remain later tickets. Generic request responses
-must avoid account enumeration, and neither email nor an OTP is an API token.
+normalized user/OTP storage plus HMAC-only challenge policy. Task 011 delivers
+those codes through an SMTP abstraction and isolated Mailpit development
+capture. A user is created only after successful verification. HTTP endpoints
+and secure HTTP-only cookie sessions remain later tickets. Generic request
+responses must avoid account enumeration, and neither email nor an OTP is an
+API token.
 
 Device UUIDs, device credentials and provisioning are not V1 requirements.
 They remain future research if automated meter capture is later justified.
@@ -77,6 +79,7 @@ They remain future research if automated meter capture is later justified.
   entries, forecasts and reminders. It does not implement those features.
 - Task 009 aligns the inactive Material UI shell with that product direction.
 - Task 010 adds open-signup user/OTP storage and policy without HTTP or delivery.
+- Task 011 adds SMTP OTP delivery and Mailpit capture without an HTTP surface.
 
 The root README owns stable ticket IDs and the current execution order. Ticket
 48 performs an explicit active-code/domain cleanup before authentication and

@@ -20,8 +20,10 @@ docker compose -f dev.docker-compose.yaml up --build
 ```
 
 The frontend is at `http://localhost:5173`, the API health endpoint at
-`http://localhost:8000/health`, and PostgreSQL is available on localhost port
-5432. Host bindings can be changed in `.env`; they remain loopback-only.
+`http://localhost:8000/health`, Mailpit's captured-email UI is at
+`http://localhost:8025`, and PostgreSQL is available on localhost port 5432.
+Host bindings remain loopback-only. Mailpit's SMTP port 1025 is available only
+inside the Compose network.
 
 Stop the stack without deleting data:
 
@@ -45,9 +47,9 @@ Backend and frontend sources are bind-mounted for reload. Rebuild after changing
 Python or npm dependencies. Actual `.env` files stay local and ignored. Committed
 defaults are development-only and must not be exposed.
 
-The API health baseline, raw SQL migrations and Material UI shell exist. Ticket
-43 implements user/OTP storage and policy without an HTTP surface. Human login
-remains inactive until Tickets 44-46 add Mailpit/SMTP delivery, auth endpoints,
+The API health baseline, raw SQL migrations and Material UI shell exist. Tickets
+43-44 implement user/OTP storage, policy and SMTP delivery without an HTTP
+surface. Human login remains inactive until Tickets 45-46 add auth endpoints,
 secure cookie sessions and the browser flow. Ticket 48 confirmed active runtime
 code has no obsolete device/OCR integration.
 

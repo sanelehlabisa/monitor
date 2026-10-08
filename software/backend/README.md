@@ -1,8 +1,8 @@
 # Backend
 
 FastAPI REST service with a reusable application factory, typed configuration
-and a process-only health endpoint. Settings use the `MONITOR_` prefix; see
-`.env.example` for supported development values.
+and a process-only health endpoint. Core settings use the `MONITOR_` prefix;
+SMTP settings use the approved Job Talk-style names in `.env.example`.
 
 The backend connects directly through Psycopg and applies pending SQL files
 before Compose starts Uvicorn. Run the suite from `software/`:
@@ -20,7 +20,7 @@ Development CORS allows only the configured `MONITOR_CORS_ORIGIN`.
 Ticket 43 implements the storage and backend policy used by future human
 authentication. Any normalized email can receive a challenge. A user row is
 created only after correct verification, and repeated successful logins reuse it.
-The implementation provides no HTTP endpoint and sends no email yet.
+The implementation provides no HTTP authentication endpoint yet.
 
 Codes are random six-digit values with a 10-minute expiry, five attempts, a
 60-second resend cooldown, five requests per email per hour, one-use behavior
@@ -29,19 +29,26 @@ bound to the normalized email and challenge UUID. Per-email advisory transaction
 locks serialize policy decisions. Plaintext exists only in the issuance return
 value for the next delivery layer and must never be logged.
 
-`MONITOR_OTP_HMAC_SECRET` is the only OTP environment setting. Development has a
+`MONITOR_OTP_HMAC_SECRET` is the only OTP policy environment setting. Development has a
 clearly marked local default; production refuses to start with it. Policy numbers
 stay as reviewed code constants rather than separate environment variables.
 
+Ticket 44 delivers each issued code through a small standard-library SMTP
+boundary. Development uses Mailpit at `http://localhost:8025`; its SMTP listener
+is internal to Compose. Configuration follows `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` and `EMAIL_FROM`. False
+`SMTP_SECURE` uses STARTTLS when the server advertises it, while true selects
+implicit TLS. Credentials are never sent without encryption. Failed delivery
+invalidates the challenge but keeps its row counted for request limits.
+
 Later human authentication will expose `/api/auth/request-otp`,
 `/api/auth/verify-otp`, `/api/auth/logout` and `/api/me`. Request responses must
-not reveal account state. Mailpit/SMTP delivery is Ticket 44, while HTTP handlers
-and secure sessions are Ticket 45.
+not reveal account state. HTTP handlers and secure sessions are Ticket 45.
 
 Successful verification creates an expiring HTTP-only cookie session with an
 appropriate SameSite policy and the Secure flag outside local HTTP development.
 The browser must not store credentials or sessions in local storage. SMTP stays
-behind an abstraction with safe development capture or console behavior.
+behind an abstraction with isolated development capture.
 
 ## Planned product boundary
 
