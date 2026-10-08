@@ -8,11 +8,27 @@ starts.
 Keep migrations forward-only, focused and safe to run in a transaction. Never
 edit an applied migration; add the next numbered `.sql` file instead.
 
-## Planned V1 data
+## Implemented authentication data
+
+Migration `002_users_and_otp_challenges.sql` adds:
+
+- `monitor.users`: unique normalized email and creation time; and
+- `monitor.otp_challenges`: challenge UUID, normalized email, HMAC digest,
+  creation/expiry, attempt count and used/invalidated timestamps.
+
+Challenges intentionally reference email rather than a user ID because open
+signup creates the user only after successful verification. Constraints reject
+non-normalized emails, non-SHA256-shaped digests, invalid expiry and invalid
+attempt counts. The email/creation index supports cooldown and hourly limits.
+
+Plaintext OTPs are never persisted. Forecasts and sessions are not stored by this
+migration.
+
+## Planned product data
 
 The modular schema tickets should introduce only the data each feature needs:
 
-- `users`, OTP/session records and ownership identifiers;
+- session records and ownership identifiers;
 - nickname-only `meters` or meter/property profiles owned by a user;
 - actual `balance_entries` with non-negative kWh and occurrence timestamps; and
 - `top_up_entries` with positive kWh and occurrence timestamps.

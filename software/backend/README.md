@@ -12,16 +12,31 @@ docker compose -f dev.docker-compose.yaml run --rm backend python -m pytest
 ```
 
 `GET /health` reports service name, version and configured environment without
-probing PostgreSQL. Authentication and product endpoints are planned, not yet
-implemented. Development CORS allows only the configured `MONITOR_CORS_ORIGIN`.
+probing PostgreSQL. Authentication and product endpoints are not yet exposed.
+Development CORS allows only the configured `MONITOR_CORS_ORIGIN`.
 
-## Planned authentication boundary
+## Authentication foundation
 
-Human authentication will expose `/api/auth/request-otp`,
+Ticket 43 implements the storage and backend policy used by future human
+authentication. Any normalized email can receive a challenge. A user row is
+created only after correct verification, and repeated successful logins reuse it.
+The implementation provides no HTTP endpoint and sends no email yet.
+
+Codes are random six-digit values with a 10-minute expiry, five attempts, a
+60-second resend cooldown, five requests per email per hour, one-use behavior
+and newest-code-wins invalidation. PostgreSQL stores only an HMAC-SHA256 digest
+bound to the normalized email and challenge UUID. Per-email advisory transaction
+locks serialize policy decisions. Plaintext exists only in the issuance return
+value for the next delivery layer and must never be logged.
+
+`MONITOR_OTP_HMAC_SECRET` is the only OTP environment setting. Development has a
+clearly marked local default; production refuses to start with it. Policy numbers
+stay as reviewed code constants rather than separate environment variables.
+
+Later human authentication will expose `/api/auth/request-otp`,
 `/api/auth/verify-otp`, `/api/auth/logout` and `/api/me`. Request responses must
-not reveal whether an email is authorised. Codes must be random six-digit
-values, stored only as hashes, expire within the approved window, allow limited
-attempts and work once.
+not reveal account state. Mailpit/SMTP delivery is Ticket 44, while HTTP handlers
+and secure sessions are Ticket 45.
 
 Successful verification creates an expiring HTTP-only cookie session with an
 appropriate SameSite policy and the Secure flag outside local HTTP development.

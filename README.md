@@ -114,8 +114,8 @@ retained authentication IDs appear before newer product tickets.
 ### Active V1 delivery
 
 - [x] Ticket 48: Active V1 Cleanup — aligned the runtime shell and confirmed obsolete automation assumptions are absent (Task 009).
-- [ ] Ticket 43: OTP Storage & Policy — hashed codes, expiry, one-use enforcement, attempts and rate limiting (after 48).
-- [ ] Ticket 44: Email Delivery — SMTP abstraction, development capture and enumeration-safe responses (after 43).
+- [x] Ticket 43: OTP Storage & Policy — open signup, HMAC-only challenges and enforced limits (Task 010).
+- [ ] Ticket 44: Email Delivery — SMTP abstraction, Mailpit development capture and enumeration-safe responses (after 43).
 - [ ] Ticket 45: Cookie Sessions & Human Auth API — request/verify/logout/me with secure cookies (after 44).
 - [ ] Ticket 46: Email Login UI — email and OTP flow in Material UI (after 45).
 - [ ] Ticket 49: User & Meter Profiles — user-owned nickname-only meter/property profiles through raw SQL (after 45).

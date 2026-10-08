@@ -16,7 +16,7 @@ def test_database_connectivity() -> None:
 
 
 def test_migrations_are_recorded_once() -> None:
-    """Running migrations repeatedly does not reapply the baseline file."""
+    """Running migrations repeatedly does not reapply committed SQL files."""
 
     settings = Settings()
     run_migrations(settings, MIGRATIONS_DIRECTORY)
@@ -24,8 +24,12 @@ def test_migrations_are_recorded_once() -> None:
 
     with connect_database(settings) as connection:
         result = connection.execute(
-            "SELECT COUNT(*) FROM schema_migrations WHERE version = %s",
-            ("001_baseline.sql",),
-        ).fetchone()
+            """SELECT version FROM schema_migrations
+               WHERE version IN (%s, %s) ORDER BY version""",
+            ("001_baseline.sql", "002_users_and_otp_challenges.sql"),
+        ).fetchall()
 
-    assert result == (1,)
+    assert result == [
+        ("001_baseline.sql",),
+        ("002_users_and_otp_challenges.sql",),
+    ]

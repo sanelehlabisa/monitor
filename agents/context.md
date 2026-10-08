@@ -58,9 +58,11 @@ added without an approved ticket.
 ## Authentication
 
 Tasks 005-006 are historical records of the superseded Keycloak baseline. Task
-007 removed that integration. Planned human authentication uses authorised
-email addresses, short-lived hashed one-time codes and secure HTTP-only cookie
-sessions. Generic request responses must avoid email enumeration.
+007 removed that integration. Task 010 allows open email signup and implements
+normalized user/OTP storage plus HMAC-only challenge policy. A user is created
+only after successful verification. HTTP endpoints, Mailpit/SMTP delivery and
+secure HTTP-only cookie sessions remain later tickets. Generic request responses
+must avoid account enumeration, and neither email nor an OTP is an API token.
 
 Device UUIDs, device credentials and provisioning are not V1 requirements.
 They remain future research if automated meter capture is later justified.
@@ -73,6 +75,8 @@ They remain future research if automated meter capture is later justified.
 - Task 007 removed Keycloak and retained the Material UI foundation.
 - Task 008 changes active planning from camera/OCR collection to manual kWh
   entries, forecasts and reminders. It does not implement those features.
+- Task 009 aligns the inactive Material UI shell with that product direction.
+- Task 010 adds open-signup user/OTP storage and policy without HTTP or delivery.
 
 The root README owns stable ticket IDs and the current execution order. Ticket
 48 performs an explicit active-code/domain cleanup before authentication and

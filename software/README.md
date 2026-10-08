@@ -45,10 +45,11 @@ Backend and frontend sources are bind-mounted for reload. Rebuild after changing
 Python or npm dependencies. Actual `.env` files stay local and ignored. Committed
 defaults are development-only and must not be exposed.
 
-The API health baseline, raw SQL migrations and Material UI shell exist. Human
-login remains inactive until Tickets 43-46 implement passwordless email OTP and
-secure cookie sessions. Ticket 48 first audits active code/configuration for
-obsolete device/OCR assumptions.
+The API health baseline, raw SQL migrations and Material UI shell exist. Ticket
+43 implements user/OTP storage and policy without an HTTP surface. Human login
+remains inactive until Tickets 44-46 add Mailpit/SMTP delivery, auth endpoints,
+secure cookie sessions and the browser flow. Ticket 48 confirmed active runtime
+code has no obsolete device/OCR integration.
 
 After changing frontend dependencies, refresh an existing named volume:
 
