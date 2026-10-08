@@ -113,7 +113,7 @@ retained authentication IDs appear before newer product tickets.
 
 ### Active V1 delivery
 
-- [ ] Ticket 48: Active V1 Cleanup — remove remaining runtime/domain assumptions about devices, OCR and automated readings (after 47).
+- [x] Ticket 48: Active V1 Cleanup — aligned the runtime shell and confirmed obsolete automation assumptions are absent (Task 009).
 - [ ] Ticket 43: OTP Storage & Policy — hashed codes, expiry, one-use enforcement, attempts and rate limiting (after 48).
 - [ ] Ticket 44: Email Delivery — SMTP abstraction, development capture and enumeration-safe responses (after 43).
 - [ ] Ticket 45: Cookie Sessions & Human Auth API — request/verify/logout/me with secure cookies (after 44).

@@ -38,13 +38,18 @@ export default function App() {
           <Card>
             <CardContent>
               <Stack spacing={2}>
-                <Chip label="Passwordless access planned" sx={{ alignSelf: 'flex-start' }} />
+                <Chip label="Software-only V1" sx={{ alignSelf: 'flex-start' }} />
                 <Typography variant="h4" component="h1">
-                  Meter monitoring foundation
+                  Plan electricity with simple kWh entries
                 </Typography>
                 <Typography color="text.secondary">
-                  Monitor will use a one-time code sent to an authorised email
-                  address. Authentication is not active in this build.
+                  V1 will let you record balances and top-ups in kWh, then use that
+                  history for clearly labelled estimates of how much electricity
+                  you may need and when.
+                </Typography>
+                <Typography color="text.secondary">
+                  Passwordless email access is planned but is not active in this
+                  build.
                 </Typography>
                 <TextField
                   disabled
@@ -57,8 +62,8 @@ export default function App() {
                   Send one-time code
                 </Button>
                 <Typography variant="body2" color="text.secondary">
-                  Meter readings and dashboard features remain intentionally out of
-                  scope for this foundation.
+                  Balance entry, top-up entry and forecasts are not active in this
+                  build. Hardware and OCR are not required for V1.
                 </Typography>
               </Stack>
             </CardContent>
