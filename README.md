@@ -1,52 +1,80 @@
 # Roventics Monitor
 
-A non-invasive camera reader for existing prepaid electricity meters.
-Capture the display, extract its balance with OCR, and show readings/history
-in an application. Start with **one real meter**, not universal support.
+A free, software-only electricity planning application for prepaid households.
+Users manually record meter balances and top-ups in kWh; Monitor uses simple,
+transparent mathematics to estimate how much electricity to add and when.
 
 ## V1 scope
 
-Prove reliable readings on our own accessible meter, then a small end-to-end
-PoC: camera -> OCR -> HTTP/REST API -> PostgreSQL -> web application.
-Develop recognition using saved photos on PC first; decide where OCR runs
-after measuring accuracy and device memory requirements.
+Deliver a mobile-friendly web application that works without extra hardware,
+meter integration or payment-provider access. A user signs in by email, creates
+one or more meter/property profiles using simple nicknames such as Home or Shop,
+and performs two primary actions:
 
-Never open, electrically modify, bypass or interfere with the installed meter.
-Use a removable external camera mount where safe and permitted. Monitor does
-not actuate household loads; that belongs to [Switch](https://github.com/sanelehlabisa/switch).
-No MQTT, top-ups, production deployment or anomaly ML in the initial PoC.
+- **Record balance:** remaining kWh and the observation date/time, defaulting to now.
+- **Record top-up:** added kWh and the purchase date/time, defaulting to now.
 
-## Product context
+The municipal meter number is not required. A top-up record documents energy
+already purchased; Monitor does not sell electricity or execute payments.
+Tariffs, Rand amounts and cost forecasts are outside V1.
 
-This plan continues the former Switch `meter.README.md`, now maintained here
-as the main README rather than a duplicate document. A municipal councillor
-discussion highlighted meter shortages, installation delays, failures, cost
-and suspected tampering. First prove useful readings for a household; later
-evaluate needs of municipalities, utilities and property managers.
+## User value
 
-Anomaly flags are investigation signals, **not proof of theft or tampering**.
-Reading/image storage needs consent, minimal retention and access controls.
-Future prepaid/postpaid payment facilitation needs authorised providers,
-auditability and explicit failure handling; it is not a V1 feature.
+The dashboard should clearly distinguish actual entries from estimates and show:
 
-## Planned tech stack
+- latest actual balance and its observation time;
+- estimated current balance and daily use in kWh;
+- estimated remaining days and likely run-out/next-top-up date;
+- recommended top-up energy for the next 30 days; and
+- simple balance and top-up history.
 
-- Device: ESP32-class camera hardware and C/C++; final board not selected.
-- OCR: Python; simple display-specific recognition first, PyTorch if needed.
+Until enough valid history exists, the application must show **Not enough data**
+instead of manufacturing a forecast. Manual entry must take only a few seconds;
+whether users return often enough is the main V1 product risk.
+
+## Forecasting boundary
+
+Between two actual balance readings:
+
+```text
+consumption_kwh = previous_balance_kwh
+                  + top_ups_kwh_during_period
+                  - current_balance_kwh
+
+daily_usage_kwh = consumption_kwh / elapsed_days
+```
+
+Forecast work must account for top-ups between readings, preserve the difference
+between actual and estimated balances, and reject zero/negative time intervals,
+negative consumption and inconsistent chronology. At least two valid actual
+balance readings are required before deriving a consumption rate.
+
+V1 uses deterministic calculations, not machine learning. Formula selection,
+averaging windows, a conservative buffer and correction behavior belong in the
+approved forecasting ticket and must be covered by examples and tests.
+
+## Technology
+
 - API/data: FastAPI, PostgreSQL and explicit SQL through Psycopg; no ORM.
-- Identity: passwordless email OTP with secure cookie sessions; device UUIDs and
-  scoped credentials remain separate from human login.
-- Web: React with Material UI; minimal current balance, history and device-status screens.
+- Identity: passwordless email OTP with secure HTTP-only cookie sessions.
+- Web: React, Vite and Material UI with a mobile-first layout.
 - Development: Docker Compose under `software/dev.docker-compose.yaml`.
+- Reminders: email only after the core ledger and forecasts work.
 
-Long inference time is acceptable for the initial reading experiment, but
-memory fit and accuracy still need measurement. Monthly reporting does not
-mean monthly-only capture; low-balance alerts and consumption estimates need
-a separately chosen reading frequency.
+The active data path is manual entry -> REST API -> PostgreSQL -> calculation ->
+dashboard. No new service or AI dependency is needed.
 
-Near-term build priority is one real-device capture, backend-hosted OCR, secure
-device upload, raw-SQL storage, passwordless email access, then the dashboard.
-This ordering keeps the PoC focused on proving the meter-reading path.
+## Deferred automation and integrations
+
+Hardware, camera capture, OCR, device ingestion, MQTT and ML remain preserved as
+future research. They should return only if real V1 usage shows that manual entry
+is too inconvenient. Automated top-up/payment integrations, tariffs, Rand
+forecasts, SMS, push notifications, municipal dashboards and postpaid billing are
+also deferred.
+
+Any future meter work must remain non-invasive: never open, electrically modify,
+bypass or interfere with an installed meter. Anomaly output, if ever revisited,
+is an investigation signal and never proof of theft or tampering.
 
 ## Repository structure
 
@@ -55,120 +83,80 @@ monitor/
 |-- AGENTS.md
 |-- agents/             # rules, context, template and numbered work
 |-- .github/            # PR template
-|-- hardware/
-|   |-- firmware/
-|   |-- camera/
-|   |-- mechanical/
-|   `-- experiments/
+|-- hardware/           # deferred camera/device research
 `-- software/
-    |-- backend/
-    |-- frontend/
-    |-- database/
-    `-- ocr/
+    |-- backend/        # FastAPI and domain services
+    |-- frontend/       # React and Material UI
+    |-- database/       # PostgreSQL and raw SQL migrations
+    `-- ocr/            # deferred OCR research
 ```
 
-Documentation stays in these READMEs; no `docs/` directory. Development
-Compose, Docker build files and `.env.example` live under `software/`; real
-`.env` files are ignored.
+Documentation stays in these READMEs; no `docs/` directory. Development Compose,
+Docker build files and `.env.example` live under `software/`; real `.env` files
+are ignored.
 
-## Implementation progress
+## Roadmap
 
-Ticket numbers start at 1 for Monitor and remain stable. Root summaries stay
-short; implementation detail belongs in the relevant component README.
-Work records use `agents/work/NNN-short-title/` and may reference roadmap tickets.
+Ticket IDs remain stable. The order below is the current execution order, so
+retained authentication IDs appear before newer product tickets.
 
-### Phase 1: Repository & development foundation
+### Completed foundation and pivots
 
 - [x] Ticket 1: Repository Bootstrap — structure, workflow and roadmap (Task 001).
-- [x] Ticket 2: Development Docker Stack — originally four services; now three after the approved authentication pivot.
-- [x] Ticket 3: Backend Baseline — FastAPI configuration, health endpoint and tests (Task 003).
+- [x] Ticket 2: Development Docker Stack — PostgreSQL, backend and frontend.
+- [x] Ticket 3: Backend Baseline — FastAPI settings, health endpoint and tests (Task 003).
 - [x] Ticket 4: Database Baseline — raw SQL connectivity and migrations (Task 004).
-- [x] Ticket 5: Authentication Baseline — historical Keycloak baseline, superseded by Ticket 42 (Task 005).
-- [x] Ticket 6: Frontend Baseline — historical Keycloak-connected shell, superseded by Ticket 42 (Task 006).
+- [x] Ticket 5: Authentication Baseline — historical Keycloak work, superseded by Ticket 42 (Task 005).
+- [x] Ticket 6: Frontend Baseline — historical Keycloak shell, superseded by Ticket 42 (Task 006).
+- [x] Ticket 42: Remove Keycloak — clean email-OTP foundation (Task 007).
+- [x] Ticket 47: Software-Only Product Refocus — manual kWh V1 context and modular roadmap (Task 008).
 
-### V1 authentication and access pivot
+### Active V1 delivery
 
-Human and device authentication are intentionally separate. Human users will
-receive short-lived, one-use email codes and use secure HTTP-only cookie
-sessions. Devices will use a UUID and independently revocable credential.
+- [ ] Ticket 48: Active V1 Cleanup — remove remaining runtime/domain assumptions about devices, OCR and automated readings (after 47).
+- [ ] Ticket 43: OTP Storage & Policy — hashed codes, expiry, one-use enforcement, attempts and rate limiting (after 48).
+- [ ] Ticket 44: Email Delivery — SMTP abstraction, development capture and enumeration-safe responses (after 43).
+- [ ] Ticket 45: Cookie Sessions & Human Auth API — request/verify/logout/me with secure cookies (after 44).
+- [ ] Ticket 46: Email Login UI — email and OTP flow in Material UI (after 45).
+- [ ] Ticket 49: User & Meter Profiles — user-owned nickname-only meter/property profiles through raw SQL (after 45).
+- [ ] Ticket 50: Balance Entries — record, validate, correct and list actual kWh balances with occurrence times (after 49).
+- [ ] Ticket 51: Top-Up Entries — record, validate, correct and list manually purchased kWh with occurrence times (after 49).
+- [ ] Ticket 52: Forecasting Domain — tested consumption, daily-use, balance, run-out and 30-day recommendation calculations (after 50, 51).
+- [ ] Ticket 53: Dashboard & History API — authorised summaries, estimates and chronological ledger responses (after 52).
+- [ ] Ticket 54: Manual Entry & Dashboard UI — mobile-first Material UI forms, history and honest estimate states (after 46, 53).
+- [ ] Ticket 55: Email Reminders — monthly and optional predicted low-balance reminders (after 44, 52, 54).
+- [ ] Ticket 56: End-to-End V1 Validation — multi-user isolation, corrections, edge cases and household usability (after 55).
+- [ ] Ticket 57: Deployment Preparation — production configuration, backups, operations and release checklist (after 56).
 
-- [x] Ticket 42: Remove Keycloak — return the active stack and documentation to a clean email-OTP foundation (Task 007).
-- [ ] Ticket 43: OTP Storage & Policy — hashed six-digit codes, expiry, one-use enforcement, attempts and rate limiting (after 7, 42).
-- [ ] Ticket 44: Email Delivery — SMTP abstraction, development capture/console mode and enumeration-safe responses (after 43).
-- [ ] Ticket 45: Cookie Sessions & Human Auth API — request/verify/logout/me with secure HTTP-only cookies (after 44).
-- [ ] Ticket 46: Email Login UI — email, OTP verification and authenticated dashboard transition in Material UI (after 45).
+### Superseded or deferred ticket history
 
-### Phase 2: Meter reading data model
+- Ticket 7: device ownership model — superseded by user-owned meter profiles in Ticket 49.
+- Ticket 8: camera-oriented reading model — superseded by balance and top-up entries in Tickets 50-51.
+- Ticket 9: earlier reading API — superseded by Ticket 53.
+- Ticket 10: device authentication — deferred with automated meter ingestion.
+- Tickets 11-16: camera, capture, OCR, parsing and device upload — deferred automation research.
+- Tickets 17-20: earlier balance/history/trend/warning UI — superseded by Tickets 52-55.
+- Ticket 21: device status — deferred with hardware.
+- Tickets 22-27: placement, mount, lighting, enclosure and hardware validation — deferred.
+- Ticket 28: earlier consumption estimate — superseded by Ticket 52.
+- Tickets 29-32: usage-baseline, anomaly and ML research — deferred until justified by real data.
+- Tickets 33-36: hardware-led self-use and beta validation — deferred; software V1 validation is Ticket 56.
+- Tickets 37-39: MQTT and supported meter-interface research — deferred.
+- Tickets 40-41: automated top-up research/prototype — deferred pending authorised providers and proven demand.
 
-- [ ] Ticket 7: User & Device Access Model — users, devices and many-to-many ownership/access through raw SQL (after 4, 42).
-- [ ] Ticket 8: Reading Model — timestamp, value/unit, confidence and optional image metadata (after 7).
-- [ ] Ticket 9: Human Reading API — protected latest/history access for authorised device users (after 8, 45).
-- [ ] Ticket 10: Device Authentication — UUID, scoped credential and ownership checks before real uploads (after 7).
+## Design references
 
-### Phase 3: Camera & OCR PoC
-
-Saved-photo recognition can proceed alongside the software foundation.
-
-- [ ] Ticket 11: Camera Hardware Experiment — readable image of one real meter.
-- [ ] Ticket 12: Capture Pipeline — reproducible crop/resolution and labelled PC photo fixtures (after 11).
-- [ ] Ticket 13: OCR Baseline — simple digits first; compare PyTorch only if needed, assess device fit (after 12).
-- [ ] Ticket 14: Balance Parser — extract a structured value with correct units/decimal point (after 13).
-- [ ] Ticket 15: Confidence & Failure Handling — reject unclear readings and allow review/retry (after 14).
-- [ ] Ticket 16: Device Upload — send a verified reading or approved image payload via REST (after 10, 15).
-
-### Phase 4: User visibility
-
-- [ ] Ticket 17: Current Balance — latest valid value, unit and timestamp (after 9, 46).
-- [ ] Ticket 18: Reading History — history API and table (after 17).
-- [ ] Ticket 19: Balance Trend — simple graph with gaps/invalid samples made clear (after 18).
-- [ ] Ticket 20: Low-Balance Warning — threshold and capture-frequency requirements (after 17).
-- [ ] Ticket 21: Device Status — last contact, stale readings and capture failures (after 16, 17).
-
-### Phase 5: Hardware PoC
-
-Placement and lighting experiments may run alongside Phase 3.
-
-- [ ] Ticket 22: Camera Placement — test repeatable distance and angle (after 11).
-- [ ] Ticket 23: Removable Mount — safe external attachment without meter modification (after 22).
-- [ ] Ticket 24: Lighting Experiment — assess glare and controlled illumination (after 22).
-- [ ] Ticket 25: Enclosure/CAD — simple mount/enclosure based on measured hardware (after 23, 24).
-- [ ] Ticket 26: End-to-End Self-Test — camera through dashboard with failure cases (after 16, 21, 25).
-- [ ] Ticket 27: Multi-Day Readings — record reliability on the real installation (after 26).
-
-### Phase 6: Analytics / anomaly research
-
-Only after enough real reading history exists; never an accusation of theft.
-
-- [ ] Ticket 28: Consumption Estimate — handle units, top-ups, tariffs and missing readings (after 27).
-- [ ] Ticket 29: Usage Baseline — learn normal patterns from consented history (after 28).
-- [ ] Ticket 30: Rule-Based Signals — flag unusual changes with uncertainty (after 29).
-- [ ] Ticket 31: ML Experiment — only if data and rule-based results justify it (after 30).
-- [ ] Ticket 32: Anomaly View — explain investigation flags, not verdicts (after 30).
-
-### Phase 7: Beta validation
-
-Basic reading beta need not wait for optional analytics research.
-
-- [ ] Ticket 33: Self-Use Review — accuracy, usefulness and go/no-go from real readings (after 27).
-- [ ] Ticket 34: Second Meter — explicitly test compatibility beyond the first display (after 33).
-- [ ] Ticket 35: Controlled Beta — consent, secure access, installation limits and tester group (after 34).
-- [ ] Ticket 36: Reliability Review — collect feedback before expanding scope (after 35).
-
-### Phase 8: Future meter integration
-
-Beyond the initial PoC; no implementation now.
-
-- [ ] Ticket 37: MQTT Evaluation — only if measured use reveals a REST limitation.
-- [ ] Ticket 38: Interface Survey — document supported interfaces and relevant meter models.
-- [ ] Ticket 39: Optical/IR Research — supported interfaces only, without meter interference (after 38).
-- [ ] Ticket 40: Top-Up Research — validate user need and authorised payment/vending options.
-- [ ] Ticket 41: Supported Top-Up Prototype — only with documented integration, consent and failure handling (after 39, 40).
+Future frontend work may use `../switch/hardware/web/` as read-only inspiration
+for compact mobile interactions. Company artwork may be selected from
+`../roventics/frontend/images/` or `../switch/assets/branding/roventics/` in an
+approved UI ticket. Monitor must implement its UI natively in React/Material UI
+and must never modify either sibling repository.
 
 ## Documentation
 
 - [Agent workflow](AGENTS.md), [context](agents/context.md), [engineering rules](agents/rules.md).
 - [Hardware](hardware/README.md), [software](software/README.md), [OCR](software/ocr/README.md).
-- [Task 001](agents/work/001-repository-bootstrap/changes.md), [Task 007](agents/work/007-authentication-architecture-pivot/changes.md), [PR template](.github/pull_request_template.md).
+- [Task 007](agents/work/007-authentication-architecture-pivot/changes.md), [Task 008](agents/work/008-software-only-product-refocus/changes.md), [PR template](.github/pull_request_template.md).
 
 ## License
 

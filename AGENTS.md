@@ -16,17 +16,26 @@ For every new task:
 6. Record results, reuse and checks in `changes.md`.
 
 Use the next three-digit work number. Keep roadmap ticket IDs stable and each
-task/PR small enough to review. Never modify the sibling Switch repository
-without explicit authorisation.
+task/PR small enough to review. Read-only Switch UI and Roventics brand reference
+inspection is approved; never modify either sibling repository without explicit
+authorisation.
 
 ## Product boundary
 
-Monitor reads existing meter displays without opening, electrically modifying,
-bypassing or interfering with the meter. Build for one real meter first.
-No MQTT in V1, no anomaly ML before real data, and no unsupported top-up work.
-Anomaly output is an investigation signal, never proof of theft.
+Monitor V1 is a software-only prepaid-electricity planning application. Users
+manually record remaining balance and purchased top-up energy in kWh at selected
+times. Use simple, tested calculations and show "Not enough data" instead of
+inventing forecasts. V1 has no tariffs, Rand forecasts, payment execution,
+hardware, OCR, MQTT or ML.
 
-## Generated design outputs
+Preserve hardware/OCR research for later evidence-driven reconsideration. Any
+future physical integration must not open, electrically modify, bypass or
+interfere with a meter. Anomaly output is never proof of theft.
+
+## Future generated design outputs
+
+These rules apply only when a later approved hardware/design ticket resumes the
+deferred work.
 
 - CAD: `hardware/mechanical/out/<part>/`; references: `out/references/<model>/`.
 - Future PCBs: `hardware/pcb/out/<board>/`; create only when a ticket needs them.

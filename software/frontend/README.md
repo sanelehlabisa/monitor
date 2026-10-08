@@ -1,9 +1,8 @@
 # Frontend
 
-React and Material UI application shell. The former Keycloak integration has
-been removed. The current screen states that authentication is inactive and
-shows a disabled email-code form so development does not imply a working or
-secure login before the backend contract exists.
+React, Vite and Material UI application shell. The current screen honestly states
+that authentication is inactive; product screens arrive through the active V1
+tickets.
 
 Run checks from this directory with:
 
@@ -12,10 +11,24 @@ npm test
 npm run build
 ```
 
-Tickets 45-46 add secure cookie sessions and the real email-to-OTP UI flow.
-Tickets 17-21 then add current balance, timestamp, history, graph, warning
-threshold and device/reading freshness.
+## Planned mobile flow
 
-Distinguish stale or uncertain readings from a current balance. Do not display
-anomaly flags as proof of theft. The current shell proves only that the Material
-UI foundation builds; it does not imply that authentication or meter data exists.
+1. Enter email and verify the one-time code.
+2. Create or select a meter/property by nickname.
+3. Record a remaining balance in kWh or a top-up in kWh; date/time defaults to now.
+4. Review actual history and clearly labeled estimates.
+5. Configure monthly and optional predicted low-balance email reminders.
+
+The primary entry actions must take only a few seconds on a phone. Do not require
+a municipal meter number, tariff, Rand amount, image or device setup. Show the
+last actual reading time beside estimated balance, daily usage, remaining days,
+likely next-top-up date and 30-day recommended kWh.
+
+Use "Not enough data" when the backend cannot support a forecast. Make correction
+and deletion behavior explicit; never hide inconsistent history behind a smooth
+chart.
+
+Future UI may take inspiration from the sibling Switch dashboard's compact cards,
+clear primary actions and mobile sizing, but Monitor stays a native React/Material
+UI implementation. Roventics artwork can be selected only in an approved UI
+ticket. Hardware status, OCR, anomaly, tariff and payment screens are not V1.

@@ -1,69 +1,110 @@
 # Repository Context
 
-Roventics Monitor is a separate, non-invasive meter-reading product, not a
-Switch firmware extension. Its starting research was moved from Switch's
-`meter.README.md` into this repository's main `README.md`.
+Roventics Monitor is a free, software-only electricity planning application for
+prepaid households. It helps users understand how much electricity to add and
+when through manual kWh records and simple, transparent forecasts.
 
-## Scope
+## Active V1
 
-Read one accessible prepaid meter display with an external camera. Extract
-balance/value and synchronise it to a web application over HTTP/REST.
-Prove useful readings before generalising. Never open, modify electrically,
-bypass or interfere with the meter. Safe removable installation is a goal,
-not an assurance that every installation is suitable for an untrained user.
+A user authenticates by email OTP, creates one or more named meter/property
+profiles, and records two kinds of events:
 
-## Planned areas
+- actual remaining balance in kWh at an observed date/time; and
+- manually purchased top-up energy in kWh at a purchase date/time.
 
-- `hardware/firmware/`: ESP32-class C/C++ camera firmware; board selection pending.
-- `hardware/camera/`: image capture, positioning and lighting.
-- `hardware/mechanical/`: external mounts/enclosures and grouped print outputs.
-- `hardware/experiments/`: measured hardware feasibility and test notes.
-- `software/ocr/`: PC photo tests and simple Python recognition; PyTorch if needed.
-- `software/backend/`: FastAPI REST service and the preferred initial OCR runtime; no MQTT for V1.
-- `software/database/`: PostgreSQL with explicit, versioned SQL migrations through Psycopg.
-- `software/frontend/`: React and Material UI application.
+Dates default to now but remain editable. A municipal meter identifier is not
+required. Each meter belongs to its user in V1, and every API/query must enforce
+that ownership. Sharing and multi-user meter access require later evidence.
 
-Task 002 originally added a four-service development stack. After the Task 007
-authentication pivot, only PostgreSQL, backend and frontend remain under
-`software/` in `dev.docker-compose.yaml`. Real environment files/secrets must
-not be committed.
-Task 003 adds the FastAPI application factory, `MONITOR_` settings and a
-process-only health contract; database and authentication checks remain later work.
-Task 004 uses direct Psycopg connections and versioned SQL without an ORM. For
-fast initial iteration, OCR may run in the backend before device fit is evaluated.
-Tasks 005-006 are retained as historical records of the superseded Keycloak
-baseline. Task 007 removes that active integration and keeps the Material UI
-shell as an honest placeholder. Planned human authentication uses authorised
+V1 does not accept Rand amounts, use tariffs or execute purchases. "Top-up"
+means recording electricity already bought. Email reminders may later prompt a
+monthly purchase or warn about a predicted low balance.
+
+## Forecast contract
+
+Between two valid actual balance readings:
+
+```text
+consumption_kwh = previous_balance_kwh
+                  + top_ups_kwh_during_period
+                  - current_balance_kwh
+
+daily_usage_kwh = consumption_kwh / elapsed_days
+```
+
+Use deterministic calculations and show their assumptions. At least two actual
+balance readings with positive elapsed time are required before calculating a
+usage rate. Account for top-ups inside the interval. Reject or clearly surface
+impossible negative consumption, duplicate/reordered times and inconsistent
+entries. Never turn insufficient data into a confident prediction.
+
+Estimated current balance, remaining days, likely run-out/next-top-up date and
+a 30-day kWh recommendation must be labeled as estimates. Always show the latest
+actual reading and its observation time beside forecast output.
+
+## Active technology
+
+- `software/backend/`: FastAPI REST service and pure forecasting/domain logic.
+- `software/database/`: PostgreSQL with explicit versioned SQL through Psycopg;
+  no ORM.
+- `software/frontend/`: React, Vite and Material UI, designed mobile-first.
+- `software/ocr/`: deferred research only, not an active dependency.
+- `hardware/`: deferred research only, not an active V1 dependency.
+
+Development runs PostgreSQL, backend and frontend through
+`software/dev.docker-compose.yaml`. No production/cloud infrastructure should be
+added without an approved ticket.
+
+## Authentication
+
+Tasks 005-006 are historical records of the superseded Keycloak baseline. Task
+007 removed that integration. Planned human authentication uses authorised
 email addresses, short-lived hashed one-time codes and secure HTTP-only cookie
-sessions. Device authentication stays separate: each device has a UUID and
-revocable credential, with many-to-many user/device access. Development CORS
-permits only the configured UI origin.
-First-time device setup is planned through a temporary local access point using
-an owner email, but firmware and provisioning security are not implemented yet.
-No `docs/` directory: use the nearest README. No production/cloud deployment
-or infrastructure without an approved ticket.
+sessions. Generic request responses must avoid email enumeration.
 
-## OCR and evidence
+Device UUIDs, device credentials and provisioning are not V1 requirements.
+They remain future research if automated meter capture is later justified.
 
-Start from saved real-meter photos, with reproducible crops and labelled
-expected values. PC tests are not ESP32 hardware emulation or proof of RAM,
-camera behaviour, timing or deployment compatibility. Long inference is
-acceptable experimentally, but model fit and accuracy still need measurement.
-Prefer simple digit recognition before training a model. Keep on-device and
-server OCR as evaluated choices, not claims of completed support.
+## Work history and current direction
 
-Choose capture frequency separately from monthly reporting; alerts and
-consumption estimates need sufficient samples. Never silently accept uncertain
-OCR as a real reading. Retain only consented data with explicit access and
-retention rules; no private bills, account numbers or images in Git.
+- Tasks 001-004 created the repository, three-service Docker stack, FastAPI
+  baseline and direct-Psycopg migration system.
+- Tasks 005-006 implemented the now-superseded Keycloak path.
+- Task 007 removed Keycloak and retained the Material UI foundation.
+- Task 008 changes active planning from camera/OCR collection to manual kWh
+  entries, forecasts and reminders. It does not implement those features.
 
-## Later work
+The root README owns stable ticket IDs and the current execution order. Ticket
+48 performs an explicit active-code/domain cleanup before authentication and
+feature tickets proceed.
 
-No anomaly ML until real history exists and simpler rules justify it.
-Anomalies are investigation signals, not proof of theft. Top-ups, prepaid or
-postpaid payment facilitation and municipal analytics remain future research;
-use authorised documented interfaces only. No electrical meter interference.
+## Deferred research
 
-Root README holds short phased tickets. Detailed READMEs hold implementation
-context. Agent work records use sequential three-digit directories. Reuse the
-Switch workflow, not its application code or obsolete cloud architecture.
+Hardware, firmware, camera capture, OCR, device upload, MQTT, anomaly ML and
+meter interfaces are preserved but deferred. Revisit automation only if real
+users find manual entry too inconvenient. Desktop OCR tests are never hardware
+validation, and uncertain OCR must never become a trusted balance silently.
+
+Automated top-ups, payment integration, tariffs, Rand forecasts, SMS, push
+notifications, municipal dashboards and postpaid billing are also deferred.
+Any future payment path requires authorised providers, consent, auditability and
+explicit failure handling.
+
+Any future physical meter work must remain external and non-invasive. Never
+open, electrically modify, bypass or interfere with an installed meter.
+Anomalies are investigation signals, not proof of theft or tampering.
+
+## UI and brand references
+
+The user has authorised read-only inspection of `../switch/hardware/web/` for
+mobile interaction inspiration and `../roventics/frontend/images/` or
+`../switch/assets/branding/roventics/` for future company artwork. Monitor UI
+must remain a native React/Material UI implementation. Never modify sibling
+repositories without a separate explicit request.
+
+## Documentation rules
+
+Use the nearest README; do not create a `docs/` directory. Keep root roadmap
+summaries short and detailed requirements in component READMEs. Work records use
+sequential three-digit directories. Do not commit secrets, private bills,
+customer data, meter photographs or local database contents.

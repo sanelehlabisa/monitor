@@ -1,6 +1,7 @@
-# External mounts and enclosure
+# External mounts and enclosure (deferred)
 
-Tickets 23 and 25: design a removable camera mount/enclosure after camera,
+Mechanical work is not part of active V1. Historical Tickets 23 and 25 proposed
+a removable camera mount/enclosure after camera,
 lighting and target-meter measurements are known. Do not obstruct authorised
 meter access or require opening/modifying the installed meter.
 
