@@ -24,11 +24,16 @@ attempt counts. The email/creation index supports cooldown and hourly limits.
 Plaintext OTPs are never persisted. Forecasts and sessions are not stored by this
 migration.
 
+Migration `003_user_sessions.sql` adds `monitor.user_sessions`. Each row belongs
+to a verified user and stores a unique SHA-256 digest, creation/expiry times and
+an optional revocation time. The plaintext 256-bit random token exists only when
+the session is created for the future cookie layer. A user may have multiple
+independent sessions, each with a fixed 30-day lifetime.
+
 ## Planned product data
 
 The modular schema tickets should introduce only the data each feature needs:
 
-- session records and ownership identifiers;
 - nickname-only `meters` or meter/property profiles owned by a user;
 - actual `balance_entries` with non-negative kWh and occurrence timestamps; and
 - `top_up_entries` with positive kWh and occurrence timestamps.

@@ -25,11 +25,16 @@ def test_migrations_are_recorded_once() -> None:
     with connect_database(settings) as connection:
         result = connection.execute(
             """SELECT version FROM schema_migrations
-               WHERE version IN (%s, %s) ORDER BY version""",
-            ("001_baseline.sql", "002_users_and_otp_challenges.sql"),
+               WHERE version IN (%s, %s, %s) ORDER BY version""",
+            (
+                "001_baseline.sql",
+                "002_users_and_otp_challenges.sql",
+                "003_user_sessions.sql",
+            ),
         ).fetchall()
 
     assert result == [
         ("001_baseline.sql",),
         ("002_users_and_otp_challenges.sql",),
+        ("003_user_sessions.sql",),
     ]

@@ -61,10 +61,10 @@ Tasks 005-006 are historical records of the superseded Keycloak baseline. Task
 007 removed that integration. Task 010 allows open email signup and implements
 normalized user/OTP storage plus HMAC-only challenge policy. Task 011 delivers
 those codes through an SMTP abstraction and isolated Mailpit development
-capture. A user is created only after successful verification. HTTP endpoints
-and secure HTTP-only cookie sessions remain later tickets. Generic request
-responses must avoid account enumeration, and neither email nor an OTP is an
-API token.
+capture. Task 012 adds digest-only, fixed 30-day session storage and policy. A
+user is created only after successful verification. HTTP endpoints and cookie
+transport remain Task 013. Generic request responses must avoid account
+enumeration, and neither email nor an OTP is an API token.
 
 Device UUIDs, device credentials and provisioning are not V1 requirements.
 They remain future research if automated meter capture is later justified.
@@ -80,6 +80,7 @@ They remain future research if automated meter capture is later justified.
 - Task 009 aligns the inactive Material UI shell with that product direction.
 - Task 010 adds open-signup user/OTP storage and policy without HTTP or delivery.
 - Task 011 adds SMTP OTP delivery and Mailpit capture without an HTTP surface.
+- Task 012 adds opaque multi-device session storage and policy without HTTP.
 
 The root README owns stable ticket IDs and the current execution order. Ticket
 48 performs an explicit active-code/domain cleanup before authentication and

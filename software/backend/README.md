@@ -50,6 +50,13 @@ appropriate SameSite policy and the Secure flag outside local HTTP development.
 The browser must not store credentials or sessions in local storage. SMTP stays
 behind an abstraction with isolated development capture.
 
+Task 012 implements the persistence and domain-policy half of that session flow.
+Sessions use 32-byte URL-safe random tokens, store only SHA-256 digests, expire
+after a fixed 30 days and may be revoked independently. Multiple browsers or
+devices may remain signed in. Invalid, expired, revoked and unknown tokens share
+one domain error. Task 013 will connect this boundary to HTTP-only cookies and
+the four authentication routes.
+
 ## Planned product boundary
 
 Authenticated users will create and select their own nickname-only meter

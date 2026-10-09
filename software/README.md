@@ -49,9 +49,10 @@ defaults are development-only and must not be exposed.
 
 The API health baseline, raw SQL migrations and Material UI shell exist. Tickets
 43-44 implement user/OTP storage, policy and SMTP delivery without an HTTP
-surface. Human login remains inactive until Tickets 45-46 add auth endpoints,
-secure cookie sessions and the browser flow. Ticket 48 confirmed active runtime
-code has no obsolete device/OCR integration.
+surface. Task 012 adds digest-only session storage; human login remains inactive
+until Task 013 and Ticket 46 add auth endpoints, secure cookie transport and the
+browser flow. Ticket 48 confirmed active runtime code has no obsolete device/OCR
+integration.
 
 After changing frontend dependencies, refresh an existing named volume:
 

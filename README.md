@@ -116,7 +116,8 @@ retained authentication IDs appear before newer product tickets.
 - [x] Ticket 48: Active V1 Cleanup — aligned the runtime shell and confirmed obsolete automation assumptions are absent (Task 009).
 - [x] Ticket 43: OTP Storage & Policy — open signup, HMAC-only challenges and enforced limits (Task 010).
 - [x] Ticket 44: Email Delivery — SMTP abstraction and isolated Mailpit development capture (Task 011).
-- [ ] Ticket 45: Cookie Sessions & Human Auth API — request/verify/logout/me with secure cookies (after 44).
+- [ ] Ticket 45: Cookie Sessions & Human Auth API — session storage is complete
+  (Task 012); request/verify/logout/me with secure cookies follows in Task 013.
 - [ ] Ticket 46: Email Login UI — email and OTP flow in Material UI (after 45).
 - [ ] Ticket 49: User & Meter Profiles — user-owned nickname-only meter/property profiles through raw SQL (after 45).
 - [ ] Ticket 50: Balance Entries — record, validate, correct and list actual kWh balances with occurrence times (after 49).
