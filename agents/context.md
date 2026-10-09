@@ -83,6 +83,20 @@ They remain future research if automated meter capture is later justified.
 - Task 011 adds SMTP OTP delivery and Mailpit capture without an HTTP surface.
 - Task 012 adds opaque multi-device session storage and policy without HTTP.
 - Task 013 completes the human auth API and HTTP-only cookie transport.
+- Task 014 adds the session-aware Material UI login flow and branded meter-list
+  empty state.
+
+After login, the active product flow is a list of the user's nickname-only
+software meter profiles. Selecting one meter will lead to its balance and
+purchased-kWh entry actions, history, estimated remaining balance/days and
+30-day purchase recommendation. These capabilities arrive through Tickets
+49-54; the login UI must not fabricate them early.
+
+Forecasting uses one reviewed deterministic method for every meter and
+recalculates from that meter's history whenever a new point is added. History
+therefore improves the estimate incrementally, but this is not reinforcement
+learning or ML. A new meter has no guessed usage baseline and must show `Not
+enough data` until real readings support the calculation.
 
 The root README owns stable ticket IDs and the current execution order. Ticket
 48 performs an explicit active-code/domain cleanup before authentication and

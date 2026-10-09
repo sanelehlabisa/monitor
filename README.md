@@ -118,7 +118,8 @@ retained authentication IDs appear before newer product tickets.
 - [x] Ticket 44: Email Delivery — SMTP abstraction and isolated Mailpit development capture (Task 011).
 - [x] Ticket 45: Cookie Sessions & Human Auth API — digest-only sessions and the
   request/verify/logout/me cookie API (Tasks 012-013).
-- [ ] Ticket 46: Email Login UI — email and OTP flow in Material UI (after 45).
+- [x] Ticket 46: Email Login UI — session-aware Material UI email/OTP flow
+  with Roventics branding (Task 014).
 - [ ] Ticket 49: User & Meter Profiles — user-owned nickname-only meter/property profiles through raw SQL (after 45).
 - [ ] Ticket 50: Balance Entries — record, validate, correct and list actual kWh balances with occurrence times (after 49).
 - [ ] Ticket 51: Top-Up Entries — record, validate, correct and list manually purchased kWh with occurrence times (after 49).
