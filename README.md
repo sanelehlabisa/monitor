@@ -124,7 +124,7 @@ retained authentication IDs appear before newer product tickets.
   authorised CRUD and Material UI management (Tasks 015-018).
 - [x] Ticket 50: Balance Entries — raw-SQL storage, authorised API and Material UI entry/history management (Tasks 019, 021-022).
 - [x] Ticket 51: Top-Up Entries — raw-SQL storage, authorised API and Material UI entry/history management (Tasks 020-022).
-- [ ] Ticket 52: Forecasting Domain — tested consumption, daily-use, balance, run-out and 30-day recommendation calculations (after 50, 51).
+- [x] Ticket 52: Forecasting Domain — one replaceable deterministic model boundary for tested usage and planning estimates (Tasks 023-024).
 - [ ] Ticket 53: Dashboard & History API — authorised summaries, estimates and chronological ledger responses (after 52).
 - [ ] Ticket 54: Forecast Dashboard UI — mobile-first estimate cards and honest insufficient-data states; manual entry/history shipped in Task 022 (after 53).
 - [ ] Ticket 55: Email Reminders — monthly and optional predicted low-balance reminders (after 44, 52, 54).

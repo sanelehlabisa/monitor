@@ -87,6 +87,15 @@ non-future occurrence times and the reviewed Decimal constraints. Regular users
 remain owner-scoped; configured admins may manage every meter. Foreign, missing
 and meter-mismatched resources share a generic 404.
 
+Tasks 023-024 complete the pure forecasting domain behind one public
+`run_forecast_model` boundary. The initial implementation validates every
+adjacent actual-balance interval, accounts for top-ups, and calculates one
+time-weighted daily-use rate. It then estimates current balance, remaining days,
+run-out time and the kWh needed to cover 30 days with no hidden buffer. Fewer
+than two readings return `not_enough_data`; impossible history returns
+`inconsistent_history`. Zero observed use remains a valid zero-rate result with
+no finite run-out date. Forecast output is derived and is not stored.
+
 Authenticated users will create and select their own nickname-only meter
 profiles, then record:
 
@@ -96,11 +105,9 @@ profiles, then record:
 API and repository queries must enforce meter ownership. V1 does not accept
 device uploads, images, municipal identifiers, Rand amounts or tariffs.
 
-Forecasting should be implemented as small pure functions or a focused domain
-module independent of HTTP and persistence. It must account for top-ups between
-two actual readings, validate chronology, reject impossible consumption and
-return an explicit insufficient-data state. Estimates must include their basis
-and never be presented as actual readings.
+HTTP consumers must call the single forecast-model boundary rather than copy its
+mathematics. Estimates must include their factual basis and never be presented
+as actual readings.
 
 Use typed Python, concise public docstrings and reusable raw-SQL repository
 functions. Production deployment settings are not defined yet.

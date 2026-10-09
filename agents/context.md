@@ -101,6 +101,9 @@ They remain future research if automated meter capture is later justified.
   timezone-naive events and applies the established user/admin meter scope.
 - Task 022 completes the balance/top-up delivery with mobile-first Material UI
   entry, correction, deletion, latest-actual and combined-history states.
+- Tasks 023-024 complete Ticket 52 behind one replaceable
+  `run_forecast_model` function. Its first implementation is deterministic,
+  time-weighted math with explicit unavailable states and no hidden buffer.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter now provides balance and
@@ -109,10 +112,12 @@ days, run-out date and the 30-day purchase recommendation remain Tickets 52-54;
 the UI continues to show `Not enough data` rather than fabricating them.
 
 Forecasting uses one reviewed deterministic method for every meter and
-recalculates from that meter's history whenever a new point is added. History
-therefore improves the estimate incrementally, but this is not reinforcement
-learning or ML. A new meter has no guessed usage baseline and must show `Not
-enough data` until real readings support the calculation.
+recalculates from that meter's history whenever a new point is added. All callers
+use the single replaceable model function so a later evidence-backed method does
+not require API/UI rewrites. History improves the estimate incrementally, but
+this is not reinforcement learning or ML. A new meter has no guessed usage
+baseline and must show `Not enough data` until real readings support the
+calculation.
 
 Development Compose reads its explicit values from the ignored `software/.env`.
 The committed `.env.example` contains only safe local examples; personal admin
