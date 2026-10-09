@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TypeVar
+from typing import Literal, TypeVar
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -21,6 +21,7 @@ from app.balance_entries import (
     update_balance_entry,
 )
 from app.database import connect_database
+from app.forecasting import ForecastResult, run_forecast_model
 from app.meter_api import meter_owner_scope
 from app.meters import MeterNotFoundError
 from app.top_up_entries import (
@@ -84,6 +85,90 @@ class TopUpEntryResponse(BaseModel):
     occurred_at: datetime
     created_at: datetime
     updated_at: datetime
+
+
+class HistoryEntryResponse(BaseModel):
+    """One clearly labelled factual event in combined ledger history."""
+
+    kind: Literal["balance", "top_up"]
+    id: UUID
+    kwh: Decimal
+    occurred_at: datetime
+
+
+class ForecastResponse(BaseModel):
+    """Derived planning output from the replaceable forecast model."""
+
+    status: Literal["available", "not_enough_data", "inconsistent_history"]
+    as_of: datetime
+    latest_actual_balance_kwh: Decimal | None
+    latest_actual_at: datetime | None
+    daily_usage_kwh: Decimal | None
+    estimated_balance_kwh: Decimal | None
+    remaining_days: Decimal | None
+    run_out_at: datetime | None
+    recommended_top_up_30_days_kwh: Decimal | None
+    intervals_used: int
+
+
+class DashboardResponse(BaseModel):
+    """Factual ledger data and derived forecast for one accessible meter."""
+
+    latest_actual_balance: BalanceEntryResponse | None
+    balances: list[BalanceEntryResponse]
+    top_ups: list[TopUpEntryResponse]
+    history: list[HistoryEntryResponse]
+    forecast: ForecastResponse
+
+
+@router.get("/dashboard", response_model=DashboardResponse)
+def dashboard_show(
+    meter_id: UUID,
+    request: Request,
+    authenticated: AuthenticatedUser = Depends(require_authenticated_user),
+) -> DashboardResponse:
+    """Return current factual history and a newly calculated forecast."""
+
+    owner_scope = meter_owner_scope(authenticated)
+    with connect_database(request.app.state.settings) as connection:
+        balances = _available(
+            lambda: list_balance_entries(connection, meter_id, owner_scope)
+        )
+        top_ups = _available(
+            lambda: list_top_up_entries(connection, meter_id, owner_scope)
+        )
+    history = sorted(
+        [
+            *(
+                HistoryEntryResponse(
+                    kind="balance",
+                    id=entry.id,
+                    kwh=entry.balance_kwh,
+                    occurred_at=entry.occurred_at,
+                )
+                for entry in balances
+            ),
+            *(
+                HistoryEntryResponse(
+                    kind="top_up",
+                    id=entry.id,
+                    kwh=entry.top_up_kwh,
+                    occurred_at=entry.occurred_at,
+                )
+                for entry in top_ups
+            ),
+        ],
+        key=lambda item: (item.occurred_at, str(item.id)),
+        reverse=True,
+    )
+    forecast = run_forecast_model(balances, top_ups, datetime.now(UTC))
+    return DashboardResponse(
+        latest_actual_balance=_balance_response(balances[0]) if balances else None,
+        balances=[_balance_response(entry) for entry in balances],
+        top_ups=[_top_up_response(entry) for entry in top_ups],
+        history=history,
+        forecast=_forecast_response(forecast),
+    )
 
 
 @router.get("/balances", response_model=list[BalanceEntryResponse])
@@ -313,3 +398,7 @@ def _balance_response(entry: BalanceEntry) -> BalanceEntryResponse:
 
 def _top_up_response(entry: TopUpEntry) -> TopUpEntryResponse:
     return TopUpEntryResponse(**entry.__dict__)
+
+
+def _forecast_response(result: ForecastResult) -> ForecastResponse:
+    return ForecastResponse(**result.__dict__)

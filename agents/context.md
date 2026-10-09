@@ -104,6 +104,8 @@ They remain future research if automated meter capture is later justified.
 - Tasks 023-024 complete Ticket 52 behind one replaceable
   `run_forecast_model` function. Its first implementation is deterministic,
   time-weighted math with explicit unavailable states and no hidden buffer.
+- Task 025 exposes a freshly calculated, authorised meter dashboard containing
+  latest actual data, separate ledgers, combined factual history and forecasts.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter now provides balance and

@@ -96,6 +96,12 @@ than two readings return `not_enough_data`; impossible history returns
 `inconsistent_history`. Zero observed use remains a valid zero-rate result with
 no finite run-out date. Forecast output is derived and is not stored.
 
+Task 025 exposes `GET /api/meters/{meter_id}/dashboard`. It returns latest
+actual data, separate balance/top-up records, a labelled combined newest-first
+history and the current forecast result. The endpoint uses established
+owner/admin scope and recalculates through `run_forecast_model` on every request;
+it does not cache or persist estimates.
+
 Authenticated users will create and select their own nickname-only meter
 profiles, then record:
 
