@@ -36,11 +36,16 @@ character name and creation/update timestamps. Names are case-insensitively
 unique per owner. The raw-SQL repository provides owner-scoped CRUD plus an
 explicit unrestricted scope for the administrator API.
 
+Migration `005_balance_entries.sql` adds factual remaining-kWh observations.
+Each UUID entry belongs to one meter, stores non-negative `NUMERIC(12,3)` kWh,
+an occurrence time and creation/update timestamps. A meter cannot have two
+actual balances at the same occurrence time. Deleting its meter cascades to its
+balance history.
+
 ## Planned product data
 
 The modular schema tickets should introduce only the data each feature needs:
 
-- actual `balance_entries` with non-negative kWh and occurrence timestamps; and
 - `top_up_entries` with positive kWh and occurrence timestamps.
 
 Names are planning guidance until their migration tickets approve exact tables,

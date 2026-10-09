@@ -69,6 +69,12 @@ Emails listed in comma-separated `MONITOR_ADMIN_EMAILS` may list and manage ever
 existing meter; new meters still belong to the user who creates them.
 Inaccessible and missing IDs share the same HTTP 404 response.
 
+Task 019 adds raw-SQL remaining-balance storage and owner-scoped repository
+CRUD. Balance kWh is non-negative with at most three decimal places. Occurrence
+times are timezone-aware and unique per meter, and corrections update both the
+value and time while preserving creation/update audit timestamps. HTTP exposure
+arrives in Task 021.
+
 Authenticated users will create and select their own nickname-only meter
 profiles, then record:
 

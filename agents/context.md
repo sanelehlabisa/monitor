@@ -93,6 +93,8 @@ They remain future research if automated meter capture is later justified.
 - Task 018 completes Ticket 49 with rename/delete controls and an administrator
   view that identifies owners and manages all meters. Regular-user isolation is
   unchanged.
+- Task 019 adds raw-SQL actual balance observations with non-negative three-
+  decimal kWh, unique per-meter occurrence times and scoped correction/deletion.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter will lead to its balance and
