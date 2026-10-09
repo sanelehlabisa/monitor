@@ -55,9 +55,10 @@ The API health baseline, raw SQL migrations and Material UI shell exist. Tickets
 the Material UI login flow with secure HTTP-only cookie transport. Tasks 015-018
 complete raw-SQL meter profiles, authorised CRUD and signed-in user/admin meter
 management. Tasks 019-022 complete raw-SQL balance/top-up persistence,
-authorised nested CRUD and the mobile manual-entry/history UI. Forecasts remain
-separate later work and stay visibly `Not enough data`. Ticket 48 confirmed
-active runtime code has no obsolete device/OCR integration.
+authorised nested CRUD and the mobile manual-entry/history UI. Tasks 023-026 add
+one replaceable deterministic forecast model, an authorised derived dashboard
+API and responsive planning estimates that retain honest unavailable states.
+Ticket 48 confirmed active runtime code has no obsolete device/OCR integration.
 
 After changing frontend dependencies, refresh an existing named volume:
 

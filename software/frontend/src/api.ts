@@ -30,6 +30,32 @@ export type TopUpEntry = {
   updated_at: string;
 };
 
+export type Forecast = {
+  status: 'available' | 'not_enough_data' | 'inconsistent_history';
+  as_of: string;
+  latest_actual_balance_kwh: string | null;
+  latest_actual_at: string | null;
+  daily_usage_kwh: string | null;
+  estimated_balance_kwh: string | null;
+  remaining_days: string | null;
+  run_out_at: string | null;
+  recommended_top_up_30_days_kwh: string | null;
+  intervals_used: number;
+};
+
+export type Dashboard = {
+  latest_actual_balance: BalanceEntry | null;
+  balances: BalanceEntry[];
+  top_ups: TopUpEntry[];
+  history: Array<{
+    kind: 'balance' | 'top_up';
+    id: string;
+    kwh: string;
+    occurred_at: string;
+  }>;
+  forecast: Forecast;
+};
+
 export class ApiError extends Error {
   constructor(public readonly status: number) {
     super(`Monitor API returned ${status}`);
@@ -104,6 +130,10 @@ export function renameMeter(id: string, name: string): Promise<Meter> {
 
 export async function deleteMeter(id: string): Promise<void> {
   await apiRequest(`/api/meters/${id}`, { method: 'DELETE' });
+}
+
+export function getDashboard(meterId: string): Promise<Dashboard> {
+  return apiRequest(`/api/meters/${meterId}/dashboard`);
 }
 
 export function listBalances(meterId: string): Promise<BalanceEntry[]> {

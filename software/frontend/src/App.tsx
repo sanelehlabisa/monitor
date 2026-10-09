@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { LoginPanel, SignedInPanel, type LoginStep } from './AuthPanels';
+import { ForecastPanel } from './ForecastPanel';
 import { LedgerPanel, type LedgerItem } from './LedgerPanel';
 import { MeterWorkspace } from './MeterWorkspace';
 import {
@@ -23,10 +24,9 @@ import {
   deleteMeter,
   deleteTopUp,
   getCurrentUser,
+  getDashboard,
   getMeter,
-  listBalances,
   listMeters,
-  listTopUps,
   logout,
   renameMeter,
   requestOtp,
@@ -34,6 +34,8 @@ import {
   updateTopUp,
   verifyOtp,
   type BalanceEntry,
+  type Dashboard,
+  type Forecast,
   type Meter,
   type TopUpEntry,
   type User,
@@ -98,6 +100,7 @@ export default function App() {
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [ledgerBusy, setLedgerBusy] = useState(false);
   const [ledgerError, setLedgerError] = useState('');
+  const [forecast, setForecast] = useState<Forecast | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -122,6 +125,7 @@ export default function App() {
       setSelectedMeter(null);
       setBalances([]);
       setTopUps([]);
+      setForecast(null);
       return;
     }
     let active = true;
@@ -232,21 +236,34 @@ export default function App() {
     setLedgerError('');
     setBalances([]);
     setTopUps([]);
+    setForecast(null);
     try {
       const selected = await getMeter(meter.id);
-      const [actualBalances, purchasedTopUps] = await Promise.all([
-        listBalances(selected.id),
-        listTopUps(selected.id),
-      ]);
+      const dashboard = await getDashboard(selected.id);
       setSelectedMeter(selected);
       setEditMeterName(selected.name);
-      setBalances(actualBalances);
-      setTopUps(purchasedTopUps);
+      applyDashboard(dashboard);
     } catch {
       setMeterError('That meter or its history could not be opened. Try again.');
     } finally {
       setMeterBusy(false);
       setLedgerLoading(false);
+    }
+  }
+
+  function applyDashboard(dashboard: Dashboard) {
+    setBalances(dashboard.balances);
+    setTopUps(dashboard.top_ups);
+    setForecast(dashboard.forecast);
+  }
+
+  async function refreshDashboardAfterMutation(meterId: string) {
+    try {
+      applyDashboard(await getDashboard(meterId));
+    } catch {
+      setLedgerError(
+        'The change was saved, but updated estimates could not be loaded. Reopen the meter.',
+      );
     }
   }
 
@@ -257,6 +274,7 @@ export default function App() {
     try {
       const entry = await createBalance(selectedMeter.id, kwh, occurredAt);
       setBalances((current) => newestFirst([...current, entry]));
+      await refreshDashboardAfterMutation(selectedMeter.id);
       return true;
     } catch (requestError) {
       setLedgerError(ledgerFailure(requestError, 'balance'));
@@ -273,6 +291,7 @@ export default function App() {
     try {
       const entry = await createTopUp(selectedMeter.id, kwh, occurredAt);
       setTopUps((current) => newestFirst([...current, entry]));
+      await refreshDashboardAfterMutation(selectedMeter.id);
       return true;
     } catch (requestError) {
       setLedgerError(ledgerFailure(requestError, 'top-up'));
@@ -320,6 +339,7 @@ export default function App() {
           ),
         );
       }
+      await refreshDashboardAfterMutation(selectedMeter.id);
       return true;
     } catch (requestError) {
       setLedgerError(ledgerFailure(requestError, 'correction'));
@@ -345,6 +365,7 @@ export default function App() {
           current.filter((entry) => entry.id !== item.entry.id),
         );
       }
+      await refreshDashboardAfterMutation(selectedMeter.id);
       return true;
     } catch (requestError) {
       setLedgerError(ledgerFailure(requestError, 'entry'));
@@ -394,6 +415,7 @@ export default function App() {
       setEditMeterName('');
       setBalances([]);
       setTopUps([]);
+      setForecast(null);
     } catch {
       setMeterError('The meter could not be deleted. Try again.');
     } finally {
@@ -443,6 +465,7 @@ export default function App() {
                     setLedgerError('');
                     setBalances([]);
                     setTopUps([]);
+                    setForecast(null);
                   }}
                   onCreate={handleCreateMeter}
                   onDelete={handleDeleteMeter}
@@ -452,18 +475,23 @@ export default function App() {
                   onSelect={handleSelectMeter}
                   selectedContent={
                     selectedMeter ? (
-                      <LedgerPanel
-                        key={selectedMeter.id}
-                        balances={balances}
-                        busy={ledgerBusy}
-                        error={ledgerError}
-                        loading={ledgerLoading}
-                        onCreateBalance={handleCreateBalance}
-                        onCreateTopUp={handleCreateTopUp}
-                        onDelete={handleDeleteEntry}
-                        onUpdate={handleUpdateEntry}
-                        topUps={topUps}
-                      />
+                      <Stack key={selectedMeter.id} spacing={2.5}>
+                        <ForecastPanel
+                          forecast={forecast}
+                          loading={ledgerLoading}
+                        />
+                        <LedgerPanel
+                          balances={balances}
+                          busy={ledgerBusy}
+                          error={ledgerError}
+                          loading={ledgerLoading}
+                          onCreateBalance={handleCreateBalance}
+                          onCreateTopUp={handleCreateTopUp}
+                          onDelete={handleDeleteEntry}
+                          onUpdate={handleUpdateEntry}
+                          topUps={topUps}
+                        />
+                      </Stack>
                     ) : undefined
                   }
                   selectedMeter={selectedMeter}

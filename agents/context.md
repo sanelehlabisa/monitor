@@ -106,12 +106,14 @@ They remain future research if automated meter capture is later justified.
   time-weighted math with explicit unavailable states and no hidden buffer.
 - Task 025 exposes a freshly calculated, authorised meter dashboard containing
   latest actual data, separate ledgers, combined factual history and forecasts.
+- Task 026 completes Ticket 54 with responsive Material UI estimate cards and
+  automatic dashboard refresh after every successful ledger change.
 
 After login, the active product flow is a list of the user's nickname-only
-software meter profiles. Selecting one meter now provides balance and
-purchased-kWh entry actions plus factual history. Estimated remaining balance,
-days, run-out date and the 30-day purchase recommendation remain Tickets 52-54;
-the UI continues to show `Not enough data` rather than fabricating them.
+software meter profiles. Selecting one meter provides balance and purchased-kWh
+entry actions, factual history, estimated current balance/days/run-out, and a
+30-day kWh purchase recommendation. The UI shows `Not enough data` or
+`Inconsistent history` rather than fabricating unavailable estimates.
 
 Forecasting uses one reviewed deterministic method for every meter and
 recalculates from that meter's history whenever a new point is added. All callers

@@ -74,10 +74,6 @@ export function LedgerPanel({
       ),
     [balances, topUps],
   );
-  const latestBalance = [...balances].sort((left, right) =>
-    right.occurred_at.localeCompare(left.occurred_at),
-  )[0];
-
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const saved =
@@ -129,26 +125,6 @@ export function LedgerPanel({
 
   return (
     <Stack spacing={2.5}>
-      {latestBalance ? (
-        <Box
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2 }}
-        >
-          <Typography color="text.secondary" variant="caption">
-            Latest actual balance
-          </Typography>
-          <Typography sx={{ fontWeight: 800 }} variant="h5">
-            {latestBalance.balance_kwh} kWh
-          </Typography>
-          <Typography color="text.secondary" variant="caption">
-            Observed {new Date(latestBalance.occurred_at).toLocaleString()}
-          </Typography>
-        </Box>
-      ) : (
-        <Typography color="text.secondary" variant="body2">
-          No actual balance recorded yet.
-        </Typography>
-      )}
-
       <Stack direction="row" spacing={1}>
         <Button
           fullWidth

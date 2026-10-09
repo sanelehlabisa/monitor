@@ -68,19 +68,6 @@ export function MeterWorkspace({
           )}
         </Box>
         {error && <Alert severity="error">{error}</Alert>}
-        <Box
-          sx={{
-            bgcolor: 'background.default',
-            borderRadius: 2,
-            p: 2.5,
-          }}
-        >
-          <Typography sx={{ fontWeight: 800 }}>Not enough data</Typography>
-          <Typography color="text.secondary" sx={{ mt: 0.75 }} variant="body2">
-            Monitor needs at least two valid actual balances before it can calculate
-            usage or remaining-day estimates.
-          </Typography>
-        </Box>
         {selectedContent}
         <Box component="form" onSubmit={onRename}>
           <Stack spacing={1.25}>

@@ -8,6 +8,7 @@ import {
   deleteMeter,
   deleteTopUp,
   getCurrentUser,
+  getDashboard,
   getMeter,
   listBalances,
   listMeters,
@@ -213,6 +214,38 @@ describe('authentication API client', () => {
       8,
       `/api/meters/${meterId}/top-ups/${topUp.id}`,
       expect.objectContaining({ credentials: 'include', method: 'DELETE' }),
+    );
+  });
+
+  it('loads the derived dashboard through the relative cookie API', async () => {
+    const meterId = '00000000-0000-0000-0000-000000000001';
+    const dashboard = {
+      latest_actual_balance: null,
+      balances: [],
+      top_ups: [],
+      history: [],
+      forecast: {
+        status: 'not_enough_data',
+        as_of: '2026-10-09T12:00:00Z',
+        latest_actual_balance_kwh: null,
+        latest_actual_at: null,
+        daily_usage_kwh: null,
+        estimated_balance_kwh: null,
+        remaining_days: null,
+        run_out_at: null,
+        recommended_top_up_30_days_kwh: null,
+        intervals_used: 0,
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(dashboard), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await getDashboard(meterId)).toEqual(dashboard);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/meters/${meterId}/dashboard`,
+      expect.objectContaining({ credentials: 'include' }),
     );
   });
 });

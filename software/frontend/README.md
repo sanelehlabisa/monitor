@@ -24,7 +24,7 @@ npm run build
 2. Create or select a meter/property by nickname.
 3. Record a remaining balance in kWh or a top-up in kWh; date/time defaults to now.
 4. Review the newest-first factual history and correct or delete entries.
-5. Later, review clearly labeled estimates and configure email reminders.
+5. Review clearly labeled estimates; email reminders remain later work.
 
 The primary entry actions must take only a few seconds on a phone. Do not require
 a municipal meter number, tariff, Rand amount, image or device setup. Show the
@@ -48,10 +48,13 @@ its actual balances and purchased top-ups, shows the latest factual balance,
 and provides compact create/edit/confirmed-delete controls for both record
 types. History is combined newest-first while preserving clear labels.
 
-Forecasting and the 30-day kWh recommendation remain later tickets. The selected
-meter therefore keeps an honest `Not enough data` state even when factual
-history exists. Estimates will recalculate from growing history only after the
-reviewed deterministic domain work lands. This is simple math, not ML. Backend
-persistence stays explicit raw SQL through Psycopg, with no SQLAlchemy.
+The selected meter dashboard shows latest actual balance separately from the
+estimated current balance, daily use, remaining days, run-out date and 30-day
+kWh recommendation. It reloads the backend dashboard after every ledger change.
+Insufficient or inconsistent history shows an explicit state without invented
+numbers; valid zero use has no fake run-out date. The browser does not calculate
+forecasts. Backend persistence stays explicit raw SQL through Psycopg, with no
+SQLAlchemy, and the replaceable first forecast model is simple math rather than
+ML.
 
 Hardware status, OCR, anomaly, tariff and payment screens are not V1.
