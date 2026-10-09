@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getCurrentUser, logout, requestOtp, verifyOtp } from './api';
+import {
+  createMeter,
+  getCurrentUser,
+  getMeter,
+  listMeters,
+  logout,
+  requestOtp,
+  verifyOtp,
+} from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -14,9 +22,14 @@ describe('authentication API client', () => {
         new Response(JSON.stringify({ message: 'accepted' }), { status: 202 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ id: 7, email: 'user@example.test' }), {
-          status: 200,
-        }),
+        new Response(
+          JSON.stringify({
+            id: 7,
+            email: 'user@example.test',
+            is_admin: false,
+          }),
+          { status: 200 },
+        ),
       );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -33,7 +46,11 @@ describe('authentication API client', () => {
       '/api/auth/verify-otp',
       expect.objectContaining({ credentials: 'include', method: 'POST' }),
     );
-    expect(user).toEqual({ id: 7, email: 'user@example.test' });
+    expect(user).toEqual({
+      id: 7,
+      email: 'user@example.test',
+      is_admin: false,
+    });
   });
 
   it('treats an unauthenticated me response as no restored user', async () => {
@@ -56,6 +73,48 @@ describe('authentication API client', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auth/logout',
       expect.objectContaining({ credentials: 'include', method: 'POST' }),
+    );
+  });
+
+  it('lists, creates and retrieves meters through relative cookie APIs', async () => {
+    const meter = {
+      id: '00000000-0000-0000-0000-000000000001',
+      name: 'Home',
+      owner_email: 'user@example.test',
+      created_at: '2026-10-09T10:00:00Z',
+      updated_at: '2026-10-09T10:00:00Z',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify([meter]), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(meter), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(meter), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await listMeters()).toEqual([meter]);
+    expect(await createMeter('Home')).toEqual(meter);
+    expect(await getMeter(meter.id)).toEqual(meter);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/meters',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/meters',
+      expect.objectContaining({
+        body: JSON.stringify({ name: 'Home' }),
+        credentials: 'include',
+        method: 'POST',
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      `/api/meters/${meter.id}`,
+      expect.objectContaining({ credentials: 'include' }),
     );
   });
 });

@@ -1,8 +1,9 @@
 # Frontend
 
-React, Vite and Material UI application with a working passwordless email login.
-It restores cookie sessions through `/api/me`, supports email/code/resend/logout
-and shows an honest meter-list empty state after authentication.
+React, Vite and Material UI application with a working passwordless email login
+and meter picker. It restores cookie sessions through `/api/me`, supports
+email/code/resend/logout, and lets a signed-in user add, list and select
+nickname-only software meters.
 
 Run checks from this directory with:
 
@@ -35,11 +36,12 @@ approved circular Roventics robot logo. Development browser requests use relativ
 `/api` URLs through Vite's proxy to the backend; cookies never enter browser
 storage or page text.
 
-The signed-in home will list nickname-only software meter profiles in Ticket 49.
-Selecting a meter will eventually open its remaining-balance and purchased-kWh
-history, deterministic estimates and 30-day kWh recommendation. Estimates are
-recalculated from that meter's growing history and remain `Not enough data` until
-real entries support them. This is simple math, not ML. Backend persistence stays
-explicit raw SQL through Psycopg, with no SQLAlchemy.
+The signed-in home loads real nickname-only software meter profiles from the
+cookie-authenticated API. Creation asks only for a name, and selecting a meter
+currently shows an honest `Not enough data` state. Balance and purchased-kWh
+history, deterministic estimates and the 30-day kWh recommendation arrive in
+later tickets. Estimates will recalculate from growing history and remain
+`Not enough data` until real entries support them. This is simple math, not ML.
+Backend persistence stays explicit raw SQL through Psycopg, with no SQLAlchemy.
 
 Hardware status, OCR, anomaly, tariff and payment screens are not V1.

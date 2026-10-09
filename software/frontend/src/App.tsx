@@ -12,12 +12,17 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { LoginPanel, SignedInPanel, type LoginStep } from './AuthPanels';
+import { MeterWorkspace } from './MeterWorkspace';
 import {
   ApiError,
+  createMeter,
   getCurrentUser,
+  getMeter,
+  listMeters,
   logout,
   requestOtp,
   verifyOtp,
+  type Meter,
   type User,
 } from './api';
 
@@ -47,6 +52,12 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [user, setUser] = useState<User | null>(null);
+  const [meters, setMeters] = useState<Meter[]>([]);
+  const [selectedMeter, setSelectedMeter] = useState<Meter | null>(null);
+  const [meterName, setMeterName] = useState('');
+  const [metersLoading, setMetersLoading] = useState(false);
+  const [meterBusy, setMeterBusy] = useState(false);
+  const [meterError, setMeterError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -64,6 +75,30 @@ export default function App() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setMeters([]);
+      setSelectedMeter(null);
+      return;
+    }
+    let active = true;
+    setMetersLoading(true);
+    setMeterError('');
+    listMeters()
+      .then((items) => {
+        if (active) setMeters(items);
+      })
+      .catch(() => {
+        if (active) setMeterError('Your meters could not be loaded. Try again.');
+      })
+      .finally(() => {
+        if (active) setMetersLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -125,6 +160,41 @@ export default function App() {
     }
   }
 
+  async function handleCreateMeter(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMeterBusy(true);
+    setMeterError('');
+    try {
+      const meter = await createMeter(meterName);
+      setMeters((current) =>
+        [...current, meter].sort((left, right) =>
+          left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
+        ),
+      );
+      setMeterName('');
+    } catch (requestError) {
+      setMeterError(
+        requestError instanceof ApiError && requestError.status === 409
+          ? 'You already have a meter with that name.'
+          : 'The meter could not be added. Check the name and try again.',
+      );
+    } finally {
+      setMeterBusy(false);
+    }
+  }
+
+  async function handleSelectMeter(meter: Meter) {
+    setMeterBusy(true);
+    setMeterError('');
+    try {
+      setSelectedMeter(await getMeter(meter.id));
+    } catch {
+      setMeterError('That meter could not be opened. Refresh and try again.');
+    } finally {
+      setMeterBusy(false);
+    }
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -152,7 +222,20 @@ export default function App() {
                 error={error}
                 onLogout={handleLogout}
                 user={user}
-              />
+              >
+                <MeterWorkspace
+                  busy={meterBusy}
+                  error={meterError}
+                  loading={metersLoading}
+                  meters={meters}
+                  name={meterName}
+                  onBack={() => setSelectedMeter(null)}
+                  onCreate={handleCreateMeter}
+                  onNameChange={setMeterName}
+                  onSelect={handleSelectMeter}
+                  selectedMeter={selectedMeter}
+                />
+              </SignedInPanel>
             ) : (
               <LoginPanel
                 busy={busy}

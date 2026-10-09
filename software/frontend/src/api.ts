@@ -1,6 +1,15 @@
 export type User = {
   id: number;
   email: string;
+  is_admin: boolean;
+};
+
+export type Meter = {
+  id: string;
+  name: string;
+  owner_email: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export class ApiError extends Error {
@@ -51,4 +60,19 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function logout(): Promise<void> {
   await apiRequest('/api/auth/logout', { method: 'POST' });
+}
+
+export function listMeters(): Promise<Meter[]> {
+  return apiRequest('/api/meters');
+}
+
+export function createMeter(name: string): Promise<Meter> {
+  return apiRequest('/api/meters', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function getMeter(id: string): Promise<Meter> {
+  return apiRequest(`/api/meters/${id}`);
 }

@@ -10,7 +10,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 import type { User } from './api';
 
@@ -125,9 +125,16 @@ type SignedInPanelProps = {
   busy: boolean;
   error: string;
   onLogout: () => void;
+  children?: ReactNode;
 };
 
-export function SignedInPanel({ user, busy, error, onLogout }: SignedInPanelProps) {
+export function SignedInPanel({
+  user,
+  busy,
+  error,
+  onLogout,
+  children,
+}: SignedInPanelProps) {
   return (
     <Card>
       <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
@@ -150,22 +157,7 @@ export function SignedInPanel({ user, busy, error, onLogout }: SignedInPanelProp
           </Stack>
           {error && <Alert severity="error">{error}</Alert>}
           <Divider />
-          <Box
-            sx={{
-              bgcolor: 'background.default',
-              border: '1px dashed',
-              borderColor: 'divider',
-              borderRadius: 2,
-              p: 3,
-              textAlign: 'center',
-            }}
-          >
-            <Typography sx={{ fontWeight: 700 }}>No meters yet</Typography>
-            <Typography color="text.secondary" sx={{ mt: 0.75 }} variant="body2">
-              Meter setup is next. Soon each meter will have its own balance,
-              purchased-kWh history and clearly labelled estimates.
-            </Typography>
-          </Box>
+          {children}
         </Stack>
       </CardContent>
     </Card>

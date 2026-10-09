@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import App from './App';
 import { LoginPanel, SignedInPanel } from './AuthPanels';
+import { MeterWorkspace } from './MeterWorkspace';
 
 const noAction = () => undefined;
 
@@ -54,20 +55,77 @@ describe('Monitor authentication UI', () => {
     expect(codeMarkup).toContain('Resend code');
   });
 
-  it('renders an honest signed-in meter empty state', () => {
+  it('renders an honest signed-in meter empty state and name-only form', () => {
     const markup = renderToStaticMarkup(
       <SignedInPanel
         busy={false}
         error=""
         onLogout={noAction}
-        user={{ id: 7, email: 'user@example.test' }}
-      />,
+        user={{ id: 7, email: 'user@example.test', is_admin: false }}
+      >
+        <MeterWorkspace
+          busy={false}
+          error=""
+          loading={false}
+          meters={[]}
+          name=""
+          onBack={noAction}
+          onCreate={noAction}
+          onNameChange={noAction}
+          onSelect={noAction}
+          selectedMeter={null}
+        />
+      </SignedInPanel>,
     );
 
     expect(markup).toContain('Your meters');
     expect(markup).toContain('No meters yet');
-    expect(markup).toContain('Meter setup is next');
+    expect(markup).toContain('Meter name');
+    expect(markup).toContain('Add meter');
     expect(markup).toContain('user@example.test');
     expect(markup).not.toContain('estimated balance');
+  });
+
+  it('renders a selectable list and honest selected-meter state', () => {
+    const meter = {
+      id: '00000000-0000-0000-0000-000000000001',
+      name: 'Home',
+      owner_email: 'user@example.test',
+      created_at: '2026-10-09T10:00:00Z',
+      updated_at: '2026-10-09T10:00:00Z',
+    };
+    const listMarkup = renderToStaticMarkup(
+      <MeterWorkspace
+        busy={false}
+        error=""
+        loading={false}
+        meters={[meter]}
+        name=""
+        onBack={noAction}
+        onCreate={noAction}
+        onNameChange={noAction}
+        onSelect={noAction}
+        selectedMeter={null}
+      />,
+    );
+    const selectedMarkup = renderToStaticMarkup(
+      <MeterWorkspace
+        busy={false}
+        error=""
+        loading={false}
+        meters={[meter]}
+        name=""
+        onBack={noAction}
+        onCreate={noAction}
+        onNameChange={noAction}
+        onSelect={noAction}
+        selectedMeter={meter}
+      />,
+    );
+
+    expect(listMarkup).toContain('Home');
+    expect(selectedMarkup).toContain('Back to meters');
+    expect(selectedMarkup).toContain('Not enough data');
+    expect(selectedMarkup).toContain('balance and purchased-kWh history');
   });
 });

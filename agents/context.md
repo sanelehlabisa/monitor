@@ -88,6 +88,8 @@ They remain future research if automated meter capture is later justified.
 - Task 015 adds raw-SQL nickname-only meter persistence and owner-scoped CRUD.
 - Task 016 exposes authenticated meter CRUD. Regular users are owner-scoped;
   emails configured in `MONITOR_ADMIN_EMAILS` may manage all existing meters.
+- Task 017 connects the Material UI home to real meter list/create/select APIs
+  and keeps a newly selected meter at `Not enough data` until ledger work lands.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter will lead to its balance and
