@@ -61,6 +61,10 @@ Secure outside local development. Logout revokes only the presented session.
 
 ## Planned product boundary
 
+Task 015 implements raw-SQL storage for nickname-only meter profiles. The
+repository supports owner-scoped CRUD plus explicit unrestricted lookups for the
+administrator API. HTTP exposure and authorization arrive in Task 016.
+
 Authenticated users will create and select their own nickname-only meter
 profiles, then record:
 

@@ -30,11 +30,16 @@ an optional revocation time. The plaintext 256-bit random token exists only when
 the session is created for the future cookie layer. A user may have multiple
 independent sessions, each with a fixed 30-day lifetime.
 
+Migration `004_meter_profiles.sql` adds nickname-only `monitor.meters`. Each
+meter has an application-generated UUID, one owning user, a trimmed 1-80
+character name and creation/update timestamps. Names are case-insensitively
+unique per owner. The raw-SQL repository provides owner-scoped CRUD plus an
+explicit unrestricted scope for the administrator API.
+
 ## Planned product data
 
 The modular schema tickets should introduce only the data each feature needs:
 
-- nickname-only `meters` or meter/property profiles owned by a user;
 - actual `balance_entries` with non-negative kWh and occurrence timestamps; and
 - `top_up_entries` with positive kWh and occurrence timestamps.
 
