@@ -6,21 +6,23 @@ from app.main import create_app
 from app.settings import Settings
 
 
-def test_frontend_origin_can_preflight_api_route() -> None:
-    """The configured frontend may make browser API requests."""
+def test_frontend_origin_can_preflight_credentialed_api_route() -> None:
+    """The configured frontend may make credentialed GET and POST requests."""
 
     settings = Settings(environment="test", cors_origin="http://localhost:5173")
     response = TestClient(create_app(settings)).options(
-        "/health",
+        "/api/auth/request-otp",
         headers={
             "Origin": settings.cors_origin,
-            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Method": "POST",
             "Access-Control-Request-Headers": "content-type",
         },
     )
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == settings.cors_origin
+    assert response.headers["access-control-allow-credentials"] == "true"
+    assert response.headers["access-control-allow-methods"] == "GET, POST"
 
 
 def test_other_origins_are_not_allowed() -> None:

@@ -48,9 +48,8 @@ Python or npm dependencies. Actual `.env` files stay local and ignored. Committe
 defaults are development-only and must not be exposed.
 
 The API health baseline, raw SQL migrations and Material UI shell exist. Tickets
-43-44 implement user/OTP storage, policy and SMTP delivery without an HTTP
-surface. Task 012 adds digest-only session storage; human login remains inactive
-until Task 013 and Ticket 46 add auth endpoints, secure cookie transport and the
+43-45 implement email OTP delivery, digest-only sessions and the human auth API
+with secure HTTP-only cookie transport. Ticket 46 will connect the Material UI
 browser flow. Ticket 48 confirmed active runtime code has no obsolete device/OCR
 integration.
 
