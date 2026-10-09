@@ -80,6 +80,13 @@ energy. Top-ups must be greater than zero with at most three decimals. Repeated
 occurrence times are allowed because separate purchases can happen together.
 This records energy already bought; it is not a payment or Rand transaction.
 
+Task 021 exposes nested authenticated CRUD at
+`/api/meters/{meter_id}/balances` and `/api/meters/{meter_id}/top-ups`, with
+entry IDs appended for get/update/delete. Inputs require timezone-aware,
+non-future occurrence times and the reviewed Decimal constraints. Regular users
+remain owner-scoped; configured admins may manage every meter. Foreign, missing
+and meter-mismatched resources share a generic 404.
+
 Authenticated users will create and select their own nickname-only meter
 profiles, then record:
 

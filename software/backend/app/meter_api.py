@@ -54,7 +54,7 @@ def meters_index(
     """List owned meters, or every meter for a configured administrator."""
 
     with connect_database(request.app.state.settings) as connection:
-        meters = list_meters(connection, _owner_scope(authenticated))
+        meters = list_meters(connection, meter_owner_scope(authenticated))
     return [_response(meter) for meter in meters]
 
 
@@ -83,7 +83,7 @@ def meters_show(
     """Return an accessible meter without revealing inaccessible IDs."""
 
     with connect_database(request.app.state.settings) as connection:
-        meter = _find(connection, meter_id, _owner_scope(authenticated))
+        meter = _find(connection, meter_id, meter_owner_scope(authenticated))
     return _response(meter)
 
 
@@ -99,7 +99,7 @@ def meters_rename(
     try:
         with connect_database(request.app.state.settings) as connection:
             meter = rename_meter(
-                connection, meter_id, _owner_scope(authenticated), payload.name
+                connection, meter_id, meter_owner_scope(authenticated), payload.name
             )
     except MeterNotFoundError as error:
         raise _not_found() from error
@@ -118,13 +118,15 @@ def meters_delete(
 
     try:
         with connect_database(request.app.state.settings) as connection:
-            delete_meter(connection, meter_id, _owner_scope(authenticated))
+            delete_meter(connection, meter_id, meter_owner_scope(authenticated))
     except MeterNotFoundError as error:
         raise _not_found() from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def _owner_scope(authenticated: AuthenticatedUser) -> int | None:
+def meter_owner_scope(authenticated: AuthenticatedUser) -> int | None:
+    """Return the repository owner scope for a regular user or administrator."""
+
     return None if authenticated.is_admin else authenticated.user.id
 
 

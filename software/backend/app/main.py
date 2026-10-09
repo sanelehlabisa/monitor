@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app import __version__
 from app.auth_api import router as auth_router
+from app.ledger_api import router as ledger_router
 from app.meter_api import router as meter_router
 from app.settings import Settings
 
@@ -36,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.settings = application_settings
     application.include_router(auth_router)
     application.include_router(meter_router)
+    application.include_router(ledger_router)
 
     @application.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
