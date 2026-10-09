@@ -95,6 +95,8 @@ They remain future research if automated meter capture is later justified.
   unchanged.
 - Task 019 adds raw-SQL actual balance observations with non-negative three-
   decimal kWh, unique per-meter occurrence times and scoped correction/deletion.
+- Task 020 adds raw-SQL purchased top-up events with positive three-decimal kWh,
+  repeated occurrence times and the same scoped correction/deletion behavior.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter will lead to its balance and

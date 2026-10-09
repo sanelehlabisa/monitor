@@ -42,11 +42,17 @@ an occurrence time and creation/update timestamps. A meter cannot have two
 actual balances at the same occurrence time. Deleting its meter cascades to its
 balance history.
 
+Migration `006_top_up_entries.sql` adds manually purchased energy events. Each
+UUID entry belongs to one meter, stores positive `NUMERIC(12,3)` kWh plus
+occurrence/audit timestamps, and is deleted with its meter. Multiple purchases
+may share an occurrence time and are ordered deterministically by UUID.
+
 ## Planned product data
 
 The modular schema tickets should introduce only the data each feature needs:
 
-- `top_up_entries` with positive kWh and occurrence timestamps.
+Balance and top-up tables are now implemented; forecast outputs remain derived
+later rather than stored as factual readings.
 
 Names are planning guidance until their migration tickets approve exact tables,
 columns, constraints and indexes. Store event times consistently (UTC in storage,

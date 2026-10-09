@@ -75,6 +75,11 @@ times are timezone-aware and unique per meter, and corrections update both the
 value and time while preserving creation/update audit timestamps. HTTP exposure
 arrives in Task 021.
 
+Task 020 adds matching raw-SQL storage and scoped CRUD for purchased top-up
+energy. Top-ups must be greater than zero with at most three decimals. Repeated
+occurrence times are allowed because separate purchases can happen together.
+This records energy already bought; it is not a payment or Rand transaction.
+
 Authenticated users will create and select their own nickname-only meter
 profiles, then record:
 
