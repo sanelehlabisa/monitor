@@ -85,6 +85,9 @@ They remain future research if automated meter capture is later justified.
 - Task 013 completes the human auth API and HTTP-only cookie transport.
 - Task 014 adds the session-aware Material UI login flow and branded meter-list
   empty state.
+- Task 015 adds raw-SQL nickname-only meter persistence and owner-scoped CRUD.
+- Task 016 exposes authenticated meter CRUD. Regular users are owner-scoped;
+  emails configured in `MONITOR_ADMIN_EMAILS` may manage all existing meters.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter will lead to its balance and
@@ -97,6 +100,10 @@ recalculates from that meter's history whenever a new point is added. History
 therefore improves the estimate incrementally, but this is not reinforcement
 learning or ML. A new meter has no guessed usage baseline and must show `Not
 enough data` until real readings support the calculation.
+
+Development Compose reads its explicit values from the ignored `software/.env`.
+The committed `.env.example` contains only safe local examples; personal admin
+emails and secrets must remain untracked.
 
 The root README owns stable ticket IDs and the current execution order. Ticket
 48 performs an explicit active-code/domain cleanup before authentication and

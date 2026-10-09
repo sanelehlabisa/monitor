@@ -13,7 +13,8 @@ dependencies.
 
 ## Development stack
 
-Copy `.env.example` to `.env`, change the development password, then run:
+Copy `.env.example` to `.env`, set the local administrator email list and change
+the development password, then run:
 
 ```powershell
 docker compose -f dev.docker-compose.yaml up --build
@@ -44,8 +45,10 @@ docker compose -f dev.docker-compose.yaml down --volumes
 ```
 
 Backend and frontend sources are bind-mounted for reload. Rebuild after changing
-Python or npm dependencies. Actual `.env` files stay local and ignored. Committed
-defaults are development-only and must not be exposed.
+Python or npm dependencies. The ignored `.env` is the visible source of Compose
+development values; Compose reports required missing values instead of silently
+using a second set of inline defaults. The committed `.env.example` contains
+development-only examples and must not be exposed as production configuration.
 
 The API health baseline, raw SQL migrations and Material UI shell exist. Tickets
 43-46 implement email OTP delivery, digest-only sessions, the human auth API and

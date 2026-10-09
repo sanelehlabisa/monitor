@@ -88,7 +88,11 @@ def test_verification_sets_approved_secure_cookie(monkeypatch: MonkeyPatch) -> N
     )
 
     cookie = response.headers["set-cookie"]
-    assert response.json() == {"id": 7, "email": "user@example.test"}
+    assert response.json() == {
+        "id": 7,
+        "email": "user@example.test",
+        "is_admin": False,
+    }
     assert "monitor_session=opaque-cookie-token" in cookie
     assert "Max-Age=2592000" in cookie
     assert "Path=/" in cookie

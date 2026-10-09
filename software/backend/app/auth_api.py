@@ -1,4 +1,6 @@
-"""FastAPI routes for passwordless human authentication."""
+"""FastAPI routes and reusable dependency for human authentication."""
+
+from dataclasses import dataclass
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field, field_validator
@@ -61,6 +63,15 @@ class UserResponse(BaseModel):
 
     id: int
     email: str
+    is_admin: bool
+
+
+@dataclass(frozen=True)
+class AuthenticatedUser:
+    """Session-authenticated user plus configuration-derived access level."""
+
+    user: User
+    is_admin: bool
 
 
 @router.post(
@@ -102,7 +113,7 @@ def verify_code(
         ) from error
 
     _set_session_cookie(response, session, settings)
-    return _user_response(user)
+    return _user_response(user, settings)
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -130,17 +141,29 @@ def logout(request: Request, response: Response) -> None:
 def current_user(request: Request) -> UserResponse:
     """Return the user authenticated by the opaque session cookie."""
 
+    authenticated = require_authenticated_user(request)
+    return UserResponse(
+        id=authenticated.user.id,
+        email=authenticated.user.email,
+        is_admin=authenticated.is_admin,
+    )
+
+
+def require_authenticated_user(request: Request) -> AuthenticatedUser:
+    """Resolve the session cookie or return one generic authentication error."""
+
     token = request.cookies.get(COOKIE_NAME)
+    settings = _settings(request)
     try:
         if not token:
             raise SessionAuthenticationError("Session is unavailable")
-        with connect_database(_settings(request)) as connection:
+        with connect_database(settings) as connection:
             user = authenticate_session(connection, token)
     except SessionAuthenticationError as error:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, "Authentication required"
         ) from error
-    return _user_response(user)
+    return AuthenticatedUser(user=user, is_admin=settings.is_admin(user.email))
 
 
 def _settings(request: Request) -> Settings:
@@ -166,5 +189,7 @@ def _set_session_cookie(
     )
 
 
-def _user_response(user: User) -> UserResponse:
-    return UserResponse(id=user.id, email=user.email)
+def _user_response(user: User, settings: Settings) -> UserResponse:
+    return UserResponse(
+        id=user.id, email=user.email, is_admin=settings.is_admin(user.email)
+    )

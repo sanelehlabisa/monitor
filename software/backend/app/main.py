@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app import __version__
 from app.auth_api import router as auth_router
+from app.meter_api import router as meter_router
 from app.settings import Settings
 
 
@@ -29,11 +30,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=[application_settings.cors_origin],
         allow_credentials=True,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Content-Type"],
     )
     application.state.settings = application_settings
     application.include_router(auth_router)
+    application.include_router(meter_router)
 
     @application.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:

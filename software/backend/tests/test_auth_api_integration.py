@@ -65,7 +65,8 @@ def test_new_user_can_sign_in_use_me_and_log_out() -> None:
         assert requested.status_code == 202
         assert verified.status_code == 200
         assert verified.json()["email"] == email
-        assert set(verified.json()) == {"id", "email"}
+        assert set(verified.json()) == {"id", "email", "is_admin"}
+        assert verified.json()["is_admin"] is False
         assert "HttpOnly" in verified.headers["set-cookie"]
         assert "Secure" not in verified.headers["set-cookie"]
         assert current.status_code == 200

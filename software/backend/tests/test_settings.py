@@ -13,6 +13,7 @@ def test_settings_have_development_defaults(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv("MONITOR_DATABASE_URL", raising=False)
     monkeypatch.delenv("MONITOR_CORS_ORIGIN", raising=False)
     monkeypatch.delenv("MONITOR_OTP_HMAC_SECRET", raising=False)
+    monkeypatch.delenv("MONITOR_ADMIN_EMAILS", raising=False)
     for name in (
         "SMTP_HOST",
         "SMTP_PORT",
@@ -30,6 +31,7 @@ def test_settings_have_development_defaults(monkeypatch: MonkeyPatch) -> None:
     assert settings.database_url.endswith("@database:5432/monitor")
     assert settings.cors_origin == "http://localhost:5173"
     assert settings.otp_hmac_secret.get_secret_value().endswith("change_me")
+    assert settings.admin_emails == ""
     assert settings.smtp_host == "mailpit"
     assert settings.smtp_port == 1025
     assert settings.smtp_secure is False
@@ -45,6 +47,9 @@ def test_settings_read_monitor_environment_variables(monkeypatch: MonkeyPatch) -
     monkeypatch.setenv("MONITOR_DATABASE_URL", "postgresql://test:test@database/test")
     monkeypatch.setenv("MONITOR_CORS_ORIGIN", "http://frontend.test")
     monkeypatch.setenv("MONITOR_OTP_HMAC_SECRET", "test-otp-secret")
+    monkeypatch.setenv(
+        "MONITOR_ADMIN_EMAILS", " Admin@Example.test,second@example.test,admin@example.test "
+    )
 
     settings = Settings()
 
@@ -53,6 +58,16 @@ def test_settings_read_monitor_environment_variables(monkeypatch: MonkeyPatch) -
     assert settings.database_url == "postgresql://test:test@database/test"
     assert settings.cors_origin == "http://frontend.test"
     assert settings.otp_hmac_secret.get_secret_value() == "test-otp-secret"
+    assert settings.admin_emails == "admin@example.test,second@example.test"
+    assert settings.is_admin(" ADMIN@example.test ") is True
+    assert settings.is_admin("user@example.test") is False
+
+
+def test_settings_reject_invalid_admin_email() -> None:
+    """An invalid configured administrator fails at startup."""
+
+    with raises(ValidationError, match="valid emails"):
+        Settings(admin_emails="not-an-email")
 
 
 def test_production_rejects_the_development_otp_secret(monkeypatch: MonkeyPatch) -> None:

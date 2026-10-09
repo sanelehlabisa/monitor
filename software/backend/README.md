@@ -12,8 +12,8 @@ docker compose -f dev.docker-compose.yaml run --rm backend python -m pytest
 ```
 
 `GET /health` reports service name, version and configured environment without
-probing PostgreSQL. Development CORS allows credentialed GET/POST requests only
-from the configured `MONITOR_CORS_ORIGIN`. Product endpoints are not yet exposed.
+probing PostgreSQL. Development CORS allows credentialed
+GET/POST/PATCH/DELETE requests from the configured `MONITOR_CORS_ORIGIN`.
 
 ## Authentication foundation
 
@@ -62,8 +62,12 @@ Secure outside local development. Logout revokes only the presented session.
 ## Planned product boundary
 
 Task 015 implements raw-SQL storage for nickname-only meter profiles. The
-repository supports owner-scoped CRUD plus explicit unrestricted lookups for the
-administrator API. HTTP exposure and authorization arrive in Task 016.
+repository supports owner-scoped CRUD plus explicit unrestricted lookups. Task
+016 exposes authenticated `/api/meters` list/create and `/api/meters/{id}`
+get/rename/delete routes. Regular users are always scoped to their own meters.
+Emails listed in comma-separated `MONITOR_ADMIN_EMAILS` may list and manage every
+existing meter; new meters still belong to the user who creates them.
+Inaccessible and missing IDs share the same HTTP 404 response.
 
 Authenticated users will create and select their own nickname-only meter
 profiles, then record:
