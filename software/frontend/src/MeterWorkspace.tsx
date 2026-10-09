@@ -14,12 +14,17 @@ import type { Meter } from './api';
 type MeterWorkspaceProps = {
   meters: Meter[];
   selectedMeter: Meter | null;
+  isAdmin: boolean;
   loading: boolean;
   busy: boolean;
   error: string;
   name: string;
+  editName: string;
   onNameChange: (name: string) => void;
+  onEditNameChange: (name: string) => void;
   onCreate: (event: FormEvent<HTMLFormElement>) => void;
+  onRename: (event: FormEvent<HTMLFormElement>) => void;
+  onDelete: () => void;
   onSelect: (meter: Meter) => void;
   onBack: () => void;
 };
@@ -27,12 +32,17 @@ type MeterWorkspaceProps = {
 export function MeterWorkspace({
   meters,
   selectedMeter,
+  isAdmin,
   loading,
   busy,
   error,
   name,
+  editName,
   onNameChange,
+  onEditNameChange,
   onCreate,
+  onRename,
+  onDelete,
   onSelect,
   onBack,
 }: MeterWorkspaceProps) {
@@ -49,7 +59,13 @@ export function MeterWorkspace({
           <Typography color="text.secondary" variant="body2">
             Software meter profile
           </Typography>
+          {isAdmin && (
+            <Typography color="text.secondary" variant="caption">
+              Owner: {selectedMeter.owner_email}
+            </Typography>
+          )}
         </Box>
+        {error && <Alert severity="error">{error}</Alert>}
         <Box
           sx={{
             bgcolor: 'background.default',
@@ -62,6 +78,31 @@ export function MeterWorkspace({
             Add balance and purchased-kWh history in the next step before Monitor
             calculates any estimates.
           </Typography>
+        </Box>
+        <Box component="form" onSubmit={onRename}>
+          <Stack spacing={1.25}>
+            <TextField
+              disabled={busy}
+              fullWidth
+              label="Rename meter"
+              onChange={(event) => onEditNameChange(event.target.value)}
+              required
+              slotProps={{ htmlInput: { maxLength: 80 } }}
+              value={editName}
+            />
+            <Stack direction="row" spacing={1}>
+              <Button
+                disabled={busy || !editName.trim() || editName === selectedMeter.name}
+                type="submit"
+                variant="outlined"
+              >
+                Save name
+              </Button>
+              <Button color="error" disabled={busy} onClick={onDelete} type="button">
+                Delete meter
+              </Button>
+            </Stack>
+          </Stack>
         </Box>
       </Stack>
     );
@@ -126,7 +167,16 @@ export function MeterWorkspace({
               }}
               variant="text"
             >
-              <span>{meter.name}</span>
+              <span>
+                <Typography component="span" sx={{ display: 'block', fontWeight: 700 }}>
+                  {meter.name}
+                </Typography>
+                {isAdmin && (
+                  <Typography color="text.secondary" component="span" variant="caption">
+                    {meter.owner_email}
+                  </Typography>
+                )}
+              </span>
               <span aria-hidden="true">›</span>
             </Button>
           ))}

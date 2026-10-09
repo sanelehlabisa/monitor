@@ -120,7 +120,8 @@ retained authentication IDs appear before newer product tickets.
   request/verify/logout/me cookie API (Tasks 012-013).
 - [x] Ticket 46: Email Login UI — session-aware Material UI email/OTP flow
   with Roventics branding (Task 014).
-- [ ] Ticket 49: User & Meter Profiles — user-owned nickname-only meter/property profiles through raw SQL (after 45).
+- [x] Ticket 49: User & Meter Profiles — raw-SQL nickname-only meters,
+  authorised CRUD and Material UI management (Tasks 015-018).
 - [ ] Ticket 50: Balance Entries — record, validate, correct and list actual kWh balances with occurrence times (after 49).
 - [ ] Ticket 51: Top-Up Entries — record, validate, correct and list manually purchased kWh with occurrence times (after 49).
 - [ ] Ticket 52: Forecasting Domain — tested consumption, daily-use, balance, run-out and 30-day recommendation calculations (after 50, 51).

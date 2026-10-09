@@ -145,11 +145,14 @@ export function SignedInPanel({
           >
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="h4" component="h1">
-                Your meters
+                {user.is_admin ? 'All meters' : 'Your meters'}
               </Typography>
-              <Typography color="text.secondary" noWrap variant="body2">
-                {user.email}
-              </Typography>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <Typography color="text.secondary" noWrap variant="body2">
+                  {user.email}
+                </Typography>
+                {user.is_admin && <Chip label="Admin" size="small" />}
+              </Stack>
             </Box>
             <Button disabled={busy} onClick={onLogout} variant="outlined">
               Sign out

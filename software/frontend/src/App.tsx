@@ -16,10 +16,12 @@ import { MeterWorkspace } from './MeterWorkspace';
 import {
   ApiError,
   createMeter,
+  deleteMeter,
   getCurrentUser,
   getMeter,
   listMeters,
   logout,
+  renameMeter,
   requestOtp,
   verifyOtp,
   type Meter,
@@ -55,6 +57,7 @@ export default function App() {
   const [meters, setMeters] = useState<Meter[]>([]);
   const [selectedMeter, setSelectedMeter] = useState<Meter | null>(null);
   const [meterName, setMeterName] = useState('');
+  const [editMeterName, setEditMeterName] = useState('');
   const [metersLoading, setMetersLoading] = useState(false);
   const [meterBusy, setMeterBusy] = useState(false);
   const [meterError, setMeterError] = useState('');
@@ -187,9 +190,56 @@ export default function App() {
     setMeterBusy(true);
     setMeterError('');
     try {
-      setSelectedMeter(await getMeter(meter.id));
+      const selected = await getMeter(meter.id);
+      setSelectedMeter(selected);
+      setEditMeterName(selected.name);
     } catch {
       setMeterError('That meter could not be opened. Refresh and try again.');
+    } finally {
+      setMeterBusy(false);
+    }
+  }
+
+  async function handleRenameMeter(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedMeter) return;
+    setMeterBusy(true);
+    setMeterError('');
+    try {
+      const renamed = await renameMeter(selectedMeter.id, editMeterName);
+      setSelectedMeter(renamed);
+      setEditMeterName(renamed.name);
+      setMeters((current) =>
+        current
+          .map((meter) => (meter.id === renamed.id ? renamed : meter))
+          .sort((left, right) =>
+            left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
+          ),
+      );
+    } catch (requestError) {
+      setMeterError(
+        requestError instanceof ApiError && requestError.status === 409
+          ? 'That owner already has a meter with this name.'
+          : 'The meter could not be renamed. Try again.',
+      );
+    } finally {
+      setMeterBusy(false);
+    }
+  }
+
+  async function handleDeleteMeter() {
+    if (!selectedMeter || !window.confirm(`Delete ${selectedMeter.name}?`)) return;
+    setMeterBusy(true);
+    setMeterError('');
+    try {
+      await deleteMeter(selectedMeter.id);
+      setMeters((current) =>
+        current.filter((meter) => meter.id !== selectedMeter.id),
+      );
+      setSelectedMeter(null);
+      setEditMeterName('');
+    } catch {
+      setMeterError('The meter could not be deleted. Try again.');
     } finally {
       setMeterBusy(false);
     }
@@ -225,13 +275,21 @@ export default function App() {
               >
                 <MeterWorkspace
                   busy={meterBusy}
+                  editName={editMeterName}
                   error={meterError}
+                  isAdmin={user.is_admin}
                   loading={metersLoading}
                   meters={meters}
                   name={meterName}
-                  onBack={() => setSelectedMeter(null)}
+                  onBack={() => {
+                    setSelectedMeter(null);
+                    setMeterError('');
+                  }}
                   onCreate={handleCreateMeter}
+                  onDelete={handleDeleteMeter}
+                  onEditNameChange={setEditMeterName}
                   onNameChange={setMeterName}
+                  onRename={handleRenameMeter}
                   onSelect={handleSelectMeter}
                   selectedMeter={selectedMeter}
                 />

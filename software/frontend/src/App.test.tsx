@@ -65,13 +65,18 @@ describe('Monitor authentication UI', () => {
       >
         <MeterWorkspace
           busy={false}
+          editName=""
           error=""
+          isAdmin={false}
           loading={false}
           meters={[]}
           name=""
           onBack={noAction}
           onCreate={noAction}
+          onDelete={noAction}
+          onEditNameChange={noAction}
           onNameChange={noAction}
+          onRename={noAction}
           onSelect={noAction}
           selectedMeter={null}
         />
@@ -97,13 +102,18 @@ describe('Monitor authentication UI', () => {
     const listMarkup = renderToStaticMarkup(
       <MeterWorkspace
         busy={false}
+        editName=""
         error=""
+        isAdmin={false}
         loading={false}
         meters={[meter]}
         name=""
         onBack={noAction}
         onCreate={noAction}
+        onDelete={noAction}
+        onEditNameChange={noAction}
         onNameChange={noAction}
+        onRename={noAction}
         onSelect={noAction}
         selectedMeter={null}
       />,
@@ -111,13 +121,18 @@ describe('Monitor authentication UI', () => {
     const selectedMarkup = renderToStaticMarkup(
       <MeterWorkspace
         busy={false}
+        editName="Home"
         error=""
+        isAdmin={false}
         loading={false}
         meters={[meter]}
         name=""
         onBack={noAction}
         onCreate={noAction}
+        onDelete={noAction}
+        onEditNameChange={noAction}
         onNameChange={noAction}
+        onRename={noAction}
         onSelect={noAction}
         selectedMeter={meter}
       />,
@@ -127,5 +142,47 @@ describe('Monitor authentication UI', () => {
     expect(selectedMarkup).toContain('Back to meters');
     expect(selectedMarkup).toContain('Not enough data');
     expect(selectedMarkup).toContain('balance and purchased-kWh history');
+    expect(selectedMarkup).toContain('Save name');
+    expect(selectedMarkup).toContain('Delete meter');
+  });
+
+  it('labels the admin view and identifies meter owners', () => {
+    const meter = {
+      id: '00000000-0000-0000-0000-000000000002',
+      name: 'Shop',
+      owner_email: 'owner@example.test',
+      created_at: '2026-10-09T10:00:00Z',
+      updated_at: '2026-10-09T10:00:00Z',
+    };
+    const markup = renderToStaticMarkup(
+      <SignedInPanel
+        busy={false}
+        error=""
+        onLogout={noAction}
+        user={{ id: 9, email: 'admin@example.test', is_admin: true }}
+      >
+        <MeterWorkspace
+          busy={false}
+          editName=""
+          error=""
+          isAdmin
+          loading={false}
+          meters={[meter]}
+          name=""
+          onBack={noAction}
+          onCreate={noAction}
+          onDelete={noAction}
+          onEditNameChange={noAction}
+          onNameChange={noAction}
+          onRename={noAction}
+          onSelect={noAction}
+          selectedMeter={null}
+        />
+      </SignedInPanel>,
+    );
+
+    expect(markup).toContain('All meters');
+    expect(markup).toContain('Admin');
+    expect(markup).toContain('owner@example.test');
   });
 });

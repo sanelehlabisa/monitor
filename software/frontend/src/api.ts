@@ -76,3 +76,14 @@ export function createMeter(name: string): Promise<Meter> {
 export function getMeter(id: string): Promise<Meter> {
   return apiRequest(`/api/meters/${id}`);
 }
+
+export function renameMeter(id: string, name: string): Promise<Meter> {
+  return apiRequest(`/api/meters/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteMeter(id: string): Promise<void> {
+  await apiRequest(`/api/meters/${id}`, { method: 'DELETE' });
+}

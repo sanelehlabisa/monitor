@@ -90,6 +90,9 @@ They remain future research if automated meter capture is later justified.
   emails configured in `MONITOR_ADMIN_EMAILS` may manage all existing meters.
 - Task 017 connects the Material UI home to real meter list/create/select APIs
   and keeps a newly selected meter at `Not enough data` until ledger work lands.
+- Task 018 completes Ticket 49 with rename/delete controls and an administrator
+  view that identifies owners and manages all meters. Regular-user isolation is
+  unchanged.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter will lead to its balance and

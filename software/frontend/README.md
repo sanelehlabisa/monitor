@@ -5,6 +5,12 @@ and meter picker. It restores cookie sessions through `/api/me`, supports
 email/code/resend/logout, and lets a signed-in user add, list and select
 nickname-only software meters.
 
+Regular users see and manage only their own meters. Users whose normalized email
+is configured as an administrator see an Admin indicator, every meter's owner
+email, and the same select/rename/confirmed-delete controls for all meters. New
+meter creation remains intentionally name-only and always belongs to the signed-
+in user.
+
 Run checks from this directory with:
 
 ```powershell

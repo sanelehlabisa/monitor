@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createMeter,
+  deleteMeter,
   getCurrentUser,
   getMeter,
   listMeters,
   logout,
   requestOtp,
+  renameMeter,
   verifyOtp,
 } from './api';
 
@@ -90,12 +92,23 @@ describe('authentication API client', () => {
         new Response(JSON.stringify([meter]), { status: 200 }),
       )
       .mockResolvedValueOnce(new Response(JSON.stringify(meter), { status: 201 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(meter), { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify(meter), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...meter, name: 'Main home' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
 
     expect(await listMeters()).toEqual([meter]);
     expect(await createMeter('Home')).toEqual(meter);
     expect(await getMeter(meter.id)).toEqual(meter);
+    expect(await renameMeter(meter.id, 'Main home')).toEqual({
+      ...meter,
+      name: 'Main home',
+    });
+    await deleteMeter(meter.id);
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -115,6 +128,20 @@ describe('authentication API client', () => {
       3,
       `/api/meters/${meter.id}`,
       expect.objectContaining({ credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      `/api/meters/${meter.id}`,
+      expect.objectContaining({
+        body: JSON.stringify({ name: 'Main home' }),
+        credentials: 'include',
+        method: 'PATCH',
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      `/api/meters/${meter.id}`,
+      expect.objectContaining({ credentials: 'include', method: 'DELETE' }),
     );
   });
 });
