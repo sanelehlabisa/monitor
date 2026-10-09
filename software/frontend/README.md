@@ -1,9 +1,9 @@
 # Frontend
 
-React, Vite and Material UI application with a working passwordless email login
-and meter picker. It restores cookie sessions through `/api/me`, supports
-email/code/resend/logout, and lets a signed-in user add, list and select
-nickname-only software meters.
+React, Vite and Material UI application with passwordless email login, meter
+management and manual kWh history. It restores cookie sessions through
+`/api/me`, supports email/code/resend/logout, and lets a signed-in user add,
+list, select, rename and delete nickname-only software meters.
 
 Regular users see and manage only their own meters. Users whose normalized email
 is configured as an administrator see an Admin indicator, every meter's owner
@@ -18,13 +18,13 @@ npm test
 npm run build
 ```
 
-## Planned mobile flow
+## Mobile flow
 
 1. Enter email and verify the one-time code.
 2. Create or select a meter/property by nickname.
 3. Record a remaining balance in kWh or a top-up in kWh; date/time defaults to now.
-4. Review actual history and clearly labeled estimates.
-5. Configure monthly and optional predicted low-balance email reminders.
+4. Review the newest-first factual history and correct or delete entries.
+5. Later, review clearly labeled estimates and configure email reminders.
 
 The primary entry actions must take only a few seconds on a phone. Do not require
 a municipal meter number, tariff, Rand amount, image or device setup. Show the
@@ -43,11 +43,15 @@ approved circular Roventics robot logo. Development browser requests use relativ
 storage or page text.
 
 The signed-in home loads real nickname-only software meter profiles from the
-cookie-authenticated API. Creation asks only for a name, and selecting a meter
-currently shows an honest `Not enough data` state. Balance and purchased-kWh
-history, deterministic estimates and the 30-day kWh recommendation arrive in
-later tickets. Estimates will recalculate from growing history and remain
-`Not enough data` until real entries support them. This is simple math, not ML.
-Backend persistence stays explicit raw SQL through Psycopg, with no SQLAlchemy.
+cookie-authenticated API. Creation asks only for a name. Selecting a meter loads
+its actual balances and purchased top-ups, shows the latest factual balance,
+and provides compact create/edit/confirmed-delete controls for both record
+types. History is combined newest-first while preserving clear labels.
+
+Forecasting and the 30-day kWh recommendation remain later tickets. The selected
+meter therefore keeps an honest `Not enough data` state even when factual
+history exists. Estimates will recalculate from growing history only after the
+reviewed deterministic domain work lands. This is simple math, not ML. Backend
+persistence stays explicit raw SQL through Psycopg, with no SQLAlchemy.
 
 Hardware status, OCR, anomaly, tariff and payment screens are not V1.

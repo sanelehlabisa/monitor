@@ -1,14 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  createBalance,
   createMeter,
+  createTopUp,
+  deleteBalance,
   deleteMeter,
+  deleteTopUp,
   getCurrentUser,
   getMeter,
+  listBalances,
   listMeters,
+  listTopUps,
   logout,
   requestOtp,
   renameMeter,
+  updateBalance,
+  updateTopUp,
   verifyOtp,
 } from './api';
 
@@ -141,6 +149,69 @@ describe('authentication API client', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
       `/api/meters/${meter.id}`,
+      expect.objectContaining({ credentials: 'include', method: 'DELETE' }),
+    );
+  });
+
+  it('uses nested cookie APIs for both manual ledger resources', async () => {
+    const meterId = '00000000-0000-0000-0000-000000000001';
+    const balance = {
+      id: '00000000-0000-0000-0000-000000000010',
+      meter_id: meterId,
+      balance_kwh: '42.125',
+      occurred_at: '2026-10-09T10:00:00Z',
+      created_at: '2026-10-09T10:01:00Z',
+      updated_at: '2026-10-09T10:01:00Z',
+    };
+    const topUp = {
+      id: '00000000-0000-0000-0000-000000000020',
+      meter_id: meterId,
+      top_up_kwh: '20.500',
+      occurred_at: '2026-10-09T11:00:00Z',
+      created_at: '2026-10-09T11:01:00Z',
+      updated_at: '2026-10-09T11:01:00Z',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify([balance]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(balance), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(balance), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([topUp]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(topUp), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(topUp), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await listBalances(meterId)).toEqual([balance]);
+    await createBalance(meterId, '42.125', balance.occurred_at);
+    await updateBalance(meterId, balance.id, '42.125', balance.occurred_at);
+    await deleteBalance(meterId, balance.id);
+    expect(await listTopUps(meterId)).toEqual([topUp]);
+    await createTopUp(meterId, '20.500', topUp.occurred_at);
+    await updateTopUp(meterId, topUp.id, '20.500', topUp.occurred_at);
+    await deleteTopUp(meterId, topUp.id);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/meters/${meterId}/balances`,
+      expect.objectContaining({
+        body: JSON.stringify({
+          balance_kwh: '42.125',
+          occurred_at: balance.occurred_at,
+        }),
+        credentials: 'include',
+        method: 'POST',
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      7,
+      `/api/meters/${meterId}/top-ups/${topUp.id}`,
+      expect.objectContaining({ credentials: 'include', method: 'PATCH' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      8,
+      `/api/meters/${meterId}/top-ups/${topUp.id}`,
       expect.objectContaining({ credentials: 'include', method: 'DELETE' }),
     );
   });

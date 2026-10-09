@@ -7,13 +7,14 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 import type { Meter } from './api';
 
 type MeterWorkspaceProps = {
   meters: Meter[];
   selectedMeter: Meter | null;
+  selectedContent?: ReactNode;
   isAdmin: boolean;
   loading: boolean;
   busy: boolean;
@@ -32,6 +33,7 @@ type MeterWorkspaceProps = {
 export function MeterWorkspace({
   meters,
   selectedMeter,
+  selectedContent,
   isAdmin,
   loading,
   busy,
@@ -75,10 +77,11 @@ export function MeterWorkspace({
         >
           <Typography sx={{ fontWeight: 800 }}>Not enough data</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.75 }} variant="body2">
-            Add balance and purchased-kWh history in the next step before Monitor
-            calculates any estimates.
+            Monitor needs at least two valid actual balances before it can calculate
+            usage or remaining-day estimates.
           </Typography>
         </Box>
+        {selectedContent}
         <Box component="form" onSubmit={onRename}>
           <Stack spacing={1.25}>
             <TextField

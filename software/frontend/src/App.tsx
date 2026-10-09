@@ -12,21 +12,53 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { LoginPanel, SignedInPanel, type LoginStep } from './AuthPanels';
+import { LedgerPanel, type LedgerItem } from './LedgerPanel';
 import { MeterWorkspace } from './MeterWorkspace';
 import {
   ApiError,
+  createBalance,
   createMeter,
+  createTopUp,
+  deleteBalance,
   deleteMeter,
+  deleteTopUp,
   getCurrentUser,
   getMeter,
+  listBalances,
   listMeters,
+  listTopUps,
   logout,
   renameMeter,
   requestOtp,
+  updateBalance,
+  updateTopUp,
   verifyOtp,
+  type BalanceEntry,
   type Meter,
+  type TopUpEntry,
   type User,
 } from './api';
+
+function newestFirst<T extends { occurred_at: string; id: string }>(items: T[]): T[] {
+  return [...items].sort(
+    (left, right) =>
+      right.occurred_at.localeCompare(left.occurred_at) ||
+      right.id.localeCompare(left.id),
+  );
+}
+
+function ledgerFailure(error: unknown, action: string): string {
+  if (error instanceof ApiError && error.status === 409) {
+    return 'An actual balance already exists at that date and time.';
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return 'Check the kWh value and date. Future dates are not allowed.';
+  }
+  if (error instanceof ApiError && error.status === 404) {
+    return 'That entry or meter is no longer available. Return to the meter list.';
+  }
+  return `The ${action} could not be completed. Try again.`;
+}
 
 const theme = createTheme({
   palette: {
@@ -61,6 +93,11 @@ export default function App() {
   const [metersLoading, setMetersLoading] = useState(false);
   const [meterBusy, setMeterBusy] = useState(false);
   const [meterError, setMeterError] = useState('');
+  const [balances, setBalances] = useState<BalanceEntry[]>([]);
+  const [topUps, setTopUps] = useState<TopUpEntry[]>([]);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerBusy, setLedgerBusy] = useState(false);
+  const [ledgerError, setLedgerError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -83,6 +120,8 @@ export default function App() {
     if (!user) {
       setMeters([]);
       setSelectedMeter(null);
+      setBalances([]);
+      setTopUps([]);
       return;
     }
     let active = true;
@@ -188,15 +227,130 @@ export default function App() {
 
   async function handleSelectMeter(meter: Meter) {
     setMeterBusy(true);
+    setLedgerLoading(true);
     setMeterError('');
+    setLedgerError('');
+    setBalances([]);
+    setTopUps([]);
     try {
       const selected = await getMeter(meter.id);
+      const [actualBalances, purchasedTopUps] = await Promise.all([
+        listBalances(selected.id),
+        listTopUps(selected.id),
+      ]);
       setSelectedMeter(selected);
       setEditMeterName(selected.name);
+      setBalances(actualBalances);
+      setTopUps(purchasedTopUps);
     } catch {
-      setMeterError('That meter could not be opened. Refresh and try again.');
+      setMeterError('That meter or its history could not be opened. Try again.');
     } finally {
       setMeterBusy(false);
+      setLedgerLoading(false);
+    }
+  }
+
+  async function handleCreateBalance(kwh: string, occurredAt: string) {
+    if (!selectedMeter) return false;
+    setLedgerBusy(true);
+    setLedgerError('');
+    try {
+      const entry = await createBalance(selectedMeter.id, kwh, occurredAt);
+      setBalances((current) => newestFirst([...current, entry]));
+      return true;
+    } catch (requestError) {
+      setLedgerError(ledgerFailure(requestError, 'balance'));
+      return false;
+    } finally {
+      setLedgerBusy(false);
+    }
+  }
+
+  async function handleCreateTopUp(kwh: string, occurredAt: string) {
+    if (!selectedMeter) return false;
+    setLedgerBusy(true);
+    setLedgerError('');
+    try {
+      const entry = await createTopUp(selectedMeter.id, kwh, occurredAt);
+      setTopUps((current) => newestFirst([...current, entry]));
+      return true;
+    } catch (requestError) {
+      setLedgerError(ledgerFailure(requestError, 'top-up'));
+      return false;
+    } finally {
+      setLedgerBusy(false);
+    }
+  }
+
+  async function handleUpdateEntry(
+    item: LedgerItem,
+    kwh: string,
+    occurredAt: string,
+  ) {
+    if (!selectedMeter) return false;
+    setLedgerBusy(true);
+    setLedgerError('');
+    try {
+      if (item.kind === 'balance') {
+        const entry = await updateBalance(
+          selectedMeter.id,
+          item.entry.id,
+          kwh,
+          occurredAt,
+        );
+        setBalances((current) =>
+          newestFirst(
+            current.map((existing) =>
+              existing.id === entry.id ? entry : existing,
+            ),
+          ),
+        );
+      } else {
+        const entry = await updateTopUp(
+          selectedMeter.id,
+          item.entry.id,
+          kwh,
+          occurredAt,
+        );
+        setTopUps((current) =>
+          newestFirst(
+            current.map((existing) =>
+              existing.id === entry.id ? entry : existing,
+            ),
+          ),
+        );
+      }
+      return true;
+    } catch (requestError) {
+      setLedgerError(ledgerFailure(requestError, 'correction'));
+      return false;
+    } finally {
+      setLedgerBusy(false);
+    }
+  }
+
+  async function handleDeleteEntry(item: LedgerItem) {
+    if (!selectedMeter) return false;
+    setLedgerBusy(true);
+    setLedgerError('');
+    try {
+      if (item.kind === 'balance') {
+        await deleteBalance(selectedMeter.id, item.entry.id);
+        setBalances((current) =>
+          current.filter((entry) => entry.id !== item.entry.id),
+        );
+      } else {
+        await deleteTopUp(selectedMeter.id, item.entry.id);
+        setTopUps((current) =>
+          current.filter((entry) => entry.id !== item.entry.id),
+        );
+      }
+      return true;
+    } catch (requestError) {
+      setLedgerError(ledgerFailure(requestError, 'entry'));
+      return false;
+    } finally {
+      setLedgerBusy(false);
     }
   }
 
@@ -238,6 +392,8 @@ export default function App() {
       );
       setSelectedMeter(null);
       setEditMeterName('');
+      setBalances([]);
+      setTopUps([]);
     } catch {
       setMeterError('The meter could not be deleted. Try again.');
     } finally {
@@ -284,6 +440,9 @@ export default function App() {
                   onBack={() => {
                     setSelectedMeter(null);
                     setMeterError('');
+                    setLedgerError('');
+                    setBalances([]);
+                    setTopUps([]);
                   }}
                   onCreate={handleCreateMeter}
                   onDelete={handleDeleteMeter}
@@ -291,6 +450,22 @@ export default function App() {
                   onNameChange={setMeterName}
                   onRename={handleRenameMeter}
                   onSelect={handleSelectMeter}
+                  selectedContent={
+                    selectedMeter ? (
+                      <LedgerPanel
+                        key={selectedMeter.id}
+                        balances={balances}
+                        busy={ledgerBusy}
+                        error={ledgerError}
+                        loading={ledgerLoading}
+                        onCreateBalance={handleCreateBalance}
+                        onCreateTopUp={handleCreateTopUp}
+                        onDelete={handleDeleteEntry}
+                        onUpdate={handleUpdateEntry}
+                        topUps={topUps}
+                      />
+                    ) : undefined
+                  }
                   selectedMeter={selectedMeter}
                 />
               </SignedInPanel>

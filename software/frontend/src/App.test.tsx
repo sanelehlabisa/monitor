@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 
 import App from './App';
 import { LoginPanel, SignedInPanel } from './AuthPanels';
+import { LedgerPanel } from './LedgerPanel';
 import { MeterWorkspace } from './MeterWorkspace';
 
 const noAction = () => undefined;
+const yes = async () => true;
 
 describe('Monitor authentication UI', () => {
   it('renders branded session loading without claiming data exists', () => {
@@ -141,7 +143,7 @@ describe('Monitor authentication UI', () => {
     expect(listMarkup).toContain('Home');
     expect(selectedMarkup).toContain('Back to meters');
     expect(selectedMarkup).toContain('Not enough data');
-    expect(selectedMarkup).toContain('balance and purchased-kWh history');
+    expect(selectedMarkup).toContain('at least two valid actual balances');
     expect(selectedMarkup).toContain('Save name');
     expect(selectedMarkup).toContain('Delete meter');
   });
@@ -184,5 +186,67 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('All meters');
     expect(markup).toContain('Admin');
     expect(markup).toContain('owner@example.test');
+  });
+
+  it('renders factual manual-entry actions and combined history', () => {
+    const balance = {
+      id: '00000000-0000-0000-0000-000000000010',
+      meter_id: '00000000-0000-0000-0000-000000000001',
+      balance_kwh: '42.125',
+      occurred_at: '2026-10-09T10:00:00Z',
+      created_at: '2026-10-09T10:01:00Z',
+      updated_at: '2026-10-09T10:01:00Z',
+    };
+    const topUp = {
+      id: '00000000-0000-0000-0000-000000000020',
+      meter_id: balance.meter_id,
+      top_up_kwh: '20.500',
+      occurred_at: '2026-10-09T11:00:00Z',
+      created_at: '2026-10-09T11:01:00Z',
+      updated_at: '2026-10-09T11:01:00Z',
+    };
+    const markup = renderToStaticMarkup(
+      <LedgerPanel
+        balances={[balance]}
+        busy={false}
+        error=""
+        loading={false}
+        onCreateBalance={yes}
+        onCreateTopUp={yes}
+        onDelete={yes}
+        onUpdate={yes}
+        topUps={[topUp]}
+      />,
+    );
+
+    expect(markup).toContain('Latest actual balance');
+    expect(markup).toContain('42.125 kWh');
+    expect(markup).toContain('Record balance');
+    expect(markup).toContain('Record top-up');
+    expect(markup).toContain('Actual balance');
+    expect(markup).toContain('Purchased top-up');
+    expect(markup).toContain('20.500 kWh');
+    expect(markup).toContain('Edit');
+    expect(markup).toContain('Delete');
+  });
+
+  it('renders an honest empty ledger without estimates', () => {
+    const markup = renderToStaticMarkup(
+      <LedgerPanel
+        balances={[]}
+        busy={false}
+        error=""
+        loading={false}
+        onCreateBalance={yes}
+        onCreateTopUp={yes}
+        onDelete={yes}
+        onUpdate={yes}
+        topUps={[]}
+      />,
+    );
+
+    expect(markup).toContain('No actual balance recorded yet');
+    expect(markup).toContain('No balance or top-up entries yet');
+    expect(markup).not.toContain('remaining days');
   });
 });

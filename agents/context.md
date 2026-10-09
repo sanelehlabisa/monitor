@@ -99,12 +99,14 @@ They remain future research if automated meter capture is later justified.
   repeated occurrence times and the same scoped correction/deletion behavior.
 - Task 021 exposes nested authenticated balance/top-up CRUD, rejects future or
   timezone-naive events and applies the established user/admin meter scope.
+- Task 022 completes the balance/top-up delivery with mobile-first Material UI
+  entry, correction, deletion, latest-actual and combined-history states.
 
 After login, the active product flow is a list of the user's nickname-only
-software meter profiles. Selecting one meter will lead to its balance and
-purchased-kWh entry actions, history, estimated remaining balance/days and
-30-day purchase recommendation. These capabilities arrive through Tickets
-49-54; the login UI must not fabricate them early.
+software meter profiles. Selecting one meter now provides balance and
+purchased-kWh entry actions plus factual history. Estimated remaining balance,
+days, run-out date and the 30-day purchase recommendation remain Tickets 52-54;
+the UI continues to show `Not enough data` rather than fabricating them.
 
 Forecasting uses one reviewed deterministic method for every meter and
 recalculates from that meter's history whenever a new point is added. History

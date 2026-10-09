@@ -52,9 +52,11 @@ development-only examples and must not be exposed as production configuration.
 
 The API health baseline, raw SQL migrations and Material UI shell exist. Tickets
 43-46 implement email OTP delivery, digest-only sessions, the human auth API and
-the Material UI login flow with secure HTTP-only cookie transport. Tasks 015-017
-add raw-SQL meter profiles, authorised CRUD and the signed-in name-only
-list/create/select flow without fabricating balance data. Ticket 48 confirmed
+the Material UI login flow with secure HTTP-only cookie transport. Tasks 015-018
+complete raw-SQL meter profiles, authorised CRUD and signed-in user/admin meter
+management. Tasks 019-022 complete raw-SQL balance/top-up persistence,
+authorised nested CRUD and the mobile manual-entry/history UI. Forecasts remain
+separate later work and stay visibly `Not enough data`. Ticket 48 confirmed
 active runtime code has no obsolete device/OCR integration.
 
 After changing frontend dependencies, refresh an existing named volume:

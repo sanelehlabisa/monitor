@@ -12,6 +12,24 @@ export type Meter = {
   updated_at: string;
 };
 
+export type BalanceEntry = {
+  id: string;
+  meter_id: string;
+  balance_kwh: string;
+  occurred_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TopUpEntry = {
+  id: string;
+  meter_id: string;
+  top_up_kwh: string;
+  occurred_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export class ApiError extends Error {
   constructor(public readonly status: number) {
     super(`Monitor API returned ${status}`);
@@ -86,4 +104,76 @@ export function renameMeter(id: string, name: string): Promise<Meter> {
 
 export async function deleteMeter(id: string): Promise<void> {
   await apiRequest(`/api/meters/${id}`, { method: 'DELETE' });
+}
+
+export function listBalances(meterId: string): Promise<BalanceEntry[]> {
+  return apiRequest(`/api/meters/${meterId}/balances`);
+}
+
+export function createBalance(
+  meterId: string,
+  balanceKwh: string,
+  occurredAt: string,
+): Promise<BalanceEntry> {
+  return apiRequest(`/api/meters/${meterId}/balances`, {
+    method: 'POST',
+    body: JSON.stringify({ balance_kwh: balanceKwh, occurred_at: occurredAt }),
+  });
+}
+
+export function updateBalance(
+  meterId: string,
+  entryId: string,
+  balanceKwh: string,
+  occurredAt: string,
+): Promise<BalanceEntry> {
+  return apiRequest(`/api/meters/${meterId}/balances/${entryId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ balance_kwh: balanceKwh, occurred_at: occurredAt }),
+  });
+}
+
+export async function deleteBalance(
+  meterId: string,
+  entryId: string,
+): Promise<void> {
+  await apiRequest(`/api/meters/${meterId}/balances/${entryId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function listTopUps(meterId: string): Promise<TopUpEntry[]> {
+  return apiRequest(`/api/meters/${meterId}/top-ups`);
+}
+
+export function createTopUp(
+  meterId: string,
+  topUpKwh: string,
+  occurredAt: string,
+): Promise<TopUpEntry> {
+  return apiRequest(`/api/meters/${meterId}/top-ups`, {
+    method: 'POST',
+    body: JSON.stringify({ top_up_kwh: topUpKwh, occurred_at: occurredAt }),
+  });
+}
+
+export function updateTopUp(
+  meterId: string,
+  entryId: string,
+  topUpKwh: string,
+  occurredAt: string,
+): Promise<TopUpEntry> {
+  return apiRequest(`/api/meters/${meterId}/top-ups/${entryId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ top_up_kwh: topUpKwh, occurred_at: occurredAt }),
+  });
+}
+
+export async function deleteTopUp(
+  meterId: string,
+  entryId: string,
+): Promise<void> {
+  await apiRequest(`/api/meters/${meterId}/top-ups/${entryId}`, {
+    method: 'DELETE',
+  });
 }
