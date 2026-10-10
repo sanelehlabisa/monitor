@@ -54,6 +54,14 @@ def test_meter_crud_is_ordered_and_owner_scoped() -> None:
                 home.id,
                 other_home.id,
             }
+            assert [
+                meter.id for meter in list_meters(connection, first_user, "HOME")
+            ] == [home.id]
+            assert [
+                meter.id
+                for meter in list_meters(connection, None, second_email[:18].upper())
+            ] == [other_home.id]
+            assert list_meters(connection, first_user, "%") == []
             assert get_meter(connection, other_home.id, None).owner_email == second_email
             with raises(MeterNotFoundError):
                 get_meter(connection, other_home.id, first_user)

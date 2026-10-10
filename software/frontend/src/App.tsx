@@ -101,6 +101,7 @@ export default function App() {
   const [meterBusy, setMeterBusy] = useState(false);
   const [meterError, setMeterError] = useState('');
   const [adminMeterView, setAdminMeterView] = useState<AdminMeterView>('mine');
+  const [meterSearch, setMeterSearch] = useState('');
   const [balances, setBalances] = useState<BalanceEntry[]>([]);
   const [topUps, setTopUps] = useState<TopUpEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
@@ -139,6 +140,7 @@ export default function App() {
       setTopUps([]);
       setForecast(null);
       setReminderSettings(null);
+      setMeterSearch('');
       return;
     }
     let active = true;
@@ -226,12 +228,22 @@ export default function App() {
     setMeterError('');
     try {
       const meter = await createMeter(meterName);
-      setMeters((current) =>
-        [...current, meter].sort((left, right) =>
-          left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
-        ),
-      );
       setMeterName('');
+      if (meterSearch.trim()) {
+        setMeterSearch('');
+        try {
+          setMeters(await listMeters());
+        } catch {
+          setMeters((current) => [...current, meter]);
+          setMeterError('Meter added, but the full list could not be reloaded.');
+        }
+      } else {
+        setMeters((current) =>
+          [...current, meter].sort((left, right) =>
+            left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
+          ),
+        );
+      }
     } catch (requestError) {
       setMeterError(
         requestError instanceof ApiError && requestError.status === 409
@@ -240,6 +252,32 @@ export default function App() {
       );
     } finally {
       setMeterBusy(false);
+    }
+  }
+
+  async function handleSearchMeters(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setMetersLoading(true);
+    setMeterError('');
+    try {
+      setMeters(await listMeters(meterSearch));
+    } catch {
+      setMeterError('Meters could not be searched. Try again.');
+    } finally {
+      setMetersLoading(false);
+    }
+  }
+
+  async function handleClearMeterSearch() {
+    setMeterSearch('');
+    setMetersLoading(true);
+    setMeterError('');
+    try {
+      setMeters(await listMeters());
+    } catch {
+      setMeterError('Meters could not be loaded. Try again.');
+    } finally {
+      setMetersLoading(false);
     }
   }
 
@@ -522,11 +560,14 @@ export default function App() {
                     setReminderNotice('');
                   }}
                   onAdminViewChange={setAdminMeterView}
+                  onClearSearch={handleClearMeterSearch}
                   onCreate={handleCreateMeter}
                   onDelete={handleDeleteMeter}
                   onEditNameChange={setEditMeterName}
                   onNameChange={setMeterName}
                   onRename={handleRenameMeter}
+                  onSearch={handleSearchMeters}
+                  onSearchChange={setMeterSearch}
                   onSelect={handleSelectMeter}
                   selectedContent={
                     selectedMeter ? (
@@ -558,6 +599,7 @@ export default function App() {
                     ) : undefined
                   }
                   selectedMeter={selectedMeter}
+                  search={meterSearch}
                 />
               </SignedInPanel>
             ) : (

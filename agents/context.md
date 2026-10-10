@@ -119,6 +119,8 @@ They remain future research if automated meter capture is later justified.
 - Task 031 separates the administrator workspace into `My meters` and `All
   meters`, keeping admin-created profiles owned by the admin while retaining
   full management access to every user's profile.
+- Task 032 adds owner-scoped raw-SQL meter keyword search by profile name or
+  owner email and a minimal frontend Search/Clear form that consumes it.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

@@ -51,6 +51,8 @@ def test_meter_api_enforces_owner_scope_and_admin_access() -> None:
         assert [item["id"] for item in normal.get("/api/meters").json()] == [
             home.json()["id"]
         ]
+        assert normal.get("/api/meters", params={"q": "HOM"}).json() == [home.json()]
+        assert normal.get("/api/meters", params={"q": "Shop"}).json() == []
         assert normal.get(f"/api/meters/{shop.json()['id']}").status_code == 404
         assert normal.patch(
             f"/api/meters/{shop.json()['id']}", json={"name": "Hidden"}
@@ -63,6 +65,10 @@ def test_meter_api_enforces_owner_scope_and_admin_access() -> None:
             normal_email,
             other_email,
         }
+        owner_match = admin.get(
+            "/api/meters", params={"q": other_email[6:24].upper()}
+        )
+        assert [item["id"] for item in owner_match.json()] == [shop.json()["id"]]
         renamed = admin.patch(
             f"/api/meters/{shop.json()['id']}", json={"name": "Workshop"}
         )

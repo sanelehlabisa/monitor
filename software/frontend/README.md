@@ -16,6 +16,11 @@ profiles owned by their admin account. `All meters` shows every system profile
 with owner labels and the same full management controls. Switching views changes
 only presentation; it does not change ownership or backend access policy.
 
+The meter list has an explicit Search/Clear form backed by
+`GET /api/meters?q=...`. Regular users search only their accessible profiles;
+administrators may find system profiles by meter name or owner email. The
+frontend renders the server response and does not duplicate keyword filtering.
+
 Run checks from this directory with:
 
 ```powershell

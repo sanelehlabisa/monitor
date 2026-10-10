@@ -156,6 +156,19 @@ describe('authentication API client', () => {
     );
   });
 
+  it('encodes a server-side meter search keyword', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await listMeters(' owner+shop@example.test ')).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/meters?q=owner%2Bshop%40example.test',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+  });
+
   it('uses nested cookie APIs for both manual ledger resources', async () => {
     const meterId = '00000000-0000-0000-0000-000000000001';
     const balance = {

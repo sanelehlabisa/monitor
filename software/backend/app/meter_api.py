@@ -1,10 +1,10 @@
 """Authenticated CRUD routes for nickname-only meter profiles."""
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field, field_validator
 from psycopg import Connection
 
@@ -49,12 +49,13 @@ class MeterResponse(BaseModel):
 @router.get("", response_model=list[MeterResponse])
 def meters_index(
     request: Request,
+    q: Annotated[str | None, Query(max_length=254)] = None,
     authenticated: AuthenticatedUser = Depends(require_authenticated_user),
 ) -> list[MeterResponse]:
-    """List owned meters, or every meter for a configured administrator."""
+    """List accessible meters, optionally filtered by one keyword."""
 
     with connect_database(request.app.state.settings) as connection:
-        meters = list_meters(connection, meter_owner_scope(authenticated))
+        meters = list_meters(connection, meter_owner_scope(authenticated), q)
     return [_response(meter) for meter in meters]
 
 

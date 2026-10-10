@@ -25,6 +25,7 @@ type MeterWorkspaceProps = {
   error: string;
   name: string;
   editName: string;
+  search: string;
   onNameChange: (name: string) => void;
   onEditNameChange: (name: string) => void;
   onCreate: (event: FormEvent<HTMLFormElement>) => void;
@@ -33,6 +34,9 @@ type MeterWorkspaceProps = {
   onSelect: (meter: Meter) => void;
   onBack: () => void;
   onAdminViewChange: (view: AdminMeterView) => void;
+  onSearchChange: (value: string) => void;
+  onSearch: (event: FormEvent<HTMLFormElement>) => void;
+  onClearSearch: () => void;
 };
 
 export function MeterWorkspace({
@@ -47,6 +51,7 @@ export function MeterWorkspace({
   error,
   name,
   editName,
+  search,
   onNameChange,
   onEditNameChange,
   onCreate,
@@ -55,6 +60,9 @@ export function MeterWorkspace({
   onSelect,
   onBack,
   onAdminViewChange,
+  onSearchChange,
+  onSearch,
+  onClearSearch,
 }: MeterWorkspaceProps) {
   if (selectedMeter) {
     return (
@@ -161,6 +169,29 @@ export function MeterWorkspace({
           </Button>
         </Stack>
       )}
+      <Box component="form" onSubmit={onSearch}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <TextField
+            disabled={busy || loading}
+            fullWidth
+            label="Search meters"
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={isAdmin ? 'Name or owner email' : 'Meter name'}
+            slotProps={{ htmlInput: { maxLength: 254 } }}
+            value={search}
+          />
+          <Button disabled={busy || loading} type="submit" variant="outlined">
+            Search
+          </Button>
+          <Button
+            disabled={busy || loading || !search.trim()}
+            onClick={onClearSearch}
+            type="button"
+          >
+            Clear
+          </Button>
+        </Stack>
+      </Box>
       {error && <Alert severity="error">{error}</Alert>}
       {loading ? (
         <Box sx={{ display: 'grid', minHeight: 140, placeItems: 'center' }}>
@@ -177,7 +208,9 @@ export function MeterWorkspace({
             textAlign: 'center',
           }}
         >
-          <Typography sx={{ fontWeight: 700 }}>{emptyTitle}</Typography>
+          <Typography sx={{ fontWeight: 700 }}>
+            {search.trim() ? 'No meters match this search' : emptyTitle}
+          </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.75 }} variant="body2">
             Add a simple name such as Home or Shop. No meter number or hardware is
             required.

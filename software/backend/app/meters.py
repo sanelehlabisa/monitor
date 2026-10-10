@@ -49,19 +49,32 @@ def create_meter(connection: Connection[Any], user_id: int, name: str) -> Meter:
 
 
 def list_meters(
-    connection: Connection[Any], owner_user_id: int | None
+    connection: Connection[Any],
+    owner_user_id: int | None,
+    query: str | None = None,
 ) -> list[Meter]:
-    """List one owner's meters, or every meter when the scope is unrestricted."""
+    """List accessible meters, optionally matching a name or owner email."""
 
-    where = "" if owner_user_id is None else "WHERE meters.user_id = %s"
-    parameters = () if owner_user_id is None else (owner_user_id,)
+    clauses: list[str] = []
+    parameters: list[object] = []
+    if owner_user_id is not None:
+        clauses.append("meters.user_id = %s")
+        parameters.append(owner_user_id)
+    keyword = query.strip() if query else ""
+    if keyword:
+        clauses.append(
+            "(STRPOS(LOWER(meters.name), LOWER(%s)) > 0 "
+            "OR STRPOS(LOWER(users.email), LOWER(%s)) > 0)"
+        )
+        parameters.extend((keyword, keyword))
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     rows = connection.execute(
         f"""SELECT {METER_COLUMNS}
             FROM monitor.meters AS meters
             JOIN monitor.users AS users ON users.id = meters.user_id
             {where}
             ORDER BY LOWER(meters.name), meters.created_at, meters.id""",
-        parameters,
+        tuple(parameters),
     ).fetchall()
     return [Meter(*row) for row in rows]
 

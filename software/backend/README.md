@@ -69,6 +69,12 @@ Emails listed in comma-separated `MONITOR_ADMIN_EMAILS` may list and manage ever
 existing meter; new meters still belong to the user who creates them.
 Inaccessible and missing IDs share the same HTTP 404 response.
 
+Task 032 adds optional `GET /api/meters?q=keyword` filtering in the raw-SQL
+query. Matching is a case-insensitive literal substring across meter name and
+owner email after the existing user/admin scope is applied. Missing or blank
+keywords retain the complete accessible list; no client-side search, ranking or
+pagination is implied.
+
 Task 019 adds raw-SQL remaining-balance storage and owner-scoped repository
 CRUD. Balance kWh is non-negative with at most three decimal places. Occurrence
 times are timezone-aware and unique per meter, and corrections update both the

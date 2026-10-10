@@ -126,8 +126,11 @@ export async function logout(): Promise<void> {
   await apiRequest('/api/auth/logout', { method: 'POST' });
 }
 
-export function listMeters(): Promise<Meter[]> {
-  return apiRequest('/api/meters');
+export function listMeters(query = ''): Promise<Meter[]> {
+  const keyword = query.trim();
+  return apiRequest(
+    keyword ? `/api/meters?q=${encodeURIComponent(keyword)}` : '/api/meters',
+  );
 }
 
 export function createMeter(name: string): Promise<Meter> {

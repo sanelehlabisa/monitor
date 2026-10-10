@@ -102,13 +102,17 @@ describe('Monitor authentication UI', () => {
           name=""
           onBack={noAction}
           onAdminViewChange={noAction}
+          onClearSearch={noAction}
           onCreate={noAction}
           onDelete={noAction}
           onEditNameChange={noAction}
           onNameChange={noAction}
           onRename={noAction}
+          onSearch={noAction}
+          onSearchChange={noAction}
           onSelect={noAction}
           selectedMeter={null}
+          search=""
         />
       </SignedInPanel>,
     );
@@ -117,6 +121,8 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('No meters yet');
     expect(markup).toContain('Meter name');
     expect(markup).toContain('Add meter');
+    expect(markup).toContain('Search meters');
+    expect(markup).toContain('Clear');
     expect(markup).toContain('user@example.test');
     expect(markup).not.toContain('estimated balance');
   });
@@ -142,13 +148,17 @@ describe('Monitor authentication UI', () => {
         name=""
         onBack={noAction}
         onAdminViewChange={noAction}
+        onClearSearch={noAction}
         onCreate={noAction}
         onDelete={noAction}
         onEditNameChange={noAction}
         onNameChange={noAction}
         onRename={noAction}
+        onSearch={noAction}
+        onSearchChange={noAction}
         onSelect={noAction}
         selectedMeter={null}
+        search=""
       />,
     );
     const selectedMarkup = renderToStaticMarkup(
@@ -164,16 +174,20 @@ describe('Monitor authentication UI', () => {
         name=""
         onBack={noAction}
         onAdminViewChange={noAction}
+        onClearSearch={noAction}
         onCreate={noAction}
         onDelete={noAction}
         onEditNameChange={noAction}
         onNameChange={noAction}
         onRename={noAction}
+        onSearch={noAction}
+        onSearchChange={noAction}
         onSelect={noAction}
         selectedContent={
           <ForecastPanel forecast={notEnoughForecast} loading={false} />
         }
         selectedMeter={meter}
+        search=""
       />,
     );
 
@@ -218,13 +232,17 @@ describe('Monitor authentication UI', () => {
           name=""
           onBack={noAction}
           onAdminViewChange={noAction}
+          onClearSearch={noAction}
           onCreate={noAction}
           onDelete={noAction}
           onEditNameChange={noAction}
           onNameChange={noAction}
           onRename={noAction}
+          onSearch={noAction}
+          onSearchChange={noAction}
           onSelect={noAction}
           selectedMeter={null}
+          search=""
         />
       </SignedInPanel>,
     );
