@@ -11,11 +11,15 @@ import type { FormEvent, ReactNode } from 'react';
 
 import type { Meter } from './api';
 
+export type AdminMeterView = 'mine' | 'all';
+
 type MeterWorkspaceProps = {
   meters: Meter[];
   selectedMeter: Meter | null;
   selectedContent?: ReactNode;
   isAdmin: boolean;
+  currentUserEmail: string;
+  adminView: AdminMeterView;
   loading: boolean;
   busy: boolean;
   error: string;
@@ -28,6 +32,7 @@ type MeterWorkspaceProps = {
   onDelete: () => void;
   onSelect: (meter: Meter) => void;
   onBack: () => void;
+  onAdminViewChange: (view: AdminMeterView) => void;
 };
 
 export function MeterWorkspace({
@@ -35,6 +40,8 @@ export function MeterWorkspace({
   selectedMeter,
   selectedContent,
   isAdmin,
+  currentUserEmail,
+  adminView,
   loading,
   busy,
   error,
@@ -47,6 +54,7 @@ export function MeterWorkspace({
   onDelete,
   onSelect,
   onBack,
+  onAdminViewChange,
 }: MeterWorkspaceProps) {
   if (selectedMeter) {
     return (
@@ -98,6 +106,20 @@ export function MeterWorkspace({
     );
   }
 
+  const visibleMeters =
+    isAdmin && adminView === 'mine'
+      ? meters.filter(
+          (meter) =>
+            meter.owner_email.trim().toLowerCase() ===
+            currentUserEmail.trim().toLowerCase(),
+        )
+      : meters;
+  const emptyTitle = isAdmin
+    ? adminView === 'mine'
+      ? 'No meters owned by this admin account yet'
+      : 'No meters in the system yet'
+    : 'No meters yet';
+
   return (
     <Stack spacing={2.5}>
       <Box component="form" onSubmit={onCreate}>
@@ -121,12 +143,30 @@ export function MeterWorkspace({
           </Button>
         </Stack>
       </Box>
+      {isAdmin && (
+        <Stack direction="row" spacing={1}>
+          <Button
+            fullWidth
+            onClick={() => onAdminViewChange('mine')}
+            variant={adminView === 'mine' ? 'contained' : 'outlined'}
+          >
+            My meters
+          </Button>
+          <Button
+            fullWidth
+            onClick={() => onAdminViewChange('all')}
+            variant={adminView === 'all' ? 'contained' : 'outlined'}
+          >
+            All meters
+          </Button>
+        </Stack>
+      )}
       {error && <Alert severity="error">{error}</Alert>}
       {loading ? (
         <Box sx={{ display: 'grid', minHeight: 140, placeItems: 'center' }}>
           <CircularProgress aria-label="Loading meters" color="inherit" size={28} />
         </Box>
-      ) : meters.length === 0 ? (
+      ) : visibleMeters.length === 0 ? (
         <Box
           sx={{
             bgcolor: 'background.default',
@@ -137,7 +177,7 @@ export function MeterWorkspace({
             textAlign: 'center',
           }}
         >
-          <Typography sx={{ fontWeight: 700 }}>No meters yet</Typography>
+          <Typography sx={{ fontWeight: 700 }}>{emptyTitle}</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.75 }} variant="body2">
             Add a simple name such as Home or Shop. No meter number or hardware is
             required.
@@ -145,7 +185,7 @@ export function MeterWorkspace({
         </Box>
       ) : (
         <Stack spacing={1}>
-          {meters.map((meter) => (
+          {visibleMeters.map((meter) => (
             <Button
               key={meter.id}
               onClick={() => onSelect(meter)}
@@ -161,7 +201,7 @@ export function MeterWorkspace({
                 <Typography component="span" sx={{ display: 'block', fontWeight: 700 }}>
                   {meter.name}
                 </Typography>
-                {isAdmin && (
+                {isAdmin && adminView === 'all' && (
                   <Typography color="text.secondary" component="span" variant="caption">
                     {meter.owner_email}
                   </Typography>

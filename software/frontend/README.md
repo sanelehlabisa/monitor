@@ -11,6 +11,11 @@ email, and the same select/rename/confirmed-delete controls for all meters. New
 meter creation remains intentionally name-only and always belongs to the signed-
 in user.
 
+Administrators default to a `My meters` view so they can quickly create and test
+profiles owned by their admin account. `All meters` shows every system profile
+with owner labels and the same full management controls. Switching views changes
+only presentation; it does not change ownership or backend access policy.
+
 Run checks from this directory with:
 
 ```powershell

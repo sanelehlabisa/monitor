@@ -121,7 +121,7 @@ retained authentication IDs appear before newer product tickets.
 - [x] Ticket 46: Email Login UI — session-aware Material UI email/OTP flow
   with Roventics branding (Task 014).
 - [x] Ticket 49: User & Meter Profiles — raw-SQL nickname-only meters,
-  authorised CRUD and Material UI management (Tasks 015-018).
+  authorised CRUD and Material UI user/admin management (Tasks 015-018, 031).
 - [x] Ticket 50: Balance Entries — raw-SQL storage, authorised API and Material UI entry/history management (Tasks 019, 021-022).
 - [x] Ticket 51: Top-Up Entries — raw-SQL storage, authorised API and Material UI entry/history management (Tasks 020-022).
 - [x] Ticket 52: Forecasting Domain — one replaceable deterministic model boundary for tested usage and planning estimates (Tasks 023-024).

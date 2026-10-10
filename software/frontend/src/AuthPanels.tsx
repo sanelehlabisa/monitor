@@ -145,7 +145,7 @@ export function SignedInPanel({
           >
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="h4" component="h1">
-                {user.is_admin ? 'All meters' : 'Your meters'}
+                {user.is_admin ? 'Meter profiles' : 'Your meters'}
               </Typography>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <Typography color="text.secondary" noWrap variant="body2">

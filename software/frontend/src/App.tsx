@@ -14,7 +14,7 @@ import type { FormEvent } from 'react';
 import { LoginPanel, SignedInPanel, type LoginStep } from './AuthPanels';
 import { ForecastPanel } from './ForecastPanel';
 import { LedgerPanel, type LedgerItem } from './LedgerPanel';
-import { MeterWorkspace } from './MeterWorkspace';
+import { MeterWorkspace, type AdminMeterView } from './MeterWorkspace';
 import { ReminderSettingsPanel } from './ReminderSettingsPanel';
 import {
   ApiError,
@@ -100,6 +100,7 @@ export default function App() {
   const [metersLoading, setMetersLoading] = useState(false);
   const [meterBusy, setMeterBusy] = useState(false);
   const [meterError, setMeterError] = useState('');
+  const [adminMeterView, setAdminMeterView] = useState<AdminMeterView>('mine');
   const [balances, setBalances] = useState<BalanceEntry[]>([]);
   const [topUps, setTopUps] = useState<TopUpEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
@@ -209,6 +210,7 @@ export default function App() {
     try {
       await logout();
       setUser(null);
+      setAdminMeterView('mine');
       setStep('email');
       setEmail('');
     } catch {
@@ -499,7 +501,9 @@ export default function App() {
                 user={user}
               >
                 <MeterWorkspace
+                  adminView={adminMeterView}
                   busy={meterBusy}
+                  currentUserEmail={user.email}
                   editName={editMeterName}
                   error={meterError}
                   isAdmin={user.is_admin}
@@ -517,6 +521,7 @@ export default function App() {
                     setReminderError('');
                     setReminderNotice('');
                   }}
+                  onAdminViewChange={setAdminMeterView}
                   onCreate={handleCreateMeter}
                   onDelete={handleDeleteMeter}
                   onEditNameChange={setEditMeterName}

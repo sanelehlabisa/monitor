@@ -60,6 +60,8 @@ one replaceable deterministic forecast model, an authorised derived dashboard
 API and responsive planning estimates that retain honest unavailable states.
 Tasks 027-030 complete opt-in raw-SQL reminder preferences, durable finite email
 delivery, authenticated owner/admin APIs and per-meter Material UI controls.
+Task 031 makes administrator testing clearer with separate owned and system-wide
+meter views without changing ownership or backend access policy.
 Ticket 48 confirmed active runtime code has no obsolete device/OCR integration.
 
 After changing frontend dependencies, refresh an existing named volume:

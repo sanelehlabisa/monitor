@@ -91,7 +91,9 @@ describe('Monitor authentication UI', () => {
         user={{ id: 7, email: 'user@example.test', is_admin: false }}
       >
         <MeterWorkspace
+          adminView="mine"
           busy={false}
+          currentUserEmail="user@example.test"
           editName=""
           error=""
           isAdmin={false}
@@ -99,6 +101,7 @@ describe('Monitor authentication UI', () => {
           meters={[]}
           name=""
           onBack={noAction}
+          onAdminViewChange={noAction}
           onCreate={noAction}
           onDelete={noAction}
           onEditNameChange={noAction}
@@ -128,7 +131,9 @@ describe('Monitor authentication UI', () => {
     };
     const listMarkup = renderToStaticMarkup(
       <MeterWorkspace
+        adminView="mine"
         busy={false}
+        currentUserEmail="user@example.test"
         editName=""
         error=""
         isAdmin={false}
@@ -136,6 +141,7 @@ describe('Monitor authentication UI', () => {
         meters={[meter]}
         name=""
         onBack={noAction}
+        onAdminViewChange={noAction}
         onCreate={noAction}
         onDelete={noAction}
         onEditNameChange={noAction}
@@ -147,7 +153,9 @@ describe('Monitor authentication UI', () => {
     );
     const selectedMarkup = renderToStaticMarkup(
       <MeterWorkspace
+        adminView="mine"
         busy={false}
+        currentUserEmail="user@example.test"
         editName="Home"
         error=""
         isAdmin={false}
@@ -155,6 +163,7 @@ describe('Monitor authentication UI', () => {
         meters={[meter]}
         name=""
         onBack={noAction}
+        onAdminViewChange={noAction}
         onCreate={noAction}
         onDelete={noAction}
         onEditNameChange={noAction}
@@ -176,15 +185,21 @@ describe('Monitor authentication UI', () => {
     expect(selectedMarkup).toContain('Delete meter');
   });
 
-  it('labels the admin view and identifies meter owners', () => {
-    const meter = {
+  it('separates admin-owned meters from the owner-labelled system view', () => {
+    const otherMeter = {
       id: '00000000-0000-0000-0000-000000000002',
       name: 'Shop',
       owner_email: 'owner@example.test',
       created_at: '2026-10-09T10:00:00Z',
       updated_at: '2026-10-09T10:00:00Z',
     };
-    const markup = renderToStaticMarkup(
+    const ownMeter = {
+      ...otherMeter,
+      id: '00000000-0000-0000-0000-000000000003',
+      name: 'Admin home',
+      owner_email: 'admin@example.test',
+    };
+    const renderAdminView = (adminView: 'mine' | 'all') => renderToStaticMarkup(
       <SignedInPanel
         busy={false}
         error=""
@@ -192,14 +207,17 @@ describe('Monitor authentication UI', () => {
         user={{ id: 9, email: 'admin@example.test', is_admin: true }}
       >
         <MeterWorkspace
+          adminView={adminView}
           busy={false}
+          currentUserEmail="admin@example.test"
           editName=""
           error=""
           isAdmin
           loading={false}
-          meters={[meter]}
+          meters={[ownMeter, otherMeter]}
           name=""
           onBack={noAction}
+          onAdminViewChange={noAction}
           onCreate={noAction}
           onDelete={noAction}
           onEditNameChange={noAction}
@@ -210,10 +228,18 @@ describe('Monitor authentication UI', () => {
         />
       </SignedInPanel>,
     );
+    const mineMarkup = renderAdminView('mine');
+    const allMarkup = renderAdminView('all');
 
-    expect(markup).toContain('All meters');
-    expect(markup).toContain('Admin');
-    expect(markup).toContain('owner@example.test');
+    expect(mineMarkup).toContain('Meter profiles');
+    expect(mineMarkup).toContain('My meters');
+    expect(mineMarkup).toContain('All meters');
+    expect(mineMarkup).toContain('Admin home');
+    expect(mineMarkup).not.toContain('Shop');
+    expect(allMarkup).toContain('Admin home');
+    expect(allMarkup).toContain('Shop');
+    expect(allMarkup).toContain('admin@example.test');
+    expect(allMarkup).toContain('owner@example.test');
   });
 
   it('renders factual manual-entry actions and combined history', () => {

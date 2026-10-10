@@ -116,6 +116,9 @@ They remain future research if automated meter capture is later justified.
   without exposing or triggering the delivery runner.
 - Task 030 adds per-meter Material UI reminder controls with disabled defaults,
   browser timezone capture and clear forecast limitations.
+- Task 031 separates the administrator workspace into `My meters` and `All
+  meters`, keeping admin-created profiles owned by the admin while retaining
+  full management access to every user's profile.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh
