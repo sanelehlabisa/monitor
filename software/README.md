@@ -71,7 +71,13 @@ After changing frontend dependencies, refresh an existing named volume:
 
 ```powershell
 docker compose -f dev.docker-compose.yaml run --rm --no-deps frontend npm ci
+docker compose -f dev.docker-compose.yaml restart frontend
 ```
+
+The existing frontend dependency volume survives image rebuilds. Refresh it
+after lockfile changes, then restart Vite so it loads the new dependencies.
+Frontend file watching uses polling for reliable Docker Desktop bind-mount
+reload. A practical local walkthrough is in the frontend README.
 
 ## V1 product boundary
 

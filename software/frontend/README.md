@@ -21,6 +21,11 @@ The meter list has an explicit Search/Clear form backed by
 administrators may find system profiles by meter name or owner email. The
 frontend renders the server response and does not duplicate keyword filtering.
 
+Development uses polling to watch bind-mounted sources because Docker Desktop
+can miss native file-change events. When dependencies change, refresh the named
+frontend dependency volume and restart the frontend as described in the software
+README; rebuilding an image alone does not update an existing dependency volume.
+
 Run checks from this directory with:
 
 ```powershell
@@ -78,3 +83,37 @@ settings still default off, with the existing hardcoded monthly day 1 and
 predicted-low-balance lead time of 3 days; the browser makes no reminder calls.
 
 Hardware status, OCR, anomaly, tariff and payment screens are not V1.
+
+## Repeatable local demo
+
+Use a separate test email and a new meter named `Demo Home`. Get the sign-in code
+from local Mailpit at `http://localhost:8025`. Dates below are relative to now;
+use the same local clock time for all three records.
+
+| Tab | Record time | kWh |
+| --- | --- | --- |
+| Balance records | Eleven days ago | 100 |
+| Top-up records | Six days ago | 20 |
+| Balance records | Yesterday | 80 |
+
+The interval used 40 kWh over ten days: `(100 + 20 - 80) / 10 = 4 kWh/day`.
+The planning card should show approximately 76 kWh now, 19 days remaining,
+a run-out/top-up-by date 19 days from now and 44 kWh needed for the next 30 days.
+The latest actual reading stays 80 kWh at yesterday's observation time. Small
+differences are expected as time passes; the 44 kWh recommendation accounts for
+the estimated 76 kWh already available.
+
+1. Edit yesterday's balance to 70 kWh. The usage rate should refresh to 5 kWh/day
+   without reopening the meter. Restore it to 80 afterward.
+2. Edit the top-up to 30 kWh; the rate should become 5 kWh/day. Restore 20 kWh.
+3. Delete yesterday's balance and confirm the prompt. One remaining reading
+   should show `Not enough data`; add yesterday's 80 kWh reading again.
+4. Reopen the meter or reload the page. The records and session should persist.
+5. In another browser profile, sign in with a second test email. The first
+   user's meter must be absent. A configured admin can instead select `All
+   meters`, search by the owner's email and manage that meter.
+6. Delete only the demo meter when finished and sign out.
+
+Input times use the browser's local timezone; the API and database retain the
+equivalent UTC instants. This walkthrough verifies the technical flow. A real
+household trial is still needed to establish whether manual entry is convenient.

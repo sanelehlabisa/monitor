@@ -125,6 +125,11 @@ They remain future research if automated meter capture is later justified.
   planning summary, a meter/owner header and separate balance/top-up tabs. It
   removes reminder configuration and requests from the frontend while leaving
   the reminder backend, disabled defaults and existing opt-ins unchanged.
+- Task 034 verifies the live browser sign-in, meter/ledger/forecast flow, UTC/local
+  timestamps, user isolation and admin access. It enables Vite polling after
+  finding stale Docker-served modules, refreshes the existing frontend dependency
+  volume and documents a repeatable local demo. Technical checks passed; Ticket
+  56 remains open for real household usability feedback before deployment.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh
