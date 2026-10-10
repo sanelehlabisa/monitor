@@ -53,6 +53,11 @@ default. Saved settings constrain monthly days to 1-28, positive warning lead
 days to at most 30, and a trimmed IANA timezone name. Rows cascade with their
 meter; email delivery history is introduced separately.
 
+Migration `008_reminder_deliveries.sql` adds durable monthly/low-balance claims
+with unique per-meter type/dedupe keys. Pending claims may be recovered by the
+runner after a timeout; successful sends record their completion time. Rows
+cascade with the meter and do not duplicate the owner's email address.
+
 ## Planned product data
 
 The modular schema tickets should introduce only the data each feature needs:

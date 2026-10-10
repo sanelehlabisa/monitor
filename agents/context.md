@@ -110,6 +110,8 @@ They remain future research if automated meter capture is later justified.
   automatic dashboard refresh after every successful ledger change.
 - Task 027 adds opt-in raw-SQL reminder preferences per meter, including monthly
   day, predicted-low-balance lead days and browser-supplied IANA timezone.
+- Task 028 adds durable reminder delivery claims and a finite runner that sends
+  owner-only monthly/low-balance email through the existing SMTP boundary.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

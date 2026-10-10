@@ -108,6 +108,16 @@ from 1-28, positive low-balance lead days up to 30 and a validated IANA timezone
 captured by a later browser UI. Missing rows return safe disabled defaults and
 settings cascade when their meter is deleted.
 
+Task 028 adds `python -m app.reminder_runner`, a finite command intended for an
+external scheduler configured during deployment. It evaluates opted-in meters
+in their saved timezone, calls only `run_forecast_model`, and sends email to the
+meter owner through the existing SMTP boundary. Monthly reminders deduplicate by
+local month and still request a fresh reading when no forecast exists.
+Low-balance reminders require an available forecast and deduplicate by predicted
+local run-out date. Durable claims prevent overlapping normal sends, recover
+after 30 minutes if abandoned, and are released immediately after SMTP failure.
+The command logs aggregate counts only. No background service is introduced.
+
 Authenticated users will create and select their own nickname-only meter
 profiles, then record:
 
