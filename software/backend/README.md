@@ -102,6 +102,12 @@ history and the current forecast result. The endpoint uses established
 owner/admin scope and recalculates through `run_forecast_model` on every request;
 it does not cache or persist estimates.
 
+Task 027 adds raw-SQL per-meter reminder preferences. Both monthly and
+predicted-low-balance emails default to disabled. Saved settings contain a day
+from 1-28, positive low-balance lead days up to 30 and a validated IANA timezone
+captured by a later browser UI. Missing rows return safe disabled defaults and
+settings cascade when their meter is deleted.
+
 Authenticated users will create and select their own nickname-only meter
 profiles, then record:
 

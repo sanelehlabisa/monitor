@@ -108,6 +108,8 @@ They remain future research if automated meter capture is later justified.
   latest actual data, separate ledgers, combined factual history and forecasts.
 - Task 026 completes Ticket 54 with responsive Material UI estimate cards and
   automatic dashboard refresh after every successful ledger change.
+- Task 027 adds opt-in raw-SQL reminder preferences per meter, including monthly
+  day, predicted-low-balance lead days and browser-supplied IANA timezone.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

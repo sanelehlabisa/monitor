@@ -47,12 +47,18 @@ UUID entry belongs to one meter, stores positive `NUMERIC(12,3)` kWh plus
 occurrence/audit timestamps, and is deleted with its meter. Multiple purchases
 may share an occurrence time and are ordered deterministically by UUID.
 
+Migration `007_reminder_settings.sql` adds one optional preference row per
+meter. Monthly and predicted-low-balance emails are independently disabled by
+default. Saved settings constrain monthly days to 1-28, positive warning lead
+days to at most 30, and a trimmed IANA timezone name. Rows cascade with their
+meter; email delivery history is introduced separately.
+
 ## Planned product data
 
 The modular schema tickets should introduce only the data each feature needs:
 
-Balance and top-up tables are now implemented; forecast outputs remain derived
-later rather than stored as factual readings.
+Balance, top-up and reminder-settings tables are implemented. Forecast outputs
+remain derived rather than stored as factual readings.
 
 Names are planning guidance until their migration tickets approve exact tables,
 columns, constraints and indexes. Store event times consistently (UTC in storage,
