@@ -59,7 +59,7 @@ approved forecasting ticket and must be covered by examples and tests.
 - Identity: passwordless email OTP with secure HTTP-only cookie sessions.
 - Web: React, Vite and Material UI with a mobile-first layout.
 - Development: Docker Compose under `software/dev.docker-compose.yaml`.
-- Reminders: email only after the core ledger and forecasts work.
+- Reminders: opt-in monthly and predicted-low-balance email through a finite runner.
 
 The active data path is manual entry -> REST API -> PostgreSQL -> calculation ->
 dashboard. No new service or AI dependency is needed.
@@ -127,7 +127,7 @@ retained authentication IDs appear before newer product tickets.
 - [x] Ticket 52: Forecasting Domain — one replaceable deterministic model boundary for tested usage and planning estimates (Tasks 023-024).
 - [x] Ticket 53: Dashboard & History API — authorised factual history and freshly derived forecast responses (Task 025).
 - [x] Ticket 54: Forecast Dashboard UI — mobile-first estimate cards, honest unavailable states and refresh after ledger changes (Task 026).
-- [ ] Ticket 55: Email Reminders — monthly and optional predicted low-balance reminders (after 44, 52, 54).
+- [x] Ticket 55: Email Reminders — opt-in monthly and predicted-low-balance email settings, finite delivery runner and Material UI controls (Tasks 027-030).
 - [ ] Ticket 56: End-to-End V1 Validation — multi-user isolation, corrections, edge cases and household usability (after 55).
 - [ ] Ticket 57: Deployment Preparation — production configuration, backups, operations and release checklist (after 56).
 

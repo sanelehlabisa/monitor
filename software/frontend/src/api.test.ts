@@ -10,6 +10,7 @@ import {
   getCurrentUser,
   getDashboard,
   getMeter,
+  getReminderSettings,
   listBalances,
   listMeters,
   listTopUps,
@@ -17,6 +18,7 @@ import {
   requestOtp,
   renameMeter,
   updateBalance,
+  updateReminderSettings,
   updateTopUp,
   verifyOtp,
 } from './api';
@@ -246,6 +248,49 @@ describe('authentication API client', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/meters/${meterId}/dashboard`,
       expect.objectContaining({ credentials: 'include' }),
+    );
+  });
+
+  it('loads and saves per-meter reminder settings through cookie APIs', async () => {
+    const meterId = '00000000-0000-0000-0000-000000000001';
+    const settings = {
+      meter_id: meterId,
+      monthly_enabled: false,
+      monthly_day: 1,
+      low_balance_enabled: false,
+      low_balance_days: '3.00',
+      timezone: 'UTC',
+      created_at: null,
+      updated_at: null,
+    };
+    const input = {
+      monthly_enabled: true,
+      monthly_day: 15,
+      low_balance_enabled: true,
+      low_balance_days: '2.50',
+      timezone: 'Africa/Johannesburg',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(settings), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...settings, ...input }), { status: 200 }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await getReminderSettings(meterId)).toEqual(settings);
+    expect(await updateReminderSettings(meterId, input)).toEqual({
+      ...settings,
+      ...input,
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/meters/${meterId}/reminders`,
+      expect.objectContaining({
+        body: JSON.stringify(input),
+        credentials: 'include',
+        method: 'PATCH',
+      }),
     );
   });
 });

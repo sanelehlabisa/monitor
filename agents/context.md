@@ -17,8 +17,8 @@ required. Each meter belongs to its user in V1, and every API/query must enforce
 that ownership. Sharing and multi-user meter access require later evidence.
 
 V1 does not accept Rand amounts, use tariffs or execute purchases. "Top-up"
-means recording electricity already bought. Email reminders may later prompt a
-monthly purchase or warn about a predicted low balance.
+means recording electricity already bought. Users may opt into monthly planning
+email or a predicted-low-balance email when a valid forecast exists.
 
 ## Forecast contract
 
@@ -112,6 +112,10 @@ They remain future research if automated meter capture is later justified.
   day, predicted-low-balance lead days and browser-supplied IANA timezone.
 - Task 028 adds durable reminder delivery claims and a finite runner that sends
   owner-only monthly/low-balance email through the existing SMTP boundary.
+- Task 029 exposes authenticated owner/admin reminder preference reads and saves
+  without exposing or triggering the delivery runner.
+- Task 030 adds per-meter Material UI reminder controls with disabled defaults,
+  browser timezone capture and clear forecast limitations.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

@@ -24,7 +24,7 @@ npm run build
 2. Create or select a meter/property by nickname.
 3. Record a remaining balance in kWh or a top-up in kWh; date/time defaults to now.
 4. Review the newest-first factual history and correct or delete entries.
-5. Review clearly labeled estimates; email reminders remain later work.
+5. Review clearly labeled estimates and optionally configure email reminders.
 
 The primary entry actions must take only a few seconds on a phone. Do not require
 a municipal meter number, tariff, Rand amount, image or device setup. Show the
@@ -56,5 +56,12 @@ numbers; valid zero use has no fake run-out date. The browser does not calculate
 forecasts. Backend persistence stays explicit raw SQL through Psycopg, with no
 SQLAlchemy, and the replaceable first forecast model is simple math rather than
 ML.
+
+Each selected meter also has independent monthly and predicted-low-balance email
+switches. Both default off. Monthly day is constrained to 1-28; low-balance lead
+time is constrained to 0.01-30 days and only works with a valid forecast. The
+first save captures the browser's IANA timezone. Monthly email may instead ask
+for a fresh balance when no estimate exists. These controls schedule no work in
+the browser and never claim to buy electricity or guarantee an estimate.
 
 Hardware status, OCR, anomaly, tariff and payment screens are not V1.

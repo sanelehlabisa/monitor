@@ -6,7 +6,8 @@ import { LoginPanel, SignedInPanel } from './AuthPanels';
 import { ForecastPanel } from './ForecastPanel';
 import { LedgerPanel } from './LedgerPanel';
 import { MeterWorkspace } from './MeterWorkspace';
-import type { Forecast } from './api';
+import { ReminderSettingsPanel } from './ReminderSettingsPanel';
+import type { Forecast, ReminderSettings } from './api';
 
 const noAction = () => undefined;
 const yes = async () => true;
@@ -21,6 +22,16 @@ const notEnoughForecast: Forecast = {
   run_out_at: null,
   recommended_top_up_30_days_kwh: null,
   intervals_used: 0,
+};
+const reminderDefaults: ReminderSettings = {
+  meter_id: '00000000-0000-0000-0000-000000000001',
+  monthly_enabled: false,
+  monthly_day: 1,
+  low_balance_enabled: false,
+  low_balance_days: '3.00',
+  timezone: 'UTC',
+  created_at: null,
+  updated_at: null,
 };
 
 describe('Monitor authentication UI', () => {
@@ -326,5 +337,82 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('No finite run-out');
     expect(markup).toContain('No run-out at observed use');
     expect(markup).toContain('0.000 kWh');
+  });
+
+  it('renders safe reminder defaults, constraints and browser timezone text', () => {
+    const markup = renderToStaticMarkup(
+      <ReminderSettingsPanel
+        busy={false}
+        error=""
+        loading={false}
+        notice=""
+        onSave={async () => true}
+        settings={reminderDefaults}
+      />,
+    );
+
+    expect(markup).toContain('Email reminders');
+    expect(markup).toContain('Monthly planning email');
+    expect(markup).toContain('Predicted low-balance email');
+    expect(markup).toContain('min="1"');
+    expect(markup).toContain('max="28"');
+    expect(markup).toContain('Timezone:');
+    expect(markup).toContain('never buys electricity');
+    expect(markup).not.toContain('checked=""');
+  });
+
+  it('renders enabled reminder values, forecast limits and save feedback', () => {
+    const markup = renderToStaticMarkup(
+      <ReminderSettingsPanel
+        busy={false}
+        error=""
+        loading={false}
+        notice="Reminder settings saved."
+        onSave={async () => true}
+        settings={{
+          ...reminderDefaults,
+          monthly_enabled: true,
+          monthly_day: 15,
+          low_balance_enabled: true,
+          low_balance_days: '2.50',
+          timezone: 'Africa/Johannesburg',
+          created_at: '2026-10-10T10:00:00Z',
+          updated_at: '2026-10-10T10:00:00Z',
+        }}
+      />,
+    );
+
+    expect(markup.match(/checked=""/g)).toHaveLength(2);
+    expect(markup).toContain('value="15"');
+    expect(markup).toContain('value="2.50"');
+    expect(markup).toContain('Africa/Johannesburg');
+    expect(markup).toContain('requires a valid forecast');
+    expect(markup).toContain('Reminder settings saved.');
+  });
+
+  it('shows reminder loading and request-error feedback', () => {
+    const loadingMarkup = renderToStaticMarkup(
+      <ReminderSettingsPanel
+        busy={false}
+        error=""
+        loading
+        notice=""
+        onSave={async () => true}
+        settings={null}
+      />,
+    );
+    const errorMarkup = renderToStaticMarkup(
+      <ReminderSettingsPanel
+        busy={false}
+        error="Reminder settings could not be loaded. Try again."
+        loading={false}
+        notice=""
+        onSave={async () => true}
+        settings={null}
+      />,
+    );
+
+    expect(loadingMarkup).toContain('Loading reminder settings');
+    expect(errorMarkup).toContain('Reminder settings could not be loaded');
   });
 });
