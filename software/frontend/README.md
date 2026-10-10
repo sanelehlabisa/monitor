@@ -40,6 +40,8 @@ npm run build
 3. Review the prominent planning estimate and its latest factual reading.
 4. Use the Balance records or Top-up records tab to add, correct or delete an
    entry; date/time defaults to the browser's local time.
+5. Use Refresh to request current estimates without adding a record or reopening
+   the meter. Estimates are a snapshot at the displayed local calculation time.
 
 The primary entry actions must take only a few seconds on a phone. Do not require
 a municipal meter number, tariff, Rand amount, image or device setup. Show the
@@ -66,6 +68,15 @@ types. Each tab shows its own newest-first factual history.
 The selected meter dashboard shows latest actual balance separately from the
 estimated current balance, daily use, remaining days, run-out date and 30-day
 kWh recommendation. It reloads the backend dashboard after every ledger change.
+Task 035 adds an icon-labelled Refresh action above the planning summary. It
+uses the same dashboard loader as meter opening and successful ledger changes;
+there is no automatic polling. Refresh is disabled while loading or saving.
+Failed reads hide estimates and show `Estimates unavailable` with retry guidance,
+not a permanent spinner. Already-loaded records remain available after failure.
+If a write succeeded, its form clears and the message confirms it was saved:
+Refresh retries only the read, never the purchase or balance write. Responses
+from a meter left, reopened or signed out of cannot overwrite the newer view.
+
 Insufficient or inconsistent history shows an explicit state without invented
 numbers; valid zero use has no fake run-out date. The browser does not calculate
 forecasts. Backend persistence stays explicit raw SQL through Psycopg, with no
@@ -108,7 +119,8 @@ the estimated 76 kWh already available.
 2. Edit the top-up to 30 kWh; the rate should become 5 kWh/day. Restore 20 kWh.
 3. Delete yesterday's balance and confirm the prompt. One remaining reading
    should show `Not enough data`; add yesterday's 80 kWh reading again.
-4. Reopen the meter or reload the page. The records and session should persist.
+4. Select Refresh to update the calculation time without creating records.
+   Reopen the meter or reload the page; records and the session should persist.
 5. In another browser profile, sign in with a second test email. The first
    user's meter must be absent. A configured admin can instead select `All
    meters`, search by the owner's email and manage that meter.

@@ -29,7 +29,7 @@ function EstimateCard({ label, value }: { label: string; value: string }) {
 }
 
 export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
-  if (loading || !forecast) {
+  if (loading) {
     return (
       <Box sx={{ display: 'grid', minHeight: 120, placeItems: 'center' }}>
         <CircularProgress
@@ -39,6 +39,10 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
         />
       </Box>
     );
+  }
+
+  if (!forecast) {
+    return <Alert severity="warning">Estimates unavailable. Refresh to try again.</Alert>;
   }
 
   const hasActual =

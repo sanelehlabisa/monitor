@@ -65,6 +65,8 @@ meter views without changing ownership or backend access policy.
 Task 032 adds server-side meter search. Task 033 widens the planning dashboard,
 separates manual records into tabs and hides reminder settings in the frontend;
 the backend reminder preferences and delivery runner remain available.
+Task 035 adds manual dashboard refresh and honest retry states after failed
+reads; retrying estimates does not repeat saved ledger writes.
 Ticket 48 confirmed active runtime code has no obsolete device/OCR integration.
 
 After changing frontend dependencies, refresh an existing named volume:

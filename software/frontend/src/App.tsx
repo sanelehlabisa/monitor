@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   CircularProgress,
   Container,
   CssBaseline,
@@ -8,7 +9,8 @@ import {
   Typography,
   createTheme,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { LoginPanel, SignedInPanel, type LoginStep } from './AuthPanels';
@@ -103,6 +105,7 @@ export default function App() {
   const [ledgerBusy, setLedgerBusy] = useState(false);
   const [ledgerError, setLedgerError] = useState('');
   const [forecast, setForecast] = useState<Forecast | null>(null);
+  const dashboardVersion = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -199,6 +202,7 @@ export default function App() {
     setError('');
     try {
       await logout();
+      dashboardVersion.current += 1;
       setUser(null);
       setAdminMeterView('mine');
       setStep('email');
@@ -270,6 +274,7 @@ export default function App() {
   }
 
   async function handleSelectMeter(meter: Meter) {
+    const version = ++dashboardVersion.current;
     setMeterBusy(true);
     setLedgerLoading(true);
     setMeterError('');
@@ -279,16 +284,19 @@ export default function App() {
     setForecast(null);
     try {
       const selected = await getMeter(meter.id);
+      if (version !== dashboardVersion.current) return;
       setSelectedMeter(selected);
       setEditMeterName(selected.name);
-      await getDashboard(selected.id)
-        .then(applyDashboard)
-        .catch(() => setLedgerError('This meter history could not be loaded. Try again.'));
+      await loadDashboard(selected.id, false, version);
     } catch {
-      setMeterError('That meter could not be opened. Try again.');
+      if (version === dashboardVersion.current) {
+        setMeterError('That meter could not be opened. Try again.');
+      }
     } finally {
-      setMeterBusy(false);
-      setLedgerLoading(false);
+      if (version === dashboardVersion.current) {
+        setMeterBusy(false);
+        setLedgerLoading(false);
+      }
     }
   }
 
@@ -298,24 +306,42 @@ export default function App() {
     setForecast(dashboard.forecast);
   }
 
-  async function refreshDashboardAfterMutation(meterId: string) {
+  async function loadDashboard(
+    meterId: string,
+    saved = false,
+    version = dashboardVersion.current,
+  ) {
+    // Navigation invalidates earlier reads, including a reload after a saved write.
+    if (version !== dashboardVersion.current) return;
+    setLedgerLoading(true);
+    setLedgerError('');
+    setForecast(null);
     try {
-      applyDashboard(await getDashboard(meterId));
+      const dashboard = await getDashboard(meterId);
+      if (version === dashboardVersion.current) applyDashboard(dashboard);
     } catch {
-      setLedgerError(
-        'The change was saved, but updated estimates could not be loaded. Reopen the meter.',
-      );
+      if (version === dashboardVersion.current) {
+        setLedgerError(
+          saved
+            ? 'The change was saved, but updated estimates could not be loaded. Refresh to try again.'
+            : 'This meter history could not be loaded. Refresh to try again.',
+        );
+      }
+    } finally {
+      if (version === dashboardVersion.current) setLedgerLoading(false);
     }
   }
 
   async function handleCreateBalance(kwh: string, occurredAt: string) {
     if (!selectedMeter) return false;
+    const version = dashboardVersion.current;
     setLedgerBusy(true);
     setLedgerError('');
     try {
       const entry = await createBalance(selectedMeter.id, kwh, occurredAt);
+      if (version !== dashboardVersion.current) return true;
       setBalances((current) => newestFirst([...current, entry]));
-      await refreshDashboardAfterMutation(selectedMeter.id);
+      await loadDashboard(selectedMeter.id, true, version);
       return true;
     } catch (requestError) {
       setLedgerError(ledgerFailure(requestError, 'balance'));
@@ -327,12 +353,14 @@ export default function App() {
 
   async function handleCreateTopUp(kwh: string, occurredAt: string) {
     if (!selectedMeter) return false;
+    const version = dashboardVersion.current;
     setLedgerBusy(true);
     setLedgerError('');
     try {
       const entry = await createTopUp(selectedMeter.id, kwh, occurredAt);
+      if (version !== dashboardVersion.current) return true;
       setTopUps((current) => newestFirst([...current, entry]));
-      await refreshDashboardAfterMutation(selectedMeter.id);
+      await loadDashboard(selectedMeter.id, true, version);
       return true;
     } catch (requestError) {
       setLedgerError(ledgerFailure(requestError, 'top-up'));
@@ -348,6 +376,7 @@ export default function App() {
     occurredAt: string,
   ) {
     if (!selectedMeter) return false;
+    const version = dashboardVersion.current;
     setLedgerBusy(true);
     setLedgerError('');
     try {
@@ -358,6 +387,7 @@ export default function App() {
           kwh,
           occurredAt,
         );
+        if (version !== dashboardVersion.current) return true;
         setBalances((current) =>
           newestFirst(
             current.map((existing) =>
@@ -372,6 +402,7 @@ export default function App() {
           kwh,
           occurredAt,
         );
+        if (version !== dashboardVersion.current) return true;
         setTopUps((current) =>
           newestFirst(
             current.map((existing) =>
@@ -380,7 +411,7 @@ export default function App() {
           ),
         );
       }
-      await refreshDashboardAfterMutation(selectedMeter.id);
+      await loadDashboard(selectedMeter.id, true, version);
       return true;
     } catch (requestError) {
       setLedgerError(ledgerFailure(requestError, 'correction'));
@@ -392,21 +423,24 @@ export default function App() {
 
   async function handleDeleteEntry(item: LedgerItem) {
     if (!selectedMeter) return false;
+    const version = dashboardVersion.current;
     setLedgerBusy(true);
     setLedgerError('');
     try {
       if (item.kind === 'balance') {
         await deleteBalance(selectedMeter.id, item.entry.id);
+        if (version !== dashboardVersion.current) return true;
         setBalances((current) =>
           current.filter((entry) => entry.id !== item.entry.id),
         );
       } else {
         await deleteTopUp(selectedMeter.id, item.entry.id);
+        if (version !== dashboardVersion.current) return true;
         setTopUps((current) =>
           current.filter((entry) => entry.id !== item.entry.id),
         );
       }
-      await refreshDashboardAfterMutation(selectedMeter.id);
+      await loadDashboard(selectedMeter.id, true, version);
       return true;
     } catch (requestError) {
       setLedgerError(ledgerFailure(requestError, 'entry'));
@@ -449,6 +483,7 @@ export default function App() {
     setMeterError('');
     try {
       await deleteMeter(selectedMeter.id);
+      dashboardVersion.current += 1;
       setMeters((current) =>
         current.filter((meter) => meter.id !== selectedMeter.id),
       );
@@ -503,6 +538,9 @@ export default function App() {
                   meters={meters}
                   name={meterName}
                   onBack={() => {
+                    dashboardVersion.current += 1;
+                    setMeterBusy(false);
+                    setLedgerLoading(false);
                     setSelectedMeter(null);
                     setMeterError('');
                     setLedgerError('');
@@ -523,6 +561,15 @@ export default function App() {
                   selectedContent={
                     selectedMeter ? (
                       <Stack key={selectedMeter.id} spacing={2.5}>
+                        <Button
+                          disabled={ledgerLoading || ledgerBusy || meterBusy}
+                          onClick={() => loadDashboard(selectedMeter.id)}
+                          startIcon={<RefreshIcon />}
+                          sx={{ alignSelf: 'flex-end' }}
+                          variant="outlined"
+                        >
+                          Refresh
+                        </Button>
                         <ForecastPanel
                           forecast={forecast}
                           loading={ledgerLoading}

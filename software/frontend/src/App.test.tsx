@@ -352,6 +352,28 @@ describe('Monitor authentication UI', () => {
     expect(markup).not.toContain('Planning estimate');
   });
 
+  it('shows a retry state rather than loading forever without a forecast', () => {
+    const markup = renderToStaticMarkup(
+      <ForecastPanel forecast={null} loading={false} />,
+    );
+
+    expect(markup).toContain('Estimates unavailable');
+    expect(markup).toContain('Refresh to try again');
+    expect(markup).not.toContain('Loading forecast');
+    expect(markup).not.toContain('Planning estimate');
+    expect(markup).not.toContain('Not enough data');
+  });
+
+  it('shows loading only while a forecast request is pending', () => {
+    const markup = renderToStaticMarkup(
+      <ForecastPanel forecast={notEnoughForecast} loading={true} />,
+    );
+
+    expect(markup).toContain('Loading forecast');
+    expect(markup).not.toContain('Refresh to try again');
+    expect(markup).not.toContain('Not enough data');
+  });
+
   it('explains a valid zero-use forecast without a fake run-out', () => {
     const markup = renderToStaticMarkup(
       <ForecastPanel

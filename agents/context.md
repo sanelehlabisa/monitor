@@ -130,6 +130,14 @@ They remain future research if automated meter capture is later justified.
   finding stale Docker-served modules, refreshes the existing frontend dependency
   volume and documents a repeatable local demo. Technical checks passed; Ticket
   56 remains open for real household usability feedback before deployment.
+- Task 035 completes Ticket 59 with an icon-labelled manual Refresh action and
+  one shared dashboard loader. Failed initial/manual/post-save reads withhold
+  estimates, retain available records and provide retry guidance. Reads never
+  repeat saved writes; navigation/sign-out invalidate older dashboard responses.
+  No automatic refresh, dependency, backend or forecast-model change was added.
+
+Household validation and deployment remain later steps, and the Monitor logo
+still awaits the user-supplied asset.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

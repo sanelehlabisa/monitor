@@ -133,6 +133,8 @@ retained authentication IDs appear before newer product tickets.
 - [x] Ticket 55: Email Reminders — opt-in monthly and predicted-low-balance
   settings, API and finite delivery runner (Tasks 027-030). Task 033 later hid
   configuration from the PoC UI while preserving the backend and existing opt-ins.
+- [x] Ticket 59: Forecast Refresh & Recovery — on-demand dashboard refresh and
+  honest retry states after failed reads, without duplicate saves (Task 035).
 - [ ] Ticket 56: End-to-End V1 Validation — live meter-planning demo, multi-user
   isolation, corrections, edge cases and household usability. Task 034 completed
   the technical demo checks; household validation remains a separate step.
