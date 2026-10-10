@@ -30,6 +30,7 @@ services:
   backend:
     build:
       context: ./backend
+      target: development
     command: >-
       sh -c "python -m app.migrations &&
       exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
@@ -69,6 +70,7 @@ services:
   frontend:
     build:
       context: ./frontend
+      target: development
     command: npm run dev -- --host 0.0.0.0
     volumes:
       - ./frontend:/app

@@ -33,6 +33,20 @@ npm test
 npm run build
 ```
 
+## Docker targets
+
+`development` retains Vite on port 5173 and bind-mount reload. The default
+`production` target builds with the existing npm lockfile and copies only `dist/`
+into `nginx:1.30.5-alpine3.24`; Node/npm and application source are not copied into
+the serving stage. Local `.env*` files are excluded from the build context.
+
+Nginx listens on port 80. It forwards `/api` and `/api/...` to `backend:8000`
+without stripping the API path, while other application routes fall back to
+`index.html`. Missing `/assets/...` files return 404 rather than SPA HTML. A
+backend network alias/service must exist before Nginx starts. HTTPS/public proxy
+configuration is deferred; production cookie login requires HTTPS. Build
+commands and completed image verification are recorded in the software README.
+
 ## Mobile flow
 
 1. Enter email and verify the one-time code.

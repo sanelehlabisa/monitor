@@ -81,6 +81,39 @@ after lockfile changes, then restart Vite so it loads the new dependencies.
 Frontend file watching uses polling for reliable Docker Desktop bind-mount
 reload. A practical local walkthrough is in the frontend README.
 
+## Production images (Task 036 preparation)
+
+The Dockerfiles now have named `development` and `production` targets.
+Development Compose explicitly selects `development`; its commands, mounts,
+ports and runtime environment values are unchanged. Build the production images
+from `software/`:
+
+```powershell
+docker build --target production -t monitor-backend:production ./backend
+docker build --target production -t monitor-frontend:production ./frontend
+```
+
+Production is also the default Dockerfile target. The frontend serves the built
+React assets through Nginx on port 80; the backend runs Uvicorn on port 8000
+without reload, as a non-root user. No local `.env*` files enter either build.
+Runtime credentials must not be passed as build arguments or copied into images.
+
+To run, the frontend needs a reachable `backend:8000` name on its Docker network.
+The backend defaults to production mode and requires a unique
+`MONITOR_OTP_HMAC_SECRET` at runtime. Supply the database, public origin, admin
+and SMTP settings explicitly for the deployment; development defaults are not a
+production configuration. SQL migrations and database setup are not performed by
+the image command. See the component READMEs for the runtime boundaries.
+
+This is image preparation only, not a ready deployment stack. Tasks 037-038
+(production Compose/env and operations) remain unapproved; HTTPS is needed for
+production cookie login. No VPS, DNS, TLS or household database changes are
+included. Both production and development images built successfully after Docker
+recovered. Disposable smoke checks passed for static assets, SPA fallback,
+proxied API errors/cookie headers, process health and production-secret refusal.
+Only task containers/network were removed; existing development services and
+stored data were untouched by these checks.
+
 ## V1 product boundary
 
 Users manage nickname-only meter/property profiles and manually enter actual
@@ -89,5 +122,5 @@ tariff, Rand amount, device credential, image or OCR result. Forecasts must show
 "Not enough data" until valid history supports them and must visibly distinguish
 actual records from estimates.
 
-Production deployment, payment integration, MQTT, hardware and OCR remain out of
-scope until their roadmap status changes through an approved task.
+Actual production deployment, payment integration, MQTT, hardware and OCR remain
+out of scope until their roadmap status changes through an approved task.

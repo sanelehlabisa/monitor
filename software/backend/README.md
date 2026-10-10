@@ -15,6 +15,21 @@ docker compose -f dev.docker-compose.yaml run --rm backend python -m pytest
 probing PostgreSQL. Development CORS allows credentialed
 GET/POST/PATCH/DELETE requests from the configured `MONITOR_CORS_ORIGIN`.
 
+## Docker targets
+
+`development` retains Uvicorn reload and is selected explicitly by development
+Compose. The default `production` target uses the same pinned Python/dependencies
+and app code, starts Uvicorn without `--reload` and runs as numeric UID/GID
+10001. It defaults `MONITOR_ENVIRONMENT` to `production`, so the existing settings
+validator refuses startup with the development OTP secret. Supply the unique
+secret and deployment database/origin/admin/SMTP values at runtime; no credential
+is built into the image. Local `.env*` files are excluded from build context.
+
+The image command does not apply SQL migrations or create a database. Production
+Compose and migration orchestration require Task 037 approval. Process health
+does not validate database/SMTP connectivity. Task 036's image builds and
+disposable production smoke checks passed; see the software README.
+
 ## Authentication foundation
 
 Ticket 43 implements the storage and backend policy used by human

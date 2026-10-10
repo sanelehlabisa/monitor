@@ -139,6 +139,18 @@ They remain future research if automated meter capture is later justified.
 Household validation and deployment remain later steps, and the Monitor logo
 still awaits the user-supplied asset.
 
+Task 036 is complete: production
+targets use a pinned Nginx frontend runtime and non-root Uvicorn without reload;
+development Compose explicitly selects the retained development targets. Local
+env files are excluded and production credentials remain runtime inputs. Docker
+recovered after the earlier approved restart/WSL startup timeout. Both production
+and development images built successfully; disposable checks passed for health,
+static assets, SPA fallback, API proxying/errors, secure cookie headers and
+production-secret refusal. Task containers/network were removed; no stored data
+or existing volumes were removed. The existing four development services are
+healthy. This is preparation under Ticket 57, not authorisation to deploy, change
+DNS or start the remaining deployment work. Household validation remains open.
+
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh
 entry actions, factual history, estimated current balance/days/run-out, and a

@@ -138,7 +138,10 @@ retained authentication IDs appear before newer product tickets.
 - [ ] Ticket 56: End-to-End V1 Validation — live meter-planning demo, multi-user
   isolation, corrections, edge cases and household usability. Task 034 completed
   the technical demo checks; household validation remains a separate step.
-- [ ] Ticket 57: Deployment Preparation — production configuration, backups, operations and release checklist (after 56).
+- [ ] Ticket 57: Deployment Preparation — production images, configuration,
+  backups, operations and release checklist. Task 036 image configuration is
+  complete with production/development builds and disposable smoke checks passed.
+  Actual deployment remains after household validation in 56.
 - [ ] Ticket 58: Monitor App Identity — replace the current company-led mark
   with a user-supplied, recognisable Monitor logo and retain a modest Roventics
   acknowledgement on the website. This is separate from Task 033 and begins only
