@@ -121,6 +121,10 @@ They remain future research if automated meter capture is later justified.
   full management access to every user's profile.
 - Task 032 adds owner-scoped raw-SQL meter keyword search by profile name or
   owner email and a minimal frontend Search/Clear form that consumes it.
+- Task 033 widens and reorganizes the selected-meter UI around a prominent
+  planning summary, a meter/owner header and separate balance/top-up tabs. It
+  removes reminder configuration and requests from the frontend while leaving
+  the reminder backend, disabled defaults and existing opt-ins unchanged.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

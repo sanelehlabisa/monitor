@@ -56,26 +56,6 @@ export type Dashboard = {
   forecast: Forecast;
 };
 
-export type ReminderSettings = {
-  meter_id: string;
-  monthly_enabled: boolean;
-  monthly_day: number;
-  low_balance_enabled: boolean;
-  low_balance_days: string;
-  timezone: string;
-  created_at: string | null;
-  updated_at: string | null;
-};
-
-export type ReminderSettingsInput = Pick<
-  ReminderSettings,
-  | 'monthly_enabled'
-  | 'monthly_day'
-  | 'low_balance_enabled'
-  | 'low_balance_days'
-  | 'timezone'
->;
-
 export class ApiError extends Error {
   constructor(public readonly status: number) {
     super(`Monitor API returned ${status}`);
@@ -157,20 +137,6 @@ export async function deleteMeter(id: string): Promise<void> {
 
 export function getDashboard(meterId: string): Promise<Dashboard> {
   return apiRequest(`/api/meters/${meterId}/dashboard`);
-}
-
-export function getReminderSettings(meterId: string): Promise<ReminderSettings> {
-  return apiRequest(`/api/meters/${meterId}/reminders`);
-}
-
-export function updateReminderSettings(
-  meterId: string,
-  settings: ReminderSettingsInput,
-): Promise<ReminderSettings> {
-  return apiRequest(`/api/meters/${meterId}/reminders`, {
-    method: 'PATCH',
-    body: JSON.stringify(settings),
-  });
 }
 
 export function listBalances(meterId: string): Promise<BalanceEntry[]> {

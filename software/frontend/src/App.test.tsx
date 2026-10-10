@@ -6,8 +6,7 @@ import { LoginPanel, SignedInPanel } from './AuthPanels';
 import { ForecastPanel } from './ForecastPanel';
 import { LedgerPanel } from './LedgerPanel';
 import { MeterWorkspace } from './MeterWorkspace';
-import { ReminderSettingsPanel } from './ReminderSettingsPanel';
-import type { Forecast, ReminderSettings } from './api';
+import type { Forecast } from './api';
 
 const noAction = () => undefined;
 const yes = async () => true;
@@ -23,17 +22,6 @@ const notEnoughForecast: Forecast = {
   recommended_top_up_30_days_kwh: null,
   intervals_used: 0,
 };
-const reminderDefaults: ReminderSettings = {
-  meter_id: '00000000-0000-0000-0000-000000000001',
-  monthly_enabled: false,
-  monthly_day: 1,
-  low_balance_enabled: false,
-  low_balance_days: '3.00',
-  timezone: 'UTC',
-  created_at: null,
-  updated_at: null,
-};
-
 describe('Monitor authentication UI', () => {
   it('renders branded session loading without claiming data exists', () => {
     const markup = renderToStaticMarkup(<App />);
@@ -193,6 +181,7 @@ describe('Monitor authentication UI', () => {
 
     expect(listMarkup).toContain('Home');
     expect(selectedMarkup).toContain('Back to meters');
+    expect(selectedMarkup).toContain('Owner: user@example.test');
     expect(selectedMarkup).toContain('Not enough data');
     expect(selectedMarkup).toContain('at least two actual balances');
     expect(selectedMarkup).toContain('Save name');
@@ -260,7 +249,7 @@ describe('Monitor authentication UI', () => {
     expect(allMarkup).toContain('owner@example.test');
   });
 
-  it('renders factual manual-entry actions and combined history', () => {
+  it('renders tabbed manual-entry actions and the selected record history', () => {
     const balance = {
       id: '00000000-0000-0000-0000-000000000010',
       meter_id: '00000000-0000-0000-0000-000000000001',
@@ -292,11 +281,12 @@ describe('Monitor authentication UI', () => {
     );
 
     expect(markup).toContain('42.125 kWh');
-    expect(markup).toContain('Record balance');
-    expect(markup).toContain('Record top-up');
+    expect(markup).toContain('Balance records');
+    expect(markup).toContain('Top-up records');
+    expect(markup).toContain('Balance history');
     expect(markup).toContain('Actual balance');
-    expect(markup).toContain('Purchased top-up');
-    expect(markup).toContain('20.500 kWh');
+    expect(markup).not.toContain('Purchased top-up');
+    expect(markup).not.toContain('20.500 kWh');
     expect(markup).toContain('Edit');
     expect(markup).toContain('Delete');
   });
@@ -316,7 +306,7 @@ describe('Monitor authentication UI', () => {
       />,
     );
 
-    expect(markup).toContain('No balance or top-up entries yet');
+    expect(markup).toContain('No balance records yet');
     expect(markup).not.toContain('remaining days');
   });
 
@@ -344,6 +334,7 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('41.708 kWh');
     expect(markup).toContain('5.000000 kWh/day');
     expect(markup).toContain('8.34 days');
+    expect(markup).toContain('Top up by');
     expect(markup).toContain('108.292 kWh');
     expect(markup).toContain('No safety buffer applied');
   });
@@ -383,80 +374,4 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('0.000 kWh');
   });
 
-  it('renders safe reminder defaults, constraints and browser timezone text', () => {
-    const markup = renderToStaticMarkup(
-      <ReminderSettingsPanel
-        busy={false}
-        error=""
-        loading={false}
-        notice=""
-        onSave={async () => true}
-        settings={reminderDefaults}
-      />,
-    );
-
-    expect(markup).toContain('Email reminders');
-    expect(markup).toContain('Monthly planning email');
-    expect(markup).toContain('Predicted low-balance email');
-    expect(markup).toContain('min="1"');
-    expect(markup).toContain('max="28"');
-    expect(markup).toContain('Timezone:');
-    expect(markup).toContain('never buys electricity');
-    expect(markup).not.toContain('checked=""');
-  });
-
-  it('renders enabled reminder values, forecast limits and save feedback', () => {
-    const markup = renderToStaticMarkup(
-      <ReminderSettingsPanel
-        busy={false}
-        error=""
-        loading={false}
-        notice="Reminder settings saved."
-        onSave={async () => true}
-        settings={{
-          ...reminderDefaults,
-          monthly_enabled: true,
-          monthly_day: 15,
-          low_balance_enabled: true,
-          low_balance_days: '2.50',
-          timezone: 'Africa/Johannesburg',
-          created_at: '2026-10-10T10:00:00Z',
-          updated_at: '2026-10-10T10:00:00Z',
-        }}
-      />,
-    );
-
-    expect(markup.match(/checked=""/g)).toHaveLength(2);
-    expect(markup).toContain('value="15"');
-    expect(markup).toContain('value="2.50"');
-    expect(markup).toContain('Africa/Johannesburg');
-    expect(markup).toContain('requires a valid forecast');
-    expect(markup).toContain('Reminder settings saved.');
-  });
-
-  it('shows reminder loading and request-error feedback', () => {
-    const loadingMarkup = renderToStaticMarkup(
-      <ReminderSettingsPanel
-        busy={false}
-        error=""
-        loading
-        notice=""
-        onSave={async () => true}
-        settings={null}
-      />,
-    );
-    const errorMarkup = renderToStaticMarkup(
-      <ReminderSettingsPanel
-        busy={false}
-        error="Reminder settings could not be loaded. Try again."
-        loading={false}
-        notice=""
-        onSave={async () => true}
-        settings={null}
-      />,
-    );
-
-    expect(loadingMarkup).toContain('Loading reminder settings');
-    expect(errorMarkup).toContain('Reminder settings could not be loaded');
-  });
 });

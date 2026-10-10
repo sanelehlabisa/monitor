@@ -7,6 +7,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import BackspaceOutlinedIcon from '@mui/icons-material/BackspaceOutlined';
+import BeenhereOutlinedIcon from '@mui/icons-material/BeenhereOutlined';
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import ClearIcon from '@mui/icons-material/Clear';
 import type { FormEvent, ReactNode } from 'react';
 
 import type { Meter } from './api';
@@ -67,22 +73,26 @@ export function MeterWorkspace({
   if (selectedMeter) {
     return (
       <Stack spacing={2.5}>
-        <Button onClick={onBack} size="small" sx={{ alignSelf: 'flex-start' }}>
+        <Button
+          onClick={onBack}
+          size="small"
+          startIcon={<ArrowBackIcon />}
+          sx={{ alignSelf: 'flex-start' }}
+        >
           Back to meters
         </Button>
-        <Box>
-          <Typography component="h2" variant="h5">
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={{ xs: 0.25, sm: 1.5 }}
+          sx={{ alignItems: { sm: 'baseline' } }}
+        >
+          <Typography component="h2" sx={{ fontWeight: 800 }} variant="h4">
             {selectedMeter.name}
           </Typography>
           <Typography color="text.secondary" variant="body2">
-            Software meter profile
+            Owner: {selectedMeter.owner_email}
           </Typography>
-          {isAdmin && (
-            <Typography color="text.secondary" variant="caption">
-              Owner: {selectedMeter.owner_email}
-            </Typography>
-          )}
-        </Box>
+        </Stack>
         {error && <Alert severity="error">{error}</Alert>}
         {selectedContent}
         <Box component="form" onSubmit={onRename}>
@@ -99,12 +109,19 @@ export function MeterWorkspace({
             <Stack direction="row" spacing={1}>
               <Button
                 disabled={busy || !editName.trim() || editName === selectedMeter.name}
+                startIcon={<BeenhereOutlinedIcon />}
                 type="submit"
                 variant="outlined"
               >
                 Save name
               </Button>
-              <Button color="error" disabled={busy} onClick={onDelete} type="button">
+              <Button
+                color="error"
+                disabled={busy}
+                onClick={onDelete}
+                startIcon={<BackspaceOutlinedIcon />}
+                type="button"
+              >
                 Delete meter
               </Button>
             </Stack>
@@ -144,6 +161,7 @@ export function MeterWorkspace({
           />
           <Button
             disabled={busy || !name.trim()}
+            startIcon={<AddIcon />}
             type="submit"
             variant="contained"
           >
@@ -180,12 +198,18 @@ export function MeterWorkspace({
             slotProps={{ htmlInput: { maxLength: 254 } }}
             value={search}
           />
-          <Button disabled={busy || loading} type="submit" variant="outlined">
+          <Button
+            disabled={busy || loading}
+            startIcon={<CenterFocusStrongIcon />}
+            type="submit"
+            variant="outlined"
+          >
             Search
           </Button>
           <Button
             disabled={busy || loading || !search.trim()}
             onClick={onClearSearch}
+            startIcon={<ClearIcon />}
             type="button"
           >
             Clear

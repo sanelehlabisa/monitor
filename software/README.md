@@ -62,6 +62,9 @@ Tasks 027-030 complete opt-in raw-SQL reminder preferences, durable finite email
 delivery, authenticated owner/admin APIs and per-meter Material UI controls.
 Task 031 makes administrator testing clearer with separate owned and system-wide
 meter views without changing ownership or backend access policy.
+Task 032 adds server-side meter search. Task 033 widens the planning dashboard,
+separates manual records into tabs and hides reminder settings in the frontend;
+the backend reminder preferences and delivery runner remain available.
 Ticket 48 confirmed active runtime code has no obsolete device/OCR integration.
 
 After changing frontend dependencies, refresh an existing named volume:

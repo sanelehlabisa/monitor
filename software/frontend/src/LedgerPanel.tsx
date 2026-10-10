@@ -4,13 +4,26 @@ import {
   Button,
   CircularProgress,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
+import BackspaceOutlinedIcon from '@mui/icons-material/BackspaceOutlined';
+import BeenhereOutlinedIcon from '@mui/icons-material/BeenhereOutlined';
+import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
+import BorderColorOutlinedIcon from '@mui/icons-material/BorderColorOutlined';
+import CloseIcon from '@mui/icons-material/Close';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import type { BalanceEntry, TopUpEntry } from './api';
+import {
+  localDateTimeDisplay,
+  localDateTimeInputValue,
+  utcDateTimeValue,
+} from './dateTime';
 
 export type LedgerItem =
   | { kind: 'balance'; entry: BalanceEntry }
@@ -32,15 +45,6 @@ type LedgerPanelProps = {
   onDelete: (item: LedgerItem) => Promise<boolean>;
 };
 
-function localDateTimeValue(date = new Date()): string {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-}
-
-function apiDateTime(localValue: string): string {
-  return new Date(localValue).toISOString();
-}
-
 function entryTime(item: LedgerItem): string {
   return item.entry.occurred_at;
 }
@@ -58,31 +62,31 @@ export function LedgerPanel({
 }: LedgerPanelProps) {
   const [mode, setMode] = useState<'balance' | 'top-up'>('balance');
   const [kwh, setKwh] = useState('');
-  const [occurredAt, setOccurredAt] = useState(localDateTimeValue);
+  const [occurredAt, setOccurredAt] = useState(localDateTimeInputValue);
   const [editing, setEditing] = useState<LedgerItem | null>(null);
   const [editKwh, setEditKwh] = useState('');
   const [editOccurredAt, setEditOccurredAt] = useState('');
   const history = useMemo(
     () =>
-      [
-        ...balances.map((entry): LedgerItem => ({ kind: 'balance', entry })),
-        ...topUps.map((entry): LedgerItem => ({ kind: 'top-up', entry })),
-      ].sort(
+      (mode === 'balance'
+        ? balances.map((entry): LedgerItem => ({ kind: 'balance', entry }))
+        : topUps.map((entry): LedgerItem => ({ kind: 'top-up', entry })))
+        .sort(
         (left, right) =>
           entryTime(right).localeCompare(entryTime(left)) ||
           right.entry.id.localeCompare(left.entry.id),
       ),
-    [balances, topUps],
+    [balances, mode, topUps],
   );
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const saved =
       mode === 'balance'
-        ? await onCreateBalance(kwh, apiDateTime(occurredAt))
-        : await onCreateTopUp(kwh, apiDateTime(occurredAt));
+        ? await onCreateBalance(kwh, utcDateTimeValue(occurredAt))
+        : await onCreateTopUp(kwh, utcDateTimeValue(occurredAt));
     if (saved) {
       setKwh('');
-      setOccurredAt(localDateTimeValue());
+      setOccurredAt(localDateTimeInputValue());
     }
   }
 
@@ -91,14 +95,14 @@ export function LedgerPanel({
     setEditKwh(
       item.kind === 'balance' ? item.entry.balance_kwh : item.entry.top_up_kwh,
     );
-    setEditOccurredAt(localDateTimeValue(new Date(item.entry.occurred_at)));
+    setEditOccurredAt(localDateTimeInputValue(new Date(item.entry.occurred_at)));
   }
 
   async function handleUpdate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (
       editing &&
-      (await onUpdate(editing, editKwh, apiDateTime(editOccurredAt)))
+      (await onUpdate(editing, editKwh, utcDateTimeValue(editOccurredAt)))
     ) {
       setEditing(null);
     }
@@ -125,24 +129,37 @@ export function LedgerPanel({
 
   return (
     <Stack spacing={2.5}>
-      <Stack direction="row" spacing={1}>
-        <Button
-          fullWidth
-          onClick={() => setMode('balance')}
-          variant={mode === 'balance' ? 'contained' : 'outlined'}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs
+          aria-label="Manage meter records"
+          onChange={(_, value: 'balance' | 'top-up') => {
+            setMode(value);
+            setEditing(null);
+          }}
+          value={mode}
+          variant="fullWidth"
         >
-          Record balance
-        </Button>
-        <Button
-          fullWidth
-          onClick={() => setMode('top-up')}
-          variant={mode === 'top-up' ? 'contained' : 'outlined'}
-        >
-          Record top-up
-        </Button>
-      </Stack>
+          <Tab
+            icon={<AccountBalanceWalletOutlinedIcon />}
+            iconPosition="start"
+            label="Balance records"
+            value="balance"
+          />
+          <Tab
+            icon={<BoltOutlinedIcon />}
+            iconPosition="start"
+            label="Top-up records"
+            value="top-up"
+          />
+        </Tabs>
+      </Box>
 
-      <Box component="form" onSubmit={handleCreate}>
+      <Box
+        aria-label={mode === 'balance' ? 'Balance records' : 'Top-up records'}
+        component="form"
+        onSubmit={handleCreate}
+        role="tabpanel"
+      >
         <Stack spacing={1.5}>
           <TextField
             disabled={busy}
@@ -174,7 +191,12 @@ export function LedgerPanel({
             type="datetime-local"
             value={occurredAt}
           />
-          <Button disabled={busy || !kwh} type="submit" variant="contained">
+          <Button
+            disabled={busy || !kwh}
+            startIcon={<BeenhereOutlinedIcon />}
+            type="submit"
+            variant="contained"
+          >
             {busy ? 'Saving…' : mode === 'balance' ? 'Save balance' : 'Save top-up'}
           </Button>
         </Stack>
@@ -217,10 +239,20 @@ export function LedgerPanel({
               value={editOccurredAt}
             />
             <Stack direction="row" spacing={1}>
-              <Button disabled={busy} type="submit" variant="contained">
+              <Button
+                disabled={busy}
+                startIcon={<BeenhereOutlinedIcon />}
+                type="submit"
+                variant="contained"
+              >
                 Save correction
               </Button>
-              <Button disabled={busy} onClick={() => setEditing(null)} type="button">
+              <Button
+                disabled={busy}
+                onClick={() => setEditing(null)}
+                startIcon={<CloseIcon />}
+                type="button"
+              >
                 Cancel
               </Button>
             </Stack>
@@ -230,11 +262,11 @@ export function LedgerPanel({
 
       <Box>
         <Typography component="h3" sx={{ fontWeight: 800 }} variant="h6">
-          History
+          {mode === 'balance' ? 'Balance history' : 'Top-up history'}
         </Typography>
         {history.length === 0 ? (
           <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
-            No balance or top-up entries yet.
+            No {mode === 'balance' ? 'balance' : 'top-up'} records yet.
           </Typography>
         ) : (
           <Stack spacing={1} sx={{ mt: 1.5 }}>
@@ -260,11 +292,16 @@ export function LedgerPanel({
                       </Typography>
                       <Typography>{value} kWh</Typography>
                       <Typography color="text.secondary" variant="caption">
-                        {new Date(item.entry.occurred_at).toLocaleString()}
+                        {localDateTimeDisplay(item.entry.occurred_at)}
                       </Typography>
                     </Box>
                     <Stack sx={{ alignItems: 'flex-end' }}>
-                      <Button disabled={busy} onClick={() => beginEdit(item)} size="small">
+                      <Button
+                        disabled={busy}
+                        onClick={() => beginEdit(item)}
+                        size="small"
+                        startIcon={<BorderColorOutlinedIcon />}
+                      >
                         Edit
                       </Button>
                       <Button
@@ -272,6 +309,7 @@ export function LedgerPanel({
                         disabled={busy}
                         onClick={() => handleDelete(item)}
                         size="small"
+                        startIcon={<BackspaceOutlinedIcon />}
                       >
                         Delete
                       </Button>

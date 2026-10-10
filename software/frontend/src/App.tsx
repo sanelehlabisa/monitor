@@ -15,7 +15,6 @@ import { LoginPanel, SignedInPanel, type LoginStep } from './AuthPanels';
 import { ForecastPanel } from './ForecastPanel';
 import { LedgerPanel, type LedgerItem } from './LedgerPanel';
 import { MeterWorkspace, type AdminMeterView } from './MeterWorkspace';
-import { ReminderSettingsPanel } from './ReminderSettingsPanel';
 import {
   ApiError,
   createBalance,
@@ -27,21 +26,17 @@ import {
   getCurrentUser,
   getDashboard,
   getMeter,
-  getReminderSettings,
   listMeters,
   logout,
   renameMeter,
   requestOtp,
   updateBalance,
-  updateReminderSettings,
   updateTopUp,
   verifyOtp,
   type BalanceEntry,
   type Dashboard,
   type Forecast,
   type Meter,
-  type ReminderSettings,
-  type ReminderSettingsInput,
   type TopUpEntry,
   type User,
 } from './api';
@@ -108,12 +103,6 @@ export default function App() {
   const [ledgerBusy, setLedgerBusy] = useState(false);
   const [ledgerError, setLedgerError] = useState('');
   const [forecast, setForecast] = useState<Forecast | null>(null);
-  const [reminderSettings, setReminderSettings] =
-    useState<ReminderSettings | null>(null);
-  const [reminderLoading, setReminderLoading] = useState(false);
-  const [reminderBusy, setReminderBusy] = useState(false);
-  const [reminderError, setReminderError] = useState('');
-  const [reminderNotice, setReminderNotice] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -139,7 +128,6 @@ export default function App() {
       setBalances([]);
       setTopUps([]);
       setForecast(null);
-      setReminderSettings(null);
       setMeterSearch('');
       return;
     }
@@ -284,33 +272,23 @@ export default function App() {
   async function handleSelectMeter(meter: Meter) {
     setMeterBusy(true);
     setLedgerLoading(true);
-    setReminderLoading(true);
     setMeterError('');
     setLedgerError('');
-    setReminderError('');
-    setReminderNotice('');
     setBalances([]);
     setTopUps([]);
     setForecast(null);
-    setReminderSettings(null);
     try {
       const selected = await getMeter(meter.id);
       setSelectedMeter(selected);
       setEditMeterName(selected.name);
-      await Promise.all([
-        getDashboard(selected.id)
-          .then(applyDashboard)
-          .catch(() => setLedgerError('This meter history could not be loaded. Try again.')),
-        getReminderSettings(selected.id)
-          .then(setReminderSettings)
-          .catch(() => setReminderError('Reminder settings could not be loaded. Try again.')),
-      ]);
+      await getDashboard(selected.id)
+        .then(applyDashboard)
+        .catch(() => setLedgerError('This meter history could not be loaded. Try again.'));
     } catch {
       setMeterError('That meter could not be opened. Try again.');
     } finally {
       setMeterBusy(false);
       setLedgerLoading(false);
-      setReminderLoading(false);
     }
   }
 
@@ -438,29 +416,6 @@ export default function App() {
     }
   }
 
-  async function handleSaveReminders(input: ReminderSettingsInput) {
-    if (!selectedMeter) return false;
-    setReminderBusy(true);
-    setReminderError('');
-    setReminderNotice('');
-    try {
-      setReminderSettings(await updateReminderSettings(selectedMeter.id, input));
-      setReminderNotice('Reminder settings saved.');
-      return true;
-    } catch (requestError) {
-      setReminderError(
-        requestError instanceof ApiError && requestError.status === 422
-          ? 'Check the reminder day, lead time and timezone.'
-          : requestError instanceof ApiError && requestError.status === 404
-            ? 'That meter is no longer available. Return to the meter list.'
-            : 'Reminder settings could not be saved. Try again.',
-      );
-      return false;
-    } finally {
-      setReminderBusy(false);
-    }
-  }
-
   async function handleRenameMeter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedMeter) return;
@@ -502,7 +457,6 @@ export default function App() {
       setBalances([]);
       setTopUps([]);
       setForecast(null);
-      setReminderSettings(null);
     } catch {
       setMeterError('The meter could not be deleted. Try again.');
     } finally {
@@ -513,7 +467,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Container maxWidth="xs">
+      <Container maxWidth={user ? 'md' : 'xs'}>
         <Box component="main" sx={{ minHeight: '100vh', py: { xs: 4, sm: 7 } }}>
           <Stack spacing={3}>
             <Stack spacing={1} sx={{ alignItems: 'center' }}>
@@ -555,9 +509,6 @@ export default function App() {
                     setBalances([]);
                     setTopUps([]);
                     setForecast(null);
-                    setReminderSettings(null);
-                    setReminderError('');
-                    setReminderNotice('');
                   }}
                   onAdminViewChange={setAdminMeterView}
                   onClearSearch={handleClearMeterSearch}
@@ -586,14 +537,6 @@ export default function App() {
                           onDelete={handleDeleteEntry}
                           onUpdate={handleUpdateEntry}
                           topUps={topUps}
-                        />
-                        <ReminderSettingsPanel
-                          busy={reminderBusy}
-                          error={reminderError}
-                          loading={reminderLoading}
-                          notice={reminderNotice}
-                          onSave={handleSaveReminders}
-                          settings={reminderSettings}
                         />
                       </Stack>
                     ) : undefined

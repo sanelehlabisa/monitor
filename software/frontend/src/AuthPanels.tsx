@@ -10,6 +10,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import BorderColorOutlinedIcon from '@mui/icons-material/BorderColorOutlined';
+import CachedIcon from '@mui/icons-material/Cached';
 import type { FormEvent, ReactNode } from 'react';
 
 import type { User } from './api';
@@ -98,6 +103,7 @@ export function LoginPanel({
               disabled={busy || (requestingCode ? !email.trim() : code.length !== 6)}
               fullWidth
               size="large"
+              startIcon={requestingCode ? <AlternateEmailIcon /> : <ArrowForwardIcon />}
               type="submit"
               variant="contained"
             >
@@ -105,10 +111,20 @@ export function LoginPanel({
             </Button>
             {!requestingCode && (
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                <Button disabled={busy} onClick={onChangeEmail} size="small">
+                <Button
+                  disabled={busy}
+                  onClick={onChangeEmail}
+                  size="small"
+                  startIcon={<BorderColorOutlinedIcon />}
+                >
                   Change email
                 </Button>
-                <Button disabled={busy} onClick={onResend} size="small">
+                <Button
+                  disabled={busy}
+                  onClick={onResend}
+                  size="small"
+                  startIcon={<CachedIcon />}
+                >
                   Resend code
                 </Button>
               </Stack>
@@ -154,7 +170,12 @@ export function SignedInPanel({
                 {user.is_admin && <Chip label="Admin" size="small" />}
               </Stack>
             </Box>
-            <Button disabled={busy} onClick={onLogout} variant="outlined">
+            <Button
+              disabled={busy}
+              onClick={onLogout}
+              startIcon={<ArrowBackIcon />}
+              variant="outlined"
+            >
               Sign out
             </Button>
           </Stack>

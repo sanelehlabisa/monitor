@@ -127,10 +127,18 @@ retained authentication IDs appear before newer product tickets.
 - [x] Ticket 51: Top-Up Entries — raw-SQL storage, authorised API and Material UI entry/history management (Tasks 020-022).
 - [x] Ticket 52: Forecasting Domain — one replaceable deterministic model boundary for tested usage and planning estimates (Tasks 023-024).
 - [x] Ticket 53: Dashboard & History API — authorised factual history and freshly derived forecast responses (Task 025).
-- [x] Ticket 54: Forecast Dashboard UI — mobile-first estimate cards, honest unavailable states and refresh after ledger changes (Task 026).
-- [x] Ticket 55: Email Reminders — opt-in monthly and predicted-low-balance email settings, finite delivery runner and Material UI controls (Tasks 027-030).
+- [x] Ticket 54: Forecast Dashboard UI — mobile-first estimates, honest
+  unavailable states, refresh after ledger changes and a demo-focused planning
+  summary with tabbed records (Tasks 026 and 033).
+- [x] Ticket 55: Email Reminders — opt-in monthly and predicted-low-balance
+  settings, API and finite delivery runner (Tasks 027-030). Task 033 later hid
+  configuration from the PoC UI while preserving the backend and existing opt-ins.
 - [ ] Ticket 56: End-to-End V1 Validation — multi-user isolation, corrections, edge cases and household usability (after 55).
 - [ ] Ticket 57: Deployment Preparation — production configuration, backups, operations and release checklist (after 56).
+- [ ] Ticket 58: Monitor App Identity — replace the current company-led mark
+  with a user-supplied, recognisable Monitor logo and retain a modest Roventics
+  acknowledgement on the website. This is separate from Task 033 and begins only
+  after the final logo asset is supplied and its placement is approved.
 
 ### Superseded or deferred ticket history
 

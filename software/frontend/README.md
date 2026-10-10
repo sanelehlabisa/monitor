@@ -32,9 +32,9 @@ npm run build
 
 1. Enter email and verify the one-time code.
 2. Create or select a meter/property by nickname.
-3. Record a remaining balance in kWh or a top-up in kWh; date/time defaults to now.
-4. Review the newest-first factual history and correct or delete entries.
-5. Review clearly labeled estimates and optionally configure email reminders.
+3. Review the prominent planning estimate and its latest factual reading.
+4. Use the Balance records or Top-up records tab to add, correct or delete an
+   entry; date/time defaults to the browser's local time.
 
 The primary entry actions must take only a few seconds on a phone. Do not require
 a municipal meter number, tariff, Rand amount, image or device setup. Show the
@@ -56,7 +56,7 @@ The signed-in home loads real nickname-only software meter profiles from the
 cookie-authenticated API. Creation asks only for a name. Selecting a meter loads
 its actual balances and purchased top-ups, shows the latest factual balance,
 and provides compact create/edit/confirmed-delete controls for both record
-types. History is combined newest-first while preserving clear labels.
+types. Each tab shows its own newest-first factual history.
 
 The selected meter dashboard shows latest actual balance separately from the
 estimated current balance, daily use, remaining days, run-out date and 30-day
@@ -67,11 +67,14 @@ forecasts. Backend persistence stays explicit raw SQL through Psycopg, with no
 SQLAlchemy, and the replaceable first forecast model is simple math rather than
 ML.
 
-Each selected meter also has independent monthly and predicted-low-balance email
-switches. Both default off. Monthly day is constrained to 1-28; low-balance lead
-time is constrained to 0.01-30 days and only works with a valid forecast. The
-first save captures the browser's IANA timezone. Monthly email may instead ask
-for a fresh balance when no estimate exists. These controls schedule no work in
-the browser and never claim to buy electricity or guarantee an estimate.
+Balance and top-up histories are separated into matching tabs so the selected
+record type owns both its entry form and its newest-first factual list. Datetime
+inputs are interpreted in the calling browser's timezone, converted to UTC for
+the API/database and rendered locally when returned.
+
+Task 033 removes reminder settings from the frontend to keep the PoC focused.
+The backend API and finite runner remain available for existing opt-ins. New
+settings still default off, with the existing hardcoded monthly day 1 and
+predicted-low-balance lead time of 3 days; the browser makes no reminder calls.
 
 Hardware status, OCR, anomaly, tariff and payment screens are not V1.
