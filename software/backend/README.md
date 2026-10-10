@@ -118,6 +118,13 @@ local run-out date. Durable claims prevent overlapping normal sends, recover
 after 30 minutes if abandoned, and are released immediately after SMTP failure.
 The command logs aggregate counts only. No background service is introduced.
 
+Task 029 exposes authenticated GET/PATCH
+`/api/meters/{meter_id}/reminders`. Missing preferences return disabled
+defaults, while saved values retain the monthly day, predicted-low-balance lead
+days and validated IANA timezone. Regular users remain owner-scoped and
+configured administrators may manage every meter; inaccessible and missing
+meters share the same generic 404. Saving settings never triggers email.
+
 Authenticated users will create and select their own nickname-only meter
 profiles, then record:
 
