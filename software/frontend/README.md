@@ -6,17 +6,18 @@ management and manual kWh history. It restores cookie sessions through
 list, select, rename and delete nickname-only software meters.
 
 Regular users see and manage only their own meters. Users whose normalized email
-is configured as an administrator see an Admin indicator, every meter's owner
-email, and the same select/rename/confirmed-delete controls for all meters. New
+is configured as an administrator see every meter's owner email and the same
+select/rename/confirmed-delete controls for all meters. Task 039 hides the nav
+role badge without changing administrator access. New
 meter creation remains intentionally name-only and always belongs to the signed-
 in user.
 
-Administrators default to a `My meters` view so they can quickly create and test
-profiles owned by their admin account. `All meters` shows every system profile
+Administrators default to the `My` tab so they can quickly create and test
+profiles owned by their admin account. `All` shows every system profile
 with owner labels and the same full management controls. Switching views changes
 only presentation; it does not change ownership or backend access policy.
 
-The meter list has an explicit Search/Clear form backed by
+The meter list has an inline Search/Clear form backed by
 `GET /api/meters?q=...`. Regular users search only their accessible profiles;
 administrators may find system profiles by meter name or owner email. The
 frontend renders the server response and does not duplicate keyword filtering.
@@ -47,13 +48,73 @@ backend network alias/service must exist before Nginx starts. HTTPS/public proxy
 configuration is deferred; production cookie login requires HTTPS. Build
 commands and completed image verification are recorded in the software README.
 
+## Navigation and meter links
+
+Tasks 038–040 keep navigation minimal: Back on the left when a meter is open,
+signed-in email and a 42px account icon on the far right (1.5 times Task 039's
+28px icon). The account
+dropdown shows the full email and a black Sign out action with a Logout icon,
+distinct from the Back arrow. Phones keep Back/account on one row; long emails
+truncate only in the closed navigation. Task 039 removes the navigation logo,
+Roventics Monitor name and Admin badge; the logo asset remains available for
+future branding work. Signed-out screens have no empty navigation bar.
+
+Selecting a meter uses `/meters/<uuid>`. Direct links and reload restore the
+authorised meter, including after email login; browser Back/Forward and the Back
+button update the workspace without a routing dependency. Malformed, missing
+or inaccessible meter links show recovery guidance without exposing another
+user's records. Task 041 uses `/meters` for the list; `/` and `/meters/` remain
+compatible entry links and canonicalise after sign-in. Back and logout return to
+`/meters`. Failed opens
+can be retried, and leaving a meter invalidates older dashboard responses.
+
+The signed-in container is wider. Task 040 places compact Name/Owner key-value
+rows above the full-width three-estimate planning card. Task 041 starts Name
+read-only: pencil enables/focuses editing, then becomes Save. Save/Enter persists;
+Escape cancels; success returns to read-only and errors retain the draft. Owner
+is always read-only. The same edit/save behaviour applies to list rows.
+The bottom Meter settings section is removed; record actions and collapsed
+forms/history are unchanged.
+
+Every accessible meter-list row has separate pencil/trash actions next to the
+meter-opening button. Pencil opens an inline name editor; Save/Enter persists,
+Escape cancels. Trash confirms the named meter and warns that its balance/top-up
+records will also be deleted. Actions do not open the meter or nest buttons.
+Rename failures retain the draft for retry; conflicting controls are disabled
+while saving, without hiding the row. A rename under search refreshes the server
+query rather than introducing client-side keyword matching. Administrators have
+the same actions for every meter in All meters; owner-only access is unchanged.
+
+Task 039 centralises typography in the existing MUI theme: one Arial/sans-serif
+font stack, 16px body/labels/buttons and 20–22px headings/forecast values at the
+default browser text size. Task 041 reduces the scale to 14px body/labels/buttons,
+18px headings and 20px forecast values, with smaller fields/button padding.
+Button/tab labels no longer force uppercase; stored name casing is untouched.
+Rem units retain text scaling. Task 040 replaces the
+earlier name/owner heading with aligned keys and values, including on phones.
+
+Task 041 gives the signed-in card a black header with white text and rounded
+top corners: `Meters` for the list and `Meter <UUID>` for details. Admin-only
+My/All tabs sit at the list header's far right; the active tab is white with
+dark text and joins the content below. Filters are not shown for one meter.
+The full detail ID can wrap on narrow phones rather than overflow.
+
+Search has magnifying-glass and clear-cross actions inside the input's right
+edge, with accessible labels/tooltips. Enter also submits; clear reloads the
+server list. The first list row contains only a name input plus an Add icon,
+including empty/search states. Creation still belongs to the signed-in user;
+search matching remains backend-driven, with no new API or client-side filter.
+
 ## Mobile flow
 
 1. Enter email and verify the one-time code.
 2. Create or select a meter/property by nickname.
 3. Review the prominent planning estimate and its latest factual reading.
-4. Use the Balance records or Top-up records tab to add, correct or delete an
-   entry; date/time defaults to the browser's local time.
+4. Select Record balance or Record top-up to show its form. Save closes the form;
+   Cancel closes it without writing. Date/time defaults to the browser's local time.
+   Expand History to use the record tabs for correction/deletion; it starts
+   closed. Use the pencil beside Name above the estimates, or pencil/trash
+   on its list row to rename/delete it.
 5. Use Refresh to request current estimates without adding a record or reopening
    the meter. Estimates are a snapshot at the displayed local calculation time.
 
@@ -77,17 +138,25 @@ The signed-in home loads real nickname-only software meter profiles from the
 cookie-authenticated API. Creation asks only for a name. Selecting a meter loads
 its actual balances and purchased top-ups, shows the latest factual balance,
 and provides compact create/edit/confirmed-delete controls for both record
-types. Each tab shows its own newest-first factual history.
+types. Each tab under the collapsed History section shows its own newest-first
+factual history; the entry forms are shown only after choosing a record action.
 
-The selected meter dashboard shows latest actual balance separately from the
-estimated current balance, daily use, remaining days, run-out date and 30-day
-kWh recommendation. It reloads the backend dashboard after every ledger change.
-Task 035 adds an icon-labelled Refresh action above the planning summary. It
+Task 037 simplifies the selected meter dashboard around one planning summary:
+estimated balance and days remaining, a smaller top-up-by date below remaining
+days, and a monthly purchase recommendation. The recommendation is the additional
+kWh needed for the next 30 days after accounting for estimated balance, not a
+Rand cost or a different forecast model. Latest actual balance/observation time
+and the estimate timestamp remain visible; daily usage/interval assumptions sit
+inside collapsed Calculation details. Two large icon buttons reveal only the
+matching entry form. The header is compact and retains the meter name/owner.
+
+The dashboard reloads after every ledger change. Task 035 adds an icon-labelled
+Refresh action, which Task 037 moves below the primary content. It
 uses the same dashboard loader as meter opening and successful ledger changes;
 there is no automatic polling. Refresh is disabled while loading or saving.
 Failed reads hide estimates and show `Estimates unavailable` with retry guidance,
 not a permanent spinner. Already-loaded records remain available after failure.
-If a write succeeded, its form clears and the message confirms it was saved:
+If a write succeeded, its form clears/closes and the message confirms it was saved:
 Refresh retries only the read, never the purchase or balance write. Responses
 from a meter left, reopened or signed out of cannot overwrite the newer view.
 
@@ -97,8 +166,10 @@ forecasts. Backend persistence stays explicit raw SQL through Psycopg, with no
 SQLAlchemy, and the replaceable first forecast model is simple math rather than
 ML.
 
-Balance and top-up histories are separated into matching tabs so the selected
-record type owns both its entry form and its newest-first factual list. Datetime
+Balance and top-up histories are separated into matching tabs inside History.
+Record actions select the matching type and open a fresh form; switching a history
+tab closes any entry/correction form so its values cannot be applied to another
+record type. Datetime
 inputs are interpreted in the calling browser's timezone, converted to UTC for
 the API/database and rendered locally when returned.
 
@@ -110,6 +181,29 @@ predicted-low-balance lead time of 3 days; the browser makes no reminder calls.
 Hardware status, OCR, anomaly, tariff and payment screens are not V1.
 
 ## Repeatable local demo
+
+### Retained sample meters (Task 038)
+
+The local development database contains a separate `monitor-demo@example.test`
+user with **Demo Home** and **Demo Shop**. These are synthetic demonstration
+records, not household readings. They were added once through the existing
+OTP/Mailpit and meter/ledger APIs; the application never automatically seeds data.
+Setup reuses existing named demo meters without overwriting their histories.
+
+Sign in with your configured administrator account, select the **All** tab, and
+search `monitor-demo@example.test`. Both profiles can be opened and managed with
+the normal admin controls; another regular user cannot read or modify them.
+The demo email can also sign in through Mailpit in local development.
+
+At setup on 2026-10-11, Home used 4 kWh/day and displayed approximately 76 kWh,
+19 days remaining and an additional 44 kWh for the next 30 days. Shop used
+8 kWh/day and displayed approximately 112 kWh, 14 days and an additional
+128 kWh. Values change as time passes and Refresh requests a new calculation.
+These numbers come from the real backend model, not hardcoded UI values. Real
+empty meters still show Not enough data. Both sample profiles are retained for
+testing; cleanup below applies only to a new disposable walkthrough meter.
+
+### Disposable manual walkthrough
 
 Use a separate test email and a new meter named `Demo Home`. Get the sign-in code
 from local Mailpit at `http://localhost:8025`. Dates below are relative to now;
@@ -136,8 +230,8 @@ the estimated 76 kWh already available.
 4. Select Refresh to update the calculation time without creating records.
    Reopen the meter or reload the page; records and the session should persist.
 5. In another browser profile, sign in with a second test email. The first
-   user's meter must be absent. A configured admin can instead select `All
-   meters`, search by the owner's email and manage that meter.
+   user's meter must be absent. A configured admin can instead select the `All`
+   tab, search by the owner's email and manage that meter.
 6. Delete only the demo meter when finished and sign out.
 
 Input times use the browser's local timezone; the API and database retain the

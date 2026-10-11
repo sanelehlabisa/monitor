@@ -8,22 +8,30 @@ type ForecastPanelProps = {
   loading: boolean;
 };
 
-function EstimateCard({ label, value }: { label: string; value: string }) {
+function EstimateCard({ label, value, note }: {
+  label: string;
+  value: string;
+  note?: string;
+}) {
   return (
     <Box
       sx={{
-        bgcolor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 2,
         minWidth: 0,
-        p: 1.75,
+        py: 1,
       }}
     >
-      <Typography sx={{ color: 'rgba(255, 255, 255, 0.75)' }} variant="caption">
+      <Typography sx={{ color: 'rgba(255, 255, 255, 0.75)' }} variant="body2">
         {label}
       </Typography>
-      <Typography sx={{ color: 'common.white', fontWeight: 800 }} variant="h6">
+      <Typography sx={{ color: 'common.white', fontWeight: 800 }} variant="h5">
         {value}
       </Typography>
+      {note && (
+        <Typography sx={{ color: 'rgba(255, 255, 255, 0.75)' }} variant="caption">
+          {note}
+        </Typography>
+      )}
     </Box>
   );
 }
@@ -70,12 +78,12 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
 
       {forecast.status === 'available' && (
         <Box
-          sx={{ bgcolor: 'primary.main', borderRadius: 2.5, p: { xs: 2, sm: 2.5 } }}
+          sx={{ bgcolor: 'primary.main', borderRadius: 2.5, p: { xs: 2, sm: 3 } }}
         >
           <Typography
             component="h3"
             sx={{ color: 'common.white', fontWeight: 800 }}
-            variant="h5"
+            variant="caption"
           >
             Planning estimate
           </Typography>
@@ -86,13 +94,12 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
               gridTemplateColumns: {
                 xs: '1fr',
                 sm: 'repeat(2, minmax(0, 1fr))',
-                md: 'repeat(4, minmax(0, 1fr))',
               },
               mt: 1.25,
             }}
           >
             <EstimateCard
-              label="Estimated balance now"
+              label="Estimated balance"
               value={`${forecast.estimated_balance_kwh} kWh`}
             />
             <EstimateCard
@@ -102,50 +109,50 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
                   ? 'No finite run-out'
                   : `${forecast.remaining_days} days`
               }
-            />
-            <EstimateCard
-              label="Top up by"
-              value={
+              note={
                 forecast.run_out_at === null
                   ? 'No run-out at observed use'
-                  : localDateDisplay(forecast.run_out_at)
+                  : `Top up by ${localDateDisplay(forecast.run_out_at)}`
               }
             />
+          </Box>
+          <Box sx={{ mt: 2 }}>
             <EstimateCard
-              label="Recommended top-up for 30 days"
+              label="Monthly purchase recommendation"
               value={`${forecast.recommended_top_up_30_days_kwh} kWh`}
             />
+            <Typography sx={{ color: 'rgba(255, 255, 255, 0.75)' }} variant="body2">
+              Additional kWh for the next 30 days, based on historical usage.
+            </Typography>
           </Box>
+          <Box component="details" sx={{ color: 'rgba(255, 255, 255, 0.75)', mt: 2 }}>
+            <Typography component="summary" sx={{ cursor: 'pointer' }} variant="caption">
+              Calculation details
+            </Typography>
           <Typography
             sx={{ color: 'rgba(255, 255, 255, 0.75)', display: 'block', mt: 1.25 }}
             variant="caption"
           >
-            Estimated use {forecast.daily_usage_kwh} kWh/day. Calculated{' '}
-            {localDateTimeDisplay(forecast.as_of)} from {forecast.intervals_used}{' '}
+            Estimated use {forecast.daily_usage_kwh} kWh/day from {forecast.intervals_used}{' '}
             valid interval(s). No safety buffer applied.
           </Typography>
+          </Box>
         </Box>
       )}
 
       {hasActual ? (
-        <Box
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2 }}
-        >
-          <Typography color="text.secondary" variant="caption">
-            Latest actual balance
-          </Typography>
-          <Typography sx={{ fontWeight: 800 }} variant="h5">
-            {forecast.latest_actual_balance_kwh} kWh
-          </Typography>
-          <Typography color="text.secondary" variant="caption">
-            Observed {localDateTimeDisplay(forecast.latest_actual_at!)}
-          </Typography>
-        </Box>
+        <Typography color="text.secondary" variant="body2">
+          Latest actual balance: {forecast.latest_actual_balance_kwh} kWh.
+          {' '}Observed {localDateTimeDisplay(forecast.latest_actual_at!)}
+        </Typography>
       ) : (
         <Typography color="text.secondary" variant="body2">
           No actual balance recorded yet.
         </Typography>
       )}
+      <Typography color="text.secondary" variant="caption">
+        Calculated {localDateTimeDisplay(forecast.as_of)}
+      </Typography>
     </Stack>
   );
 }

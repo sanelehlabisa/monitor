@@ -26,7 +26,7 @@ secret and deployment database/origin/admin/SMTP values at runtime; no credentia
 is built into the image. Local `.env*` files are excluded from build context.
 
 The image command does not apply SQL migrations or create a database. Production
-Compose and migration orchestration require Task 037 approval. Process health
+Compose and migration orchestration require a separate Ticket 57 task. Process health
 does not validate database/SMTP connectivity. Task 036's image builds and
 disposable production smoke checks passed; see the software README.
 

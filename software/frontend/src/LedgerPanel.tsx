@@ -61,6 +61,7 @@ export function LedgerPanel({
   onDelete,
 }: LedgerPanelProps) {
   const [mode, setMode] = useState<'balance' | 'top-up'>('balance');
+  const [formOpen, setFormOpen] = useState(false);
   const [kwh, setKwh] = useState('');
   const [occurredAt, setOccurredAt] = useState(localDateTimeInputValue);
   const [editing, setEditing] = useState<LedgerItem | null>(null);
@@ -87,15 +88,25 @@ export function LedgerPanel({
     if (saved) {
       setKwh('');
       setOccurredAt(localDateTimeInputValue());
+      setFormOpen(false);
     }
   }
 
   function beginEdit(item: LedgerItem) {
+    setFormOpen(false);
     setEditing(item);
     setEditKwh(
       item.kind === 'balance' ? item.entry.balance_kwh : item.entry.top_up_kwh,
     );
     setEditOccurredAt(localDateTimeInputValue(new Date(item.entry.occurred_at)));
+  }
+
+  function beginRecord(kind: 'balance' | 'top-up') {
+    setMode(kind);
+    setEditing(null);
+    setKwh('');
+    setOccurredAt(localDateTimeInputValue());
+    setFormOpen(true);
   }
 
   async function handleUpdate(event: FormEvent<HTMLFormElement>) {
@@ -129,39 +140,42 @@ export function LedgerPanel({
 
   return (
     <Stack spacing={2.5}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs
-          aria-label="Manage meter records"
-          onChange={(_, value: 'balance' | 'top-up') => {
-            setMode(value);
-            setEditing(null);
-          }}
-          value={mode}
-          variant="fullWidth"
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
+        <Button
+          aria-expanded={formOpen && mode === 'balance'}
+          disabled={busy}
+          fullWidth
+          onClick={() => beginRecord('balance')}
+          size="medium"
+          startIcon={<AccountBalanceWalletOutlinedIcon />}
+          sx={{ py: 1 }}
+          variant="outlined"
         >
-          <Tab
-            icon={<AccountBalanceWalletOutlinedIcon />}
-            iconPosition="start"
-            label="Balance records"
-            value="balance"
-          />
-          <Tab
-            icon={<BoltOutlinedIcon />}
-            iconPosition="start"
-            label="Top-up records"
-            value="top-up"
-          />
-        </Tabs>
-      </Box>
+          Record balance
+        </Button>
+        <Button
+          aria-expanded={formOpen && mode === 'top-up'}
+          disabled={busy}
+          fullWidth
+          onClick={() => beginRecord('top-up')}
+          size="medium"
+          startIcon={<BoltOutlinedIcon />}
+          sx={{ py: 1 }}
+          variant="outlined"
+        >
+          Record top-up
+        </Button>
+      </Stack>
 
+      {formOpen && (
       <Box
         aria-label={mode === 'balance' ? 'Balance records' : 'Top-up records'}
         component="form"
         onSubmit={handleCreate}
-        role="tabpanel"
       >
         <Stack spacing={1.5}>
           <TextField
+            autoFocus
             disabled={busy}
             fullWidth
             label={
@@ -199,11 +213,37 @@ export function LedgerPanel({
           >
             {busy ? 'Saving…' : mode === 'balance' ? 'Save balance' : 'Save top-up'}
           </Button>
+          <Button
+            disabled={busy}
+            onClick={() => setFormOpen(false)}
+            startIcon={<CloseIcon />}
+            type="button"
+          >
+            Cancel
+          </Button>
         </Stack>
       </Box>
+      )}
 
       {error && <Alert severity="error">{error}</Alert>}
 
+      <Box component="details">
+        <Typography component="summary" sx={{ cursor: 'pointer', fontWeight: 700 }}>
+          History
+        </Typography>
+        <Tabs
+          aria-label="Manage meter records"
+          value={mode}
+          variant="fullWidth"
+          onChange={(_, value: 'balance' | 'top-up') => {
+            setMode(value);
+            setEditing(null);
+            setFormOpen(false);
+          }}
+        >
+          <Tab icon={<AccountBalanceWalletOutlinedIcon />} iconPosition="start" label="Balance records" value="balance" />
+          <Tab icon={<BoltOutlinedIcon />} iconPosition="start" label="Top-up records" value="top-up" />
+        </Tabs>
       {editing && (
         <Box
           component="form"
@@ -320,6 +360,7 @@ export function LedgerPanel({
             })}
           </Stack>
         )}
+      </Box>
       </Box>
     </Stack>
   );

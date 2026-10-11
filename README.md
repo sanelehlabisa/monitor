@@ -135,6 +135,22 @@ retained authentication IDs appear before newer product tickets.
   configuration from the PoC UI while preserving the backend and existing opt-ins.
 - [x] Ticket 59: Forecast Refresh & Recovery — on-demand dashboard refresh and
   honest retry states after failed reads, without duplicate saves (Task 035).
+- [x] Ticket 60: Simple Planning Dashboard — match the user's compact example:
+  predictions first, two record buttons and on-demand forms/history/settings.
+  Task 037 keeps forecast math unchanged and verifies desktop/mobile entry/recovery.
+- [x] Ticket 61: Navigation & Linkable Meter Demo — right-aligned account menu,
+  navigation Back action, meter-ID URLs and a spacious details/planning layout.
+  Task 038 verifies desktop/mobile navigation and retains two synthetic meters
+  owned by a separate demo user, accessible through the admin All meters view.
+- [x] Ticket 62: Minimal Navigation & Typography — remove nav branding/Admin
+  badge, shorten Back, enlarge the account icon and standardise text/header
+  alignment. Task 039 verifies desktop/mobile styles; backend/data are unchanged.
+- [x] Ticket 63: Inline Meter Management — 42px account icon, editable Name/Owner
+  details and pencil/trash actions on each meter-list row, replacing bottom
+  settings. Task 040 verifies owner/admin actions and desktop/mobile layouts.
+- [x] Ticket 64: Compact Meter Workspace — black rounded section headers,
+  white active My/All tabs, pencil-to-Save editing, first-row creation and inline
+  search/clear controls. Task 041 verifies compact styles and `/meters` navigation.
 - [ ] Ticket 56: End-to-End V1 Validation — live meter-planning demo, multi-user
   isolation, corrections, edge cases and household usability. Task 034 completed
   the technical demo checks; household validation remains a separate step.

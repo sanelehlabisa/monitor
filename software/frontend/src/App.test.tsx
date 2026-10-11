@@ -6,6 +6,7 @@ import { LoginPanel, SignedInPanel } from './AuthPanels';
 import { ForecastPanel } from './ForecastPanel';
 import { LedgerPanel } from './LedgerPanel';
 import { MeterWorkspace } from './MeterWorkspace';
+import { Navigation } from './Navigation';
 import type { Forecast } from './api';
 
 const noAction = () => undefined;
@@ -23,11 +24,34 @@ const notEnoughForecast: Forecast = {
   intervals_used: 0,
 };
 describe('Monitor authentication UI', () => {
-  it('renders branded session loading without claiming data exists', () => {
+  it('keeps the account controls and Back in navigation, not meter content', () => {
+    const markup = renderToStaticMarkup(
+      <Navigation busy={false} onBack={noAction} onLogout={noAction}
+        user={{ id: 7, email: 'admin@example.test', is_admin: true }} />,
+    );
+    expect(markup).toContain('<nav');
+    expect(markup).toContain('Account menu');
+    expect(markup).toContain('admin@example.test');
+    expect(markup).toContain('AccountCircleIcon');
+    expect(markup).toContain('font-size:42px');
+    expect(markup).toContain('>Back</button>');
+    expect(markup).toContain('ArrowBackIcon');
+    expect(markup).not.toContain('Admin');
+    expect(markup).not.toContain('roventics-logo.png');
+    expect(markup).not.toContain('Roventics Monitor');
+    expect(markup).toContain('aria-expanded="false"');
+    const signedOut = renderToStaticMarkup(
+      <Navigation busy={false} onBack={noAction} onLogout={noAction} user={null} />,
+    );
+    expect(signedOut).not.toContain('Account menu');
+    expect(signedOut).not.toContain('>Back</button>');
+  });
+
+  it('renders session loading without nav branding or claiming data exists', () => {
     const markup = renderToStaticMarkup(<App />);
 
-    expect(markup).toContain('roventics-logo.png');
-    expect(markup).toContain('Roventics Monitor');
+    expect(markup).not.toContain('roventics-logo.png');
+    expect(markup).not.toContain('Roventics Monitor');
     expect(markup).toContain('Loading your session');
   });
 
@@ -73,9 +97,7 @@ describe('Monitor authentication UI', () => {
   it('renders an honest signed-in meter empty state and name-only form', () => {
     const markup = renderToStaticMarkup(
       <SignedInPanel
-        busy={false}
         error=""
-        onLogout={noAction}
         user={{ id: 7, email: 'user@example.test', is_admin: false }}
       >
         <MeterWorkspace
@@ -88,14 +110,12 @@ describe('Monitor authentication UI', () => {
           loading={false}
           meters={[]}
           name=""
-          onBack={noAction}
-          onAdminViewChange={noAction}
           onClearSearch={noAction}
           onCreate={noAction}
           onDelete={noAction}
           onEditNameChange={noAction}
           onNameChange={noAction}
-          onRename={noAction}
+          onRename={yes}
           onSearch={noAction}
           onSearchChange={noAction}
           onSelect={noAction}
@@ -105,13 +125,13 @@ describe('Monitor authentication UI', () => {
       </SignedInPanel>,
     );
 
-    expect(markup).toContain('Your meters');
+    expect(markup).toContain('Meters');
     expect(markup).toContain('No meters yet');
     expect(markup).toContain('Meter name');
     expect(markup).toContain('Add meter');
     expect(markup).toContain('Search meters');
     expect(markup).toContain('Clear');
-    expect(markup).toContain('user@example.test');
+    expect(markup).not.toContain('Sign out');
     expect(markup).not.toContain('estimated balance');
   });
 
@@ -134,14 +154,12 @@ describe('Monitor authentication UI', () => {
         loading={false}
         meters={[meter]}
         name=""
-        onBack={noAction}
-        onAdminViewChange={noAction}
         onClearSearch={noAction}
         onCreate={noAction}
         onDelete={noAction}
         onEditNameChange={noAction}
         onNameChange={noAction}
-        onRename={noAction}
+        onRename={yes}
         onSearch={noAction}
         onSearchChange={noAction}
         onSelect={noAction}
@@ -160,14 +178,12 @@ describe('Monitor authentication UI', () => {
         loading={false}
         meters={[meter]}
         name=""
-        onBack={noAction}
-        onAdminViewChange={noAction}
         onClearSearch={noAction}
         onCreate={noAction}
         onDelete={noAction}
         onEditNameChange={noAction}
         onNameChange={noAction}
-        onRename={noAction}
+        onRename={yes}
         onSearch={noAction}
         onSearchChange={noAction}
         onSelect={noAction}
@@ -180,12 +196,23 @@ describe('Monitor authentication UI', () => {
     );
 
     expect(listMarkup).toContain('Home');
-    expect(selectedMarkup).toContain('Back to meters');
-    expect(selectedMarkup).toContain('Owner: user@example.test');
+    expect(listMarkup).toContain('aria-label="Rename Home"');
+    expect(listMarkup).toContain('aria-label="Delete Home"');
+    expect(listMarkup).toContain('EditOutlinedIcon');
+    expect(listMarkup).toContain('DeleteOutlinedIcon');
+    expect(selectedMarkup).not.toContain('Back to meters');
+    expect(selectedMarkup).toContain('Meter details');
+    expect(selectedMarkup).toContain('Name:');
+    expect(selectedMarkup).toContain('Owner:');
+    expect(selectedMarkup).toContain('user@example.test');
+    expect(selectedMarkup).toContain('value="Home"');
     expect(selectedMarkup).toContain('Not enough data');
     expect(selectedMarkup).toContain('at least two actual balances');
-    expect(selectedMarkup).toContain('Save name');
-    expect(selectedMarkup).toContain('Delete meter');
+    expect(selectedMarkup).toContain('aria-label="Rename Home"');
+    expect(selectedMarkup).toContain('readOnly=""');
+    expect(selectedMarkup).not.toContain('SaveOutlinedIcon');
+    expect(selectedMarkup).not.toContain('Delete meter');
+    expect(selectedMarkup).not.toContain('Meter settings');
   });
 
   it('separates admin-owned meters from the owner-labelled system view', () => {
@@ -204,9 +231,9 @@ describe('Monitor authentication UI', () => {
     };
     const renderAdminView = (adminView: 'mine' | 'all') => renderToStaticMarkup(
       <SignedInPanel
-        busy={false}
+        adminView={adminView}
+        onAdminViewChange={noAction}
         error=""
-        onLogout={noAction}
         user={{ id: 9, email: 'admin@example.test', is_admin: true }}
       >
         <MeterWorkspace
@@ -219,14 +246,12 @@ describe('Monitor authentication UI', () => {
           loading={false}
           meters={[ownMeter, otherMeter]}
           name=""
-          onBack={noAction}
-          onAdminViewChange={noAction}
           onClearSearch={noAction}
           onCreate={noAction}
           onDelete={noAction}
           onEditNameChange={noAction}
           onNameChange={noAction}
-          onRename={noAction}
+          onRename={yes}
           onSearch={noAction}
           onSearchChange={noAction}
           onSelect={noAction}
@@ -238,7 +263,8 @@ describe('Monitor authentication UI', () => {
     const mineMarkup = renderAdminView('mine');
     const allMarkup = renderAdminView('all');
 
-    expect(mineMarkup).toContain('Meter profiles');
+    expect(mineMarkup).toContain('Meters');
+    expect(mineMarkup).not.toContain('Meter profiles');
     expect(mineMarkup).toContain('My meters');
     expect(mineMarkup).toContain('All meters');
     expect(mineMarkup).toContain('Admin home');
@@ -247,9 +273,18 @@ describe('Monitor authentication UI', () => {
     expect(allMarkup).toContain('Shop');
     expect(allMarkup).toContain('admin@example.test');
     expect(allMarkup).toContain('owner@example.test');
+    expect(mineMarkup).not.toContain('aria-label="Delete Shop"');
+    expect(allMarkup).toContain('aria-label="Rename Shop"');
+    expect(allMarkup).toContain('aria-label="Delete Shop"');
+    expect(mineMarkup).toContain('role="tab"');
+    expect(mineMarkup).toContain('aria-selected="true"');
+    expect(mineMarkup).toContain('aria-label="Search meters"');
+    expect(mineMarkup).toContain('SearchIcon');
+    expect(mineMarkup).toContain('aria-label="Clear search"');
+    expect(mineMarkup).toContain('aria-label="Add meter"');
   });
 
-  it('renders tabbed manual-entry actions and the selected record history', () => {
+  it('renders two primary record actions with forms and history initially closed', () => {
     const balance = {
       id: '00000000-0000-0000-0000-000000000010',
       meter_id: '00000000-0000-0000-0000-000000000001',
@@ -281,6 +316,11 @@ describe('Monitor authentication UI', () => {
     );
 
     expect(markup).toContain('42.125 kWh');
+    expect(markup).toContain('Record balance');
+    expect(markup).toContain('Record top-up');
+    expect(markup).not.toContain('Remaining balance (kWh)');
+    expect(markup).toContain('<details');
+    expect(markup).not.toMatch(/<details[^>]*\sopen(?:[\s=>])/);
     expect(markup).toContain('Balance records');
     expect(markup).toContain('Top-up records');
     expect(markup).toContain('Balance history');
@@ -336,6 +376,11 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('8.34 days');
     expect(markup).toContain('Top up by');
     expect(markup).toContain('108.292 kWh');
+    expect(markup).toContain('Monthly purchase recommendation');
+    expect(markup).toContain('Additional kWh for the next 30 days');
+    expect(markup).toContain('Calculation details');
+    expect(markup).toContain('Calculated');
+    expect(markup).not.toMatch(/<details[^>]*\sopen(?:[\s=>])/);
     expect(markup).toContain('No safety buffer applied');
   });
 

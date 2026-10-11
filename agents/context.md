@@ -151,6 +151,81 @@ or existing volumes were removed. The existing four development services are
 healthy. This is preparation under Ticket 57, not authorisation to deploy, change
 DNS or start the remaining deployment work. Household validation remains open.
 
+The user now wants a simpler dashboard based on their supplied example: estimated
+balance, days remaining and monthly purchase kWh first, followed by Record balance
+and Record top-up buttons. They confirmed forms/history/settings should appear
+only when needed, with the run-out date beneath days remaining and a labelled
+latest actual reading. Task 037 (Ticket 60) is approved and implemented: the
+planning card shows those three headline values, record buttons open only their
+matching forms, and history/settings/calculation details start closed. Save or
+Cancel closes the entry form; retry/error states remain visible independently of
+collapsed sections. The header is compact and Refresh is a smaller action below
+the primary content. Desktop and 320px/390px browser checks, the 22 frontend checks
+and the asset build passed. Synthetic fixtures were cleaned up. Forecast math
+is unchanged. Earlier prospective
+037-038 deployment numbering was not allocated work; the remaining deployment
+scope stays deferred under Ticket 57 and needs separate future tasks.
+
+Task 038 (Ticket 61) is complete: right-aligned account email/avatar navigation
+with a black, distinct Logout action; Back to meters in navigation; meter-ID
+URLs supporting reload, login return and browser Back/Forward; and a wider
+details/planning layout. Invalid/inaccessible links recover without exposing
+foreign records, and older dashboard responses remain guarded. A separate
+`monitor-demo@example.test` user owns retained Demo Home and Demo Shop profiles
+created through local OTP/Mailpit and existing APIs. Their synthetic histories
+produce 4 and 8 kWh/day respectively through the real model; admins can find
+both through All meters/email search. Setup rerun preserved histories without
+duplicates. Desktop/320px/390px live checks, 30 frontend checks and the production
+asset build passed. Only disposable verification users/records, captured emails
+and the temporary admin session were removed. Forecast policy, permissions,
+backend SQL and real household data are unchanged. See the frontend README for
+demo access instructions.
+
+Task 039 (Ticket 62) is complete: navigation has Back on the left and email plus
+a 28px account icon on the right, with no logo, Roventics Monitor name or Admin
+badge. The logo asset is retained. The MUI theme uses one Arial/sans-serif font
+stack with 16px body/labels/buttons and 20–22px headings/forecast values. Meter
+name/owner are vertically centred on desktop and stack left-aligned on phones.
+Desktop/320px/390px live checks, 30 frontend checks and the asset build passed.
+Both demo histories were compared before/after and remain unchanged; no ledger
+writes were performed. Routes, admin permissions, model and backend are unchanged.
+Temporary verification auth fixtures were cleaned up.
+
+Task 040 (Ticket 63) is complete: the account icon is 42px (1.5 times Task 039's
+28px). The selected-meter header now has aligned Name/Owner key-value rows,
+an editable name input and a pencil-only save action; Enter also saves. Bottom
+Meter settings is removed. Each accessible list row has separate pencil/trash
+actions: inline rename with pencil/Enter save and Escape cancellation, plus
+confirmed deletion warning about associated records. Shared existing API handlers
+preserve owner/admin scope and re-query server search after renaming. Pending
+saves retain the row and disable conflicting actions. Desktop/320px/390px live
+checks, owner/admin actions, failure recovery, 30 frontend checks and the asset
+build passed. Both demo histories are unchanged; no ledger writes or reminder
+calls occurred. Only disposable verification fixtures were removed. Backend,
+forecast model, routes, dependencies and real data are unchanged.
+
+Task 041 (Ticket 64) is complete: the signed-in card has a black, white-text
+section header with rounded top corners, titled Meters or Meter <UUID>. Compact
+admin-only My/All tabs share the list header; the active tab is white with dark
+text and joins the content. Names start read-only; pencil focuses editing and
+changes to Save. Save/Enter persists, Escape cancels and errors retain drafts
+on both pages. Name-only creation is the first list row; magnifier and clear-cross
+controls are inside search. The shared theme uses 14px body/buttons, 18px headings
+and 20px forecast values in rem, smaller fields/record buttons and no forced
+uppercase; the account icon stays 42px. The list uses /meters, legacy / and
+/meters/ entries canonicalise, and meter-ID reload/login/Back/Forward work.
+Fourteen grouped live checks, all 31 frontend checks and the asset build passed.
+Vite reports a non-blocking 534kB chunk-size warning; optimisation is not added
+to this PoC task. Both demo ledgers are unchanged; no ledger writes or reminder
+requests occurred. Disposable auth/meter/mail fixtures were cleaned up.
+Backend, SQL, ownership/admin policy and forecast math are unchanged; refocus.md
+is untouched. The user subsequently authorised the Git handoff of Tasks 037–041.
+No implementation task remains open. Remaining active roadmap work is household
+validation (Ticket 56), deployment preparation (Ticket 57) and Monitor app identity
+(Ticket 58). The logo ticket awaits the user's promised final asset and placement
+approval; keep a modest Roventics acknowledgement. Next allocated work will be
+Task 042, following the normal clarification/prompt/approval workflow.
+
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh
 entry actions, factual history, estimated current balance/days/run-out, and a

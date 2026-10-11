@@ -5,19 +5,20 @@ import {
   Card,
   CardContent,
   Chip,
-  Divider,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import BorderColorOutlinedIcon from '@mui/icons-material/BorderColorOutlined';
 import CachedIcon from '@mui/icons-material/Cached';
 import type { FormEvent, ReactNode } from 'react';
 
 import type { User } from './api';
+import type { AdminMeterView } from './MeterWorkspace';
 
 export type LoginStep = 'email' | 'code';
 
@@ -138,49 +139,41 @@ export function LoginPanel({
 
 type SignedInPanelProps = {
   user: User;
-  busy: boolean;
   error: string;
-  onLogout: () => void;
   children?: ReactNode;
+  meterId?: string;
+  adminView?: AdminMeterView;
+  busy?: boolean;
+  onAdminViewChange?: (view: AdminMeterView) => void;
 };
 
 export function SignedInPanel({
   user,
-  busy,
   error,
-  onLogout,
   children,
+  meterId,
+  adminView = 'mine',
+  busy = false,
+  onAdminViewChange,
 }: SignedInPanelProps) {
   return (
     <Card>
-      <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
-        <Stack spacing={2.5}>
-          <Stack
-            direction="row"
-            sx={{ alignItems: 'center', justifyContent: 'space-between' }}
-          >
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="h4" component="h1">
-                {user.is_admin ? 'Meter profiles' : 'Your meters'}
-              </Typography>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <Typography color="text.secondary" noWrap variant="body2">
-                  {user.email}
-                </Typography>
-                {user.is_admin && <Chip label="Admin" size="small" />}
-              </Stack>
-            </Box>
-            <Button
-              disabled={busy}
-              onClick={onLogout}
-              startIcon={<ArrowBackIcon />}
-              variant="outlined"
-            >
-              Sign out
-            </Button>
-          </Stack>
+      <Stack component="header" direction="row" sx={{ alignItems: 'center', bgcolor: 'common.black', color: 'common.white', borderRadius: '12px 12px 0 0', px: 2, pt: 1 }}>
+        <Typography variant="h4" component="h1" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', pb: 1 }}>
+          {meterId ? `Meter ${meterId}` : 'Meters'}
+        </Typography>
+        {!meterId && user.is_admin && (
+          <Tabs value={adminView} onChange={(_, value: AdminMeterView) => onAdminViewChange?.(value)} aria-label="Meter scope" textColor="inherit"
+            sx={{ minHeight: 36, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTab-root': { minWidth: 48, minHeight: 36, p: 1, textTransform: 'none', opacity: 1, borderRadius: '6px 6px 0 0', '&.Mui-selected': { bgcolor: 'common.white', color: 'common.black' } } }}>
+            <Tab id="meter-tab-mine" aria-controls="meter-workspace-content" aria-label="My meters" label="My" value="mine" disabled={busy} />
+            <Tab id="meter-tab-all" aria-controls="meter-workspace-content" aria-label="All meters" label="All" value="all" disabled={busy} />
+          </Tabs>
+        )}
+      </Stack>
+      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        <Stack id="meter-workspace-content" spacing={2} role={!meterId && user.is_admin ? 'tabpanel' : undefined}
+          aria-labelledby={!meterId && user.is_admin ? `meter-tab-${adminView}` : undefined}>
           {error && <Alert severity="error">{error}</Alert>}
-          <Divider />
           {children}
         </Stack>
       </CardContent>

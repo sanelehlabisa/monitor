@@ -17,6 +17,8 @@ import { LoginPanel, SignedInPanel, type LoginStep } from './AuthPanels';
 import { ForecastPanel } from './ForecastPanel';
 import { LedgerPanel, type LedgerItem } from './LedgerPanel';
 import { MeterWorkspace, type AdminMeterView } from './MeterWorkspace';
+import { Navigation } from './Navigation';
+import { isMeterListPath, meterIdFromPath } from './meterRoute';
 import {
   ApiError,
   createBalance,
@@ -70,6 +72,18 @@ const theme = createTheme({
     secondary: { main: '#b8860b' },
     background: { default: '#f2f4f7' },
   },
+  typography: {
+    fontFamily: 'Arial, sans-serif',
+    body1: { fontSize: '0.875rem', lineHeight: 1.5 },
+    body2: { fontSize: '0.875rem', lineHeight: 1.5 },
+    caption: { fontSize: '0.875rem', lineHeight: 1.5 },
+    subtitle1: { fontSize: '0.875rem' },
+    subtitle2: { fontSize: '0.875rem' },
+    button: { fontSize: '0.875rem' },
+    h4: { fontSize: '1.125rem' },
+    h5: { fontSize: '1.25rem' },
+    h6: { fontSize: '1.125rem' },
+  },
   shape: { borderRadius: 12 },
   components: {
     MuiCard: {
@@ -77,7 +91,17 @@ const theme = createTheme({
         root: { boxShadow: '0 1px 4px rgba(0, 0, 0, 0.1)' },
       },
     },
-    MuiButton: { defaultProps: { disableElevation: true } },
+    MuiButton: {
+      defaultProps: { disableElevation: true, size: 'small' },
+      styleOverrides: {
+        root: { textTransform: 'none' },
+        sizeSmall: { fontSize: '0.875rem' },
+        sizeMedium: { fontSize: '0.875rem' },
+        sizeLarge: { fontSize: '0.875rem' },
+      },
+    },
+    MuiTextField: { defaultProps: { size: 'small' } },
+    MuiTab: { styleOverrides: { root: { textTransform: 'none' } } },
   },
 });
 
@@ -105,7 +129,16 @@ export default function App() {
   const [ledgerBusy, setLedgerBusy] = useState(false);
   const [ledgerError, setLedgerError] = useState('');
   const [forecast, setForecast] = useState<Forecast | null>(null);
+  const [meterPath, setMeterPath] = useState(() =>
+    typeof window === 'undefined' ? '/' : window.location.pathname,
+  );
   const dashboardVersion = useRef(0);
+
+  useEffect(() => {
+    const onPopState = () => setMeterPath(window.location.pathname);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -127,10 +160,7 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       setMeters([]);
-      setSelectedMeter(null);
-      setBalances([]);
-      setTopUps([]);
-      setForecast(null);
+      clearMeterWorkspace();
       setMeterSearch('');
       return;
     }
@@ -151,6 +181,45 @@ export default function App() {
       active = false;
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (isMeterListPath(meterPath) && meterPath !== '/meters') {
+      window.history.replaceState(null, '', '/meters');
+      setMeterPath('/meters');
+      return;
+    }
+    const meterId = meterIdFromPath(meterPath);
+    if (meterId) {
+      void loadMeter(meterId);
+    } else {
+      clearMeterWorkspace();
+      if (!isMeterListPath(meterPath)) setMeterError('That meter is unavailable. Return to the meter list.');
+    }
+  }, [user, meterPath]);
+
+  function clearMeterWorkspace() {
+    dashboardVersion.current += 1;
+    setMeterBusy(false);
+    setLedgerLoading(false);
+    setSelectedMeter(null);
+    setEditMeterName('');
+    setMeterError('');
+    setLedgerError('');
+    setBalances([]);
+    setTopUps([]);
+    setForecast(null);
+  }
+
+  function navigateToMeter(meterId: string | null) {
+    const path = meterId ? `/meters/${meterId}` : '/meters';
+    if (meterId && path === meterPath) {
+      void loadMeter(meterId);
+      return;
+    }
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+    setMeterPath(path);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -204,6 +273,7 @@ export default function App() {
       await logout();
       dashboardVersion.current += 1;
       setUser(null);
+      navigateToMeter(null);
       setAdminMeterView('mine');
       setStep('email');
       setEmail('');
@@ -273,24 +343,22 @@ export default function App() {
     }
   }
 
-  async function handleSelectMeter(meter: Meter) {
-    const version = ++dashboardVersion.current;
+  async function loadMeter(meterId: string) {
+    clearMeterWorkspace();
+    const version = dashboardVersion.current;
     setMeterBusy(true);
     setLedgerLoading(true);
-    setMeterError('');
-    setLedgerError('');
-    setBalances([]);
-    setTopUps([]);
-    setForecast(null);
     try {
-      const selected = await getMeter(meter.id);
+      const selected = await getMeter(meterId);
       if (version !== dashboardVersion.current) return;
       setSelectedMeter(selected);
       setEditMeterName(selected.name);
       await loadDashboard(selected.id, false, version);
-    } catch {
+    } catch (requestError) {
       if (version === dashboardVersion.current) {
-        setMeterError('That meter could not be opened. Try again.');
+        setMeterError(requestError instanceof ApiError && requestError.status === 404
+          ? 'That meter is unavailable. Return to the meter list.'
+          : 'That meter could not be opened. Try again.');
       }
     } finally {
       if (version === dashboardVersion.current) {
@@ -450,15 +518,15 @@ export default function App() {
     }
   }
 
-  async function handleRenameMeter(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedMeter) return;
+  async function handleRenameMeter(meter: Meter, name: string) {
+    if (meterBusy || ledgerBusy) return false;
+    const version = dashboardVersion.current;
     setMeterBusy(true);
     setMeterError('');
     try {
-      const renamed = await renameMeter(selectedMeter.id, editMeterName);
-      setSelectedMeter(renamed);
-      setEditMeterName(renamed.name);
+      const renamed = await renameMeter(meter.id, name);
+      setSelectedMeter((current) => current?.id === renamed.id ? renamed : current);
+      if (version === dashboardVersion.current && selectedMeter?.id === meter.id) setEditMeterName(renamed.name);
       setMeters((current) =>
         current
           .map((meter) => (meter.id === renamed.id ? renamed : meter))
@@ -466,32 +534,39 @@ export default function App() {
             left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
           ),
       );
+      if (meterSearch.trim()) {
+        try {
+          setMeters(await listMeters(meterSearch));
+        } catch {
+          setMeterError('Name saved, but the list could not be reloaded. Search again.');
+        }
+      }
+      return true;
     } catch (requestError) {
       setMeterError(
         requestError instanceof ApiError && requestError.status === 409
           ? 'That owner already has a meter with this name.'
           : 'The meter could not be renamed. Try again.',
       );
+      return false;
     } finally {
-      setMeterBusy(false);
+      if (version === dashboardVersion.current) setMeterBusy(false);
     }
   }
 
-  async function handleDeleteMeter() {
-    if (!selectedMeter || !window.confirm(`Delete ${selectedMeter.name}?`)) return;
+  async function handleDeleteMeter(meter: Meter) {
+    if (meterBusy || ledgerBusy || !window.confirm(`Delete ${meter.name}? This also deletes its balance and top-up records.`)) return;
     setMeterBusy(true);
     setMeterError('');
     try {
-      await deleteMeter(selectedMeter.id);
-      dashboardVersion.current += 1;
+      await deleteMeter(meter.id);
       setMeters((current) =>
-        current.filter((meter) => meter.id !== selectedMeter.id),
+        current.filter((existing) => existing.id !== meter.id),
       );
-      setSelectedMeter(null);
-      setEditMeterName('');
-      setBalances([]);
-      setTopUps([]);
-      setForecast(null);
+      if (selectedMeter?.id === meter.id) {
+        navigateToMeter(null);
+        clearMeterWorkspace();
+      }
     } catch {
       setMeterError('The meter could not be deleted. Try again.');
     } finally {
@@ -502,34 +577,31 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Container maxWidth={user ? 'md' : 'xs'}>
-        <Box component="main" sx={{ minHeight: '100vh', py: { xs: 4, sm: 7 } }}>
+      <Container maxWidth={user ? 'lg' : 'xs'}>
+        <Box component="main" sx={{ minHeight: '100vh', py: { xs: 3, sm: 4 } }}>
           <Stack spacing={3}>
-            <Stack spacing={1} sx={{ alignItems: 'center' }}>
-              <Box
-                alt="Roventics"
-                component="img"
-                src="/roventics-logo.png"
-                sx={{ height: 64, width: 64 }}
-              />
-              <Typography sx={{ fontWeight: 800 }} variant="h6">
-                Roventics Monitor
-              </Typography>
-            </Stack>
+            <Navigation user={user} busy={busy || meterBusy || ledgerBusy} onLogout={handleLogout}
+              onBack={!isMeterListPath(meterPath) ? () => navigateToMeter(null) : undefined} />
             {loading ? (
               <Box sx={{ display: 'grid', minHeight: 240, placeItems: 'center' }}>
                 <CircularProgress aria-label="Loading your session" color="inherit" />
               </Box>
             ) : user ? (
               <SignedInPanel
-                busy={busy}
                 error={error}
-                onLogout={handleLogout}
+                meterId={meterIdFromPath(meterPath) ?? undefined}
+                adminView={adminMeterView}
+                busy={meterBusy || metersLoading || ledgerBusy}
+                onAdminViewChange={setAdminMeterView}
                 user={user}
               >
-                <MeterWorkspace
+                {meterBusy && !selectedMeter && !isMeterListPath(meterPath) ? (
+                  <Box sx={{ display: 'grid', minHeight: 160, placeItems: 'center' }}>
+                    <CircularProgress aria-label="Loading meter" color="inherit" />
+                  </Box>
+                ) : <MeterWorkspace key={selectedMeter?.id ?? 'list'}
                   adminView={adminMeterView}
-                  busy={meterBusy}
+                  busy={meterBusy || ledgerBusy}
                   currentUserEmail={user.email}
                   editName={editMeterName}
                   error={meterError}
@@ -537,18 +609,6 @@ export default function App() {
                   loading={metersLoading}
                   meters={meters}
                   name={meterName}
-                  onBack={() => {
-                    dashboardVersion.current += 1;
-                    setMeterBusy(false);
-                    setLedgerLoading(false);
-                    setSelectedMeter(null);
-                    setMeterError('');
-                    setLedgerError('');
-                    setBalances([]);
-                    setTopUps([]);
-                    setForecast(null);
-                  }}
-                  onAdminViewChange={setAdminMeterView}
                   onClearSearch={handleClearMeterSearch}
                   onCreate={handleCreateMeter}
                   onDelete={handleDeleteMeter}
@@ -557,26 +617,17 @@ export default function App() {
                   onRename={handleRenameMeter}
                   onSearch={handleSearchMeters}
                   onSearchChange={setMeterSearch}
-                  onSelect={handleSelectMeter}
+                  onSelect={(meter) => navigateToMeter(meter.id)}
                   selectedContent={
                     selectedMeter ? (
                       <Stack key={selectedMeter.id} spacing={2.5}>
-                        <Button
-                          disabled={ledgerLoading || ledgerBusy || meterBusy}
-                          onClick={() => loadDashboard(selectedMeter.id)}
-                          startIcon={<RefreshIcon />}
-                          sx={{ alignSelf: 'flex-end' }}
-                          variant="outlined"
-                        >
-                          Refresh
-                        </Button>
                         <ForecastPanel
                           forecast={forecast}
                           loading={ledgerLoading}
                         />
                         <LedgerPanel
                           balances={balances}
-                          busy={ledgerBusy}
+                          busy={ledgerBusy || meterBusy}
                           error={ledgerError}
                           loading={ledgerLoading}
                           onCreateBalance={handleCreateBalance}
@@ -585,12 +636,21 @@ export default function App() {
                           onUpdate={handleUpdateEntry}
                           topUps={topUps}
                         />
+                        <Button
+                          disabled={ledgerLoading || ledgerBusy || meterBusy}
+                          onClick={() => loadDashboard(selectedMeter.id)}
+                          size="small"
+                          startIcon={<RefreshIcon />}
+                          sx={{ alignSelf: 'flex-end' }}
+                        >
+                          Refresh
+                        </Button>
                       </Stack>
                     ) : undefined
                   }
                   selectedMeter={selectedMeter}
                   search={meterSearch}
-                />
+                />}
               </SignedInPanel>
             ) : (
               <LoginPanel

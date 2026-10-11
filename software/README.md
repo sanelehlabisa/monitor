@@ -67,6 +67,25 @@ separates manual records into tabs and hides reminder settings in the frontend;
 the backend reminder preferences and delivery runner remain available.
 Task 035 adds manual dashboard refresh and honest retry states after failed
 reads; retrying estimates does not repeat saved ledger writes.
+Task 037 simplifies the planning card to three headline estimates and two record
+buttons, with forms/history/settings shown only when requested. The backend
+calculation and persistence contracts are unchanged; see the frontend README.
+Task 038 adds right-aligned account navigation, linkable meter-ID pages and a
+wider details/planning layout. Two retained synthetic meters under a separate
+local demo user support admin testing through All meters; access instructions
+are in the frontend README. No startup seeding or forecast-policy change is added.
+Task 039 removes navigation branding/role badges, shortens Back, enlarges the
+account icon and standardises typography/name-owner alignment. Demo histories,
+admin access, routes and backend calculations remain unchanged.
+Task 040 enlarges the account icon to 42px, moves selected-meter renaming into
+Name/Owner key-value details and adds pencil/trash actions to each meter-list
+row. Bottom Meter settings is removed; the same authorised APIs and confirmed
+deletion are reused. No backend, forecast or persistent demo history is changed.
+Task 041 adds consistent black section headers, compact My/All tabs and white
+active-tab styling. Pencil now activates editing and changes to Save on both
+pages; creation becomes the first list row and search/clear icons sit inside
+the search field. Text/controls are smaller without forced uppercase. The list
+uses `/meters`, while root entry links and meter-ID navigation remain compatible.
 Ticket 48 confirmed active runtime code has no obsolete device/OCR integration.
 
 After changing frontend dependencies, refresh an existing named volume:
@@ -105,8 +124,8 @@ and SMTP settings explicitly for the deployment; development defaults are not a
 production configuration. SQL migrations and database setup are not performed by
 the image command. See the component READMEs for the runtime boundaries.
 
-This is image preparation only, not a ready deployment stack. Tasks 037-038
-(production Compose/env and operations) remain unapproved; HTTPS is needed for
+This is image preparation only, not a ready deployment stack. Remaining Ticket 57
+work (production Compose/env and operations) is unapproved; HTTPS is needed for
 production cookie login. No VPS, DNS, TLS or household database changes are
 included. Both production and development images built successfully after Docker
 recovered. Disposable smoke checks passed for static assets, SPA fallback,
