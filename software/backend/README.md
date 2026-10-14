@@ -161,3 +161,35 @@ as actual readings.
 
 Use typed Python, concise public docstrings and reusable raw-SQL repository
 functions. Production deployment settings are not defined yet.
+
+## Planned Ticket 66: Forecasting Algorithm Validation
+
+Task 042 defines the validation work only; it adds no fixtures, tests or model
+changes. Reuse run_forecast_model and existing tests; use fixed, timezone-aware
+synthetic datasets and manually stated expected results before public testing.
+No real household dataset is yet established; demos do not prove accuracy.
+
+Validate consumption between readings (including purchased kWh), time-weighted
+daily use, estimated current balance, remaining days, run-out instant and
+additional purchase for 30 days. Distinguish total 30-day usage from the extra
+purchase after subtracting available balance; no hidden safety buffer.
+
+Required dataset coverage:
+
+- Normal consistent use and top-ups between readings, including interval edges.
+- Changing consumption, missing days and irregular observation intervals.
+- Invalid negative consumption, duplicate/reordered or impossible timestamps.
+- Insufficient history, unusually high consumption and valid zero use.
+- Elapsed time after the latest reading, later top-ups and exhausted balance.
+
+For a fixed current time: 450 kWh 30 days earlier, a 300 kWh top-up 15 days
+earlier and 300 kWh now imply (450 + 300 - 300) / 30 = 15 kWh/day.
+Expected outputs are 300 kWh current balance, 20 days remaining, run-out in
+20 days, 450 kWh total 30-day usage and 150 kWh additional purchase. This
+example documents the existing contract; it does not add a total-usage API field.
+
+Acceptance: deterministic expected-output examples and repeatable checks of
+statuses, UTC/local equivalence, rounding and invalid/unavailable states.
+Report model limitations; file small approved fixes separately if checks fail.
+Optional purchase costs, tariffs and future-cost estimates remain deferred:
+no such columns currently exist. Do not introduce ML, OCR or an LLM.

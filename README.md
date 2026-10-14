@@ -151,17 +151,41 @@ retained authentication IDs appear before newer product tickets.
 - [x] Ticket 64: Compact Meter Workspace — black rounded section headers,
   white active My/All tabs, pencil-to-Save editing, first-row creation and inline
   search/clear controls. Task 041 verifies compact styles and `/meters` navigation.
-- [ ] Ticket 56: End-to-End V1 Validation — live meter-planning demo, multi-user
-  isolation, corrections, edge cases and household usability. Task 034 completed
-  the technical demo checks; household validation remains a separate step.
-- [ ] Ticket 57: Deployment Preparation — production images, configuration,
-  backups, operations and release checklist. Task 036 image configuration is
-  complete with production/development builds and disposable smoke checks passed.
-  Actual deployment remains after household validation in 56.
-- [ ] Ticket 58: Monitor App Identity — replace the current company-led mark
-  with a user-supplied, recognisable Monitor logo and retain a modest Roventics
-  acknowledgement on the website. This is separate from Task 033 and begins only
-  after the final logo asset is supplied and its placement is approved.
+
+### Next: usable, validated website
+
+Task 042 updates planning only. Each ticket still needs its own implementation
+approval; details live in the closest software README.
+
+- [ ] Ticket 65: Monitor Usability Review — first-user onboarding, clear actual
+  readings/estimates, compact mobile states and wording; branding links to 58.
+- [ ] Ticket 66: Forecasting Algorithm Validation — deterministic synthetic kWh
+  datasets and expected results, including monthly usage versus additional purchase.
+- [ ] Ticket 57: Web Deployment — reuse Task 036's completed production images;
+  plan production configuration, HTTPS, migrations, OTP email, backups, monitoring,
+  privacy and logging on existing Roventics infrastructure (after 65 and 66).
+- [ ] Ticket 56: Personal Usage Validation — retain Task 034's completed technical
+  checks; compare real household predictions with later readings and return usage.
+- [ ] Ticket 67: External User Testing — a consented 3-5-user deployed pilot for
+  onboarding, repeat entries, usefulness and failures; not proof of paid demand.
+- [ ] Ticket 58: Monitor App Identity — user-supplied Monitor logo and modest
+  Roventics acknowledgement; await the final asset and placement approval.
+- [ ] Ticket 68: Installable Web App — future PWA only after web-usage validation;
+  no React Native or mobile-store work before evidence warrants it.
+
+### Shared execution priority
+
+1. Monitor usability (65), with supplied branding handled through 58.
+2. Synthetic forecast validation (66); keep costs and price forecasts deferred.
+3. Monitor deployment (57).
+4. Begin personal (56) and external (67) testing.
+5. While waiting for users, return to Switch's compact prototype (Switch 84).
+6. Measure, design and locally print its temporary enclosure (Switch 84).
+7. Complete at least two continuous weeks of internal testing (Switch 84).
+8. Replace the temporary circuit after PCB arrival/bring-up (Switch 85).
+
+SPII and supplier timelines remain parallel and must not block independent work.
+Switch details remain in [its own roadmap](https://github.com/sanelehlabisa/switch).
 
 ### Superseded or deferred ticket history
 

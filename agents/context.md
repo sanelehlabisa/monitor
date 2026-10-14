@@ -129,7 +129,8 @@ They remain future research if automated meter capture is later justified.
   timestamps, user isolation and admin access. It enables Vite polling after
   finding stale Docker-served modules, refreshes the existing frontend dependency
   volume and documents a repeatable local demo. Technical checks passed; Ticket
-  56 remains open for real household usability feedback before deployment.
+  56 remains open for real household usability feedback. Task 042's current
+  release order below supersedes the earlier household-before-deployment gate.
 - Task 035 completes Ticket 59 with an icon-labelled manual Refresh action and
   one shared dashboard loader. Failed initial/manual/post-save reads withhold
   estimates, retain available records and provide retry guidance. Reads never
@@ -220,11 +221,27 @@ to this PoC task. Both demo ledgers are unchanged; no ledger writes or reminder
 requests occurred. Disposable auth/meter/mail fixtures were cleaned up.
 Backend, SQL, ownership/admin policy and forecast math are unchanged; refocus.md
 is untouched. The user subsequently authorised the Git handoff of Tasks 037–041.
-No implementation task remains open. Remaining active roadmap work is household
-validation (Ticket 56), deployment preparation (Ticket 57) and Monitor app identity
-(Ticket 58). The logo ticket awaits the user's promised final asset and placement
-approval; keep a modest Roventics acknowledgement. Next allocated work will be
-Task 042, following the normal clarification/prompt/approval workflow.
+Task 042 updates the roadmap and component requirements only. New tickets are
+65 usability, 66 synthetic forecasting validation, 67 external testing and
+68 a future installable web app. Reuse 56 for personal usage validation, 57 for
+web deployment and 58 for the supplied Monitor logo/modest Roventics credit.
+Order: 65 -> 66 -> 57 -> begin 56 and 67; real household evidence follows
+deployment rather than being its prerequisite. Logo placement waits for the
+final asset and approval, but other usability work can proceed. PWA 68 waits for
+web-usage evidence; React Native/mobile stores remain deferred.
+
+The current schema stores balance/top-up kWh and UTC times, not purchase costs.
+Costs, tariffs and future-price estimates stay deferred. Validation must explain
+30-day usage versus additional kWh to buy: at 15 kWh/day and 300 kWh remaining,
+usage is 450 kWh for 30 days, while the extra purchase is 150 kWh. Synthetic
+demo/screenshot records are not real-household validation evidence.
+
+While waiting for Monitor feedback, Switch 84 proceeds through compact
+low-voltage assembly, a measured temporary enclosure and at least two continuous
+weeks of internal tests; 85 replaces it after manufactured PCB arrival/bring-up.
+SPII/supplier processes stay parallel. This task changes no product, database,
+infrastructure or hardware and approves none of those future implementations.
+The next Monitor work number is 043, using the normal approval workflow.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

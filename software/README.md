@@ -143,3 +143,53 @@ actual records from estimates.
 
 Actual production deployment, payment integration, MQTT, hardware and OCR remain
 out of scope until their roadmap status changes through an approved task.
+
+## Planned validation and release
+
+Task 042 records requirements only; none of the following tickets is implemented
+by that planning task. Usability 65 and forecasting validation 66 precede web
+deployment 57, followed by personal 56 and external 67 testing. The root README
+owns IDs and the cross-product priority.
+
+### Ticket 56: Personal Usage Validation
+
+Retain Task 034's completed technical checks. Use real household kWh readings,
+top-ups and observation times; keep synthetic demo/screenshot histories separate.
+Save each forecast snapshot/time and compare it with later actual readings,
+accounting for intervening top-ups. Record balance/run-out error, confusing
+inputs, missing information, recommendation usefulness and repeat-entry behaviour.
+Acceptance is a dated evidence summary and prioritised findings, not a claim of
+validated accuracy without real comparisons. Can begin with 67 after 57.
+
+### Ticket 57: Web Deployment
+
+Reuse the completed Task 036 images; do not rebuild an architecture from scratch.
+Plan the existing Roventics VPS/subdomain, choosing exact host/domain details in
+the later approved implementation prompt. Release follows 65/66 readiness.
+
+- Production Docker configuration without reload, minimal explicit runtime env
+  and secrets, HTTPS/public origin and secure-cookie login.
+- Versioned SQL migration procedure, persistent PostgreSQL data, backup schedule
+  and a demonstrated restore/rollback procedure before pilot invitations.
+- Real SMTP/OTP delivery with a verified request/login/logout flow; no public
+  Mailpit, database or administrative debug endpoint.
+- Basic service/database/email checks, actionable error logging and a simple
+  privacy statement explaining stored emails, records, use and contact/removal.
+  Never log OTPs, session tokens or secrets.
+- Acceptance: HTTPS meter/ledger/forecast smoke checks, user/admin isolation,
+  restart persistence, migration/restore evidence and an operations/release
+  checklist. Deployment itself still requires separate approval.
+
+### Ticket 67: External User Testing
+
+After 57 and 65/66 readiness, invite 3-5 consenting internet users; personal
+testing 56 runs alongside it. Record onboarding completion, repeat reading
+entries, usefulness, errors/confusion, requests and continued usage over a
+declared pilot period. State estimates/limitations, keep records private and
+summarise findings without committing identifiable household data.
+Acceptance: a small cohort feedback summary and prioritised fixes. Free testers
+are usability evidence, not proof of commercial demand.
+
+Usability/identity/PWA detail is in the frontend README; deterministic validation
+detail is in the backend README. Purchase costs and cost estimates remain
+deferred because the active schema accepts kWh only.
