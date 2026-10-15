@@ -1,6 +1,6 @@
 # Repository Context
 
-Roventics Monitor is a free, software-only electricity planning application for
+Monitor is a free, software-only electricity planning application for
 prepaid households. It helps users understand how much electricity to add and
 when through manual kWh records and simple, transparent forecasts.
 
@@ -137,8 +137,8 @@ They remain future research if automated meter capture is later justified.
   repeat saved writes; navigation/sign-out invalidate older dashboard responses.
   No automatic refresh, dependency, backend or forecast-model change was added.
 
-Household validation and deployment remain later steps, and the Monitor logo
-still awaits the user-supplied asset.
+Household validation and deployment remain later steps. Task 043 delivers the
+supplied Monitor identity; the next priority remains usability Ticket 65.
 
 Task 036 is complete: production
 targets use a pinned Nginx frontend runtime and non-root Uvicorn without reload;
@@ -226,8 +226,8 @@ Task 042 updates the roadmap and component requirements only. New tickets are
 68 a future installable web app. Reuse 56 for personal usage validation, 57 for
 web deployment and 58 for the supplied Monitor logo/modest Roventics credit.
 Order: 65 -> 66 -> 57 -> begin 56 and 67; real household evidence follows
-deployment rather than being its prerequisite. Logo placement waits for the
-final asset and approval, but other usability work can proceed. PWA 68 waits for
+deployment rather than being its prerequisite. Task 042 originally deferred
+logo placement; Task 043's approved identity delivery below completes it. PWA 68 waits for
 web-usage evidence; React Native/mobile stores remain deferred.
 
 The current schema stores balance/top-up kWh and UTC times, not purchase costs.
@@ -239,9 +239,34 @@ demo/screenshot records are not real-household validation evidence.
 While waiting for Monitor feedback, Switch 84 proceeds through compact
 low-voltage assembly, a measured temporary enclosure and at least two continuous
 weeks of internal tests; 85 replaces it after manufactured PCB arrival/bring-up.
-SPII/supplier processes stay parallel. This task changes no product, database,
-infrastructure or hardware and approves none of those future implementations.
-The next Monitor work number is 043, using the normal approval workflow.
+SPII/supplier processes stay parallel. Task 042 changed no product, database,
+infrastructure or hardware and approved none of those future implementations.
+Task 043 completes Ticket 58: unchanged supplied monitor-logo.png appears as a
+48px logo/name header above login and the workspace and as the PNG favicon.
+The page title is Monitor. Shared MUI colours are blue #005aae, readable teal
+#007782, white and pale blue #eef7fc, with dark blue-grey text. Rounded section
+headers/forecast cards are blue; active admin tabs stay white with blue text.
+Top-up/Refresh and the footer use teal. A 24px existing Roventics logo plus
+by Roventics links to https://roventics.com in a separate safe new tab.
+Fonts, 42px account icon, layout/flows, routes, permissions and forecasts are
+unchanged. All 31 frontend checks and the production asset build passed, as did
+four grouped browser checks covering 18 desktop/phone views using mocked APIs
+on a disposable built-assets preview. No real backend request or DB write
+occurred; source artwork hashes are unchanged. Temporary browser/server closed.
+The user authorised the Git handoff of completed Tasks 043–044.
+Task 044 refines the brand header:
+the 48px logo sits above Monitor in one combined centred block, with Back left
+and the 42px account control right, vertically centred against the whole block.
+They share one compact row; phones below 600px show the account icon only and
+retain the full email in its existing Sign out dropdown. Desktop email truncates
+without shifting the centred branding. Login/loading keep the stacked identity
+without navigation actions. Artwork, palette, fonts, routes, auth/permissions,
+forecast logic and data are unchanged. The next work number is 045, using the
+normal approval workflow; full Ticket 65 remains unstarted.
+Task 044 passed all 32 frontend checks, the TypeScript/Vite build and four
+grouped mocked-browser checks across 16 desktop/phone views, including long
+emails, Back, Sign out and Escape/focus restoration. No real backend requests
+or DB writes occurred; the disposable browser/server closed after verification.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

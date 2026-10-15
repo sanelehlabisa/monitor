@@ -86,6 +86,9 @@ active-tab styling. Pencil now activates editing and changes to Save on both
 pages; creation becomes the first list row and search/clear icons sit inside
 the search field. Text/controls are smaller without forced uppercase. The list
 uses `/meters`, while root entry links and meter-ID navigation remain compatible.
+Task 043 completes the supplied Monitor logo/favicon and blue/teal theme, with
+a compact brand header and small linked Roventics footer. Typography, existing
+flows, forecasting and persisted data are unchanged; see the frontend README.
 Ticket 48 confirmed active runtime code has no obsolete device/OCR integration.
 
 After changing frontend dependencies, refresh an existing named volume:

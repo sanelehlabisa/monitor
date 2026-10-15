@@ -67,10 +67,13 @@ function ledgerFailure(error: unknown, action: string): string {
 }
 
 const theme = createTheme({
+  // Deeper logo-inspired colours keep text readable on the light surfaces.
   palette: {
-    primary: { main: '#1c1e21' },
-    secondary: { main: '#b8860b' },
-    background: { default: '#f2f4f7' },
+    primary: { main: '#005aae', contrastText: '#ffffff' },
+    secondary: { main: '#007782', light: '#dcf5f6', contrastText: '#ffffff' },
+    background: { default: '#eef7fc', paper: '#ffffff' },
+    text: { primary: '#16324b', secondary: '#4b6173' },
+    divider: '#cee1ed',
   },
   typography: {
     fontFamily: 'Arial, sans-serif',
@@ -101,6 +104,7 @@ const theme = createTheme({
       },
     },
     MuiTextField: { defaultProps: { size: 'small' } },
+    MuiOutlinedInput: { styleOverrides: { notchedOutline: { borderColor: '#6a8194' } } },
     MuiTab: { styleOverrides: { root: { textTransform: 'none' } } },
   },
 });
@@ -637,6 +641,7 @@ export default function App() {
                           topUps={topUps}
                         />
                         <Button
+                          color="secondary"
                           disabled={ledgerLoading || ledgerBusy || meterBusy}
                           onClick={() => loadDashboard(selectedMeter.id)}
                           size="small"
@@ -667,14 +672,21 @@ export default function App() {
                 step={step}
               />
             )}
-            <Typography
-              align="center"
-              color="text.secondary"
-              sx={{ display: 'block', px: 2 }}
-              variant="caption"
-            >
-              Manual kWh planning. No hardware or meter modification required.
-            </Typography>
+            <Stack component="footer" spacing={1}>
+              <Typography
+                align="center"
+                color="text.secondary"
+                sx={{ display: 'block', px: 2 }}
+                variant="caption"
+              >
+                Manual kWh planning. No hardware or meter modification required.
+              </Typography>
+              <Box component="a" href="https://roventics.com" target="_blank" rel="noopener noreferrer" aria-label="Visit Roventics"
+                sx={{ alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 0.75, color: 'secondary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                <Box component="img" src="/roventics-logo.png" alt="Roventics logo" width={24} height={24} sx={{ display: 'block' }} />
+                <Typography component="span" variant="caption">by Roventics</Typography>
+              </Box>
+            </Stack>
           </Stack>
         </Box>
       </Container>

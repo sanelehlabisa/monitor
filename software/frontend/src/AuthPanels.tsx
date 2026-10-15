@@ -158,13 +158,13 @@ export function SignedInPanel({
 }: SignedInPanelProps) {
   return (
     <Card>
-      <Stack component="header" direction="row" sx={{ alignItems: 'center', bgcolor: 'common.black', color: 'common.white', borderRadius: '12px 12px 0 0', px: 2, pt: 1 }}>
+      <Stack component="header" direction="row" sx={{ alignItems: 'center', bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: '12px 12px 0 0', px: 2, pt: 1 }}>
         <Typography variant="h4" component="h1" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', pb: 1 }}>
           {meterId ? `Meter ${meterId}` : 'Meters'}
         </Typography>
         {!meterId && user.is_admin && (
           <Tabs value={adminView} onChange={(_, value: AdminMeterView) => onAdminViewChange?.(value)} aria-label="Meter scope" textColor="inherit"
-            sx={{ minHeight: 36, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTab-root': { minWidth: 48, minHeight: 36, p: 1, textTransform: 'none', opacity: 1, borderRadius: '6px 6px 0 0', '&.Mui-selected': { bgcolor: 'common.white', color: 'common.black' } } }}>
+            sx={{ minHeight: 36, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTab-root': { minWidth: 48, minHeight: 36, p: 1, textTransform: 'none', opacity: 1, borderRadius: '6px 6px 0 0', '&.Mui-selected': { bgcolor: 'background.paper', color: 'primary.main' } } }}>
             <Tab id="meter-tab-mine" aria-controls="meter-workspace-content" aria-label="My meters" label="My" value="mine" disabled={busy} />
             <Tab id="meter-tab-all" aria-controls="meter-workspace-content" aria-label="All meters" label="All" value="all" disabled={busy} />
           </Tabs>

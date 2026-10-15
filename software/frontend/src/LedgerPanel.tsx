@@ -158,6 +158,7 @@ export function LedgerPanel({
           disabled={busy}
           fullWidth
           onClick={() => beginRecord('top-up')}
+          color="secondary"
           size="medium"
           startIcon={<BoltOutlinedIcon />}
           sx={{ py: 1 }}

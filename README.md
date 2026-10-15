@@ -1,4 +1,4 @@
-# Roventics Monitor
+# Monitor
 
 A free, software-only electricity planning application for prepaid households.
 Users manually record meter balances and top-ups in kWh; Monitor uses simple,
@@ -151,6 +151,8 @@ retained authentication IDs appear before newer product tickets.
 - [x] Ticket 64: Compact Meter Workspace — black rounded section headers,
   white active My/All tabs, pencil-to-Save editing, first-row creation and inline
   search/clear controls. Task 041 verifies compact styles and `/meters` navigation.
+- [x] Ticket 58: Monitor App Identity — supplied Monitor logo/favicon,
+  blue/teal MUI theme and modest linked Roventics footer (Task 043).
 
 ### Next: usable, validated website
 
@@ -168,14 +170,12 @@ approval; details live in the closest software README.
   checks; compare real household predictions with later readings and return usage.
 - [ ] Ticket 67: External User Testing — a consented 3-5-user deployed pilot for
   onboarding, repeat entries, usefulness and failures; not proof of paid demand.
-- [ ] Ticket 58: Monitor App Identity — user-supplied Monitor logo and modest
-  Roventics acknowledgement; await the final asset and placement approval.
 - [ ] Ticket 68: Installable Web App — future PWA only after web-usage validation;
   no React Native or mobile-store work before evidence warrants it.
 
 ### Shared execution priority
 
-1. Monitor usability (65), with supplied branding handled through 58.
+1. Monitor usability (65); supplied branding is complete under 58.
 2. Synthetic forecast validation (66); keep costs and price forecasts deferred.
 3. Monitor deployment (57).
 4. Begin personal (56) and external (67) testing.

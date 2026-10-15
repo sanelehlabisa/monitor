@@ -24,7 +24,7 @@ const notEnoughForecast: Forecast = {
   intervals_used: 0,
 };
 describe('Monitor authentication UI', () => {
-  it('keeps the account controls and Back in navigation, not meter content', () => {
+  it('combines stacked branding, Back and account controls in one navigation row', () => {
     const markup = renderToStaticMarkup(
       <Navigation busy={false} onBack={noAction} onLogout={noAction}
         user={{ id: 7, email: 'admin@example.test', is_admin: true }} />,
@@ -36,6 +36,12 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('font-size:42px');
     expect(markup).toContain('>Back</button>');
     expect(markup).toContain('ArrowBackIcon');
+    expect(markup).toContain('minmax(0, 1fr) auto minmax(0, 1fr)');
+    expect(markup).toContain('src="/monitor-logo.png"');
+    expect(markup).toContain('>Monitor</span>');
+    expect(markup.indexOf('>Back</button>')).toBeLessThan(markup.indexOf('src="/monitor-logo.png"'));
+    expect(markup.indexOf('src="/monitor-logo.png"')).toBeLessThan(markup.indexOf('>Monitor</span>'));
+    expect(markup.indexOf('>Monitor</span>')).toBeLessThan(markup.indexOf('id="account-button"'));
     expect(markup).not.toContain('Admin');
     expect(markup).not.toContain('roventics-logo.png');
     expect(markup).not.toContain('Roventics Monitor');
@@ -45,12 +51,34 @@ describe('Monitor authentication UI', () => {
     );
     expect(signedOut).not.toContain('Account menu');
     expect(signedOut).not.toContain('>Back</button>');
+    expect(signedOut).not.toContain('<nav');
+    expect(signedOut).toContain('<header');
+    expect(signedOut).toContain('src="/monitor-logo.png"');
+    expect(signedOut).toContain('>Monitor</span>');
   });
 
-  it('renders session loading without nav branding or claiming data exists', () => {
+  it('keeps list branding without Back and disables navigation during pending work', () => {
+    const user = { id: 7, email: 'owner@example.test', is_admin: false };
+    const list = renderToStaticMarkup(<Navigation busy={false} onLogout={noAction} user={user} />);
+    expect(list).not.toContain('>Back</button>');
+    expect(list).toContain('src="/monitor-logo.png"');
+    expect(list).toContain('Account menu');
+    const busy = renderToStaticMarkup(<Navigation busy onBack={noAction} onLogout={noAction} user={user} />);
+    expect(busy.match(/<button\b[^>]*disabled=""/g)).toHaveLength(2);
+  });
+
+  it('renders Monitor identity and the separate Roventics credit without claiming data exists', () => {
     const markup = renderToStaticMarkup(<App />);
 
-    expect(markup).not.toContain('roventics-logo.png');
+    expect(markup).toContain('src="/monitor-logo.png"');
+    expect(markup).toContain('alt="Monitor logo"');
+    expect(markup).toContain('width="48"');
+    expect(markup).toContain('src="/roventics-logo.png"');
+    expect(markup).toContain('href="https://roventics.com"');
+    expect(markup).toContain('rel="noopener noreferrer"');
+    expect(markup).toContain('by Roventics');
+    expect(markup).toContain('#005aae');
+    expect(markup).toContain('#eef7fc');
     expect(markup).not.toContain('Roventics Monitor');
     expect(markup).toContain('Loading your session');
   });
