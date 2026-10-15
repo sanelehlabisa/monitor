@@ -261,12 +261,78 @@ They share one compact row; phones below 600px show the account icon only and
 retain the full email in its existing Sign out dropdown. Desktop email truncates
 without shifting the centred branding. Login/loading keep the stacked identity
 without navigation actions. Artwork, palette, fonts, routes, auth/permissions,
-forecast logic and data are unchanged. The next work number is 045, using the
-normal approval workflow; full Ticket 65 remains unstarted.
+forecast logic and data are unchanged. Tasks 043–044 were committed and pushed
+to master as eb08605; full Ticket 65 remains open.
 Task 044 passed all 32 frontend checks, the TypeScript/Vite build and four
 grouped mocked-browser checks across 16 desktop/phone views, including long
 emails, Back, Sign out and Escape/focus restoration. No real backend requests
 or DB writes occurred; the disposable browser/server closed after verification.
+
+Task 045 is complete with small visual refinements only: Segoe UI /
+system sans-serif fallbacks, unchanged 14/18/20px scale, consistent weights and
+tabular estimate digits. The blue/teal identity and combined navigation remain.
+Cards have subtle borders/shadows; details/list panels use 12px corners, inputs
+10px and forecasts 16px. Light-blue hover/focus, a pale-teal creation row and a
+blue/deep-teal forecast blend add restrained colour variation; a divider separates
+monthly purchase output. Button/icon-button keyboard focus is explicit. No
+wording, flow, backend, forecast/data, dependency or artwork changes. Task 046's
+approved open layout below supersedes those card/surface choices; full usability
+Ticket 65 is still a separate open review.
+All 32 frontend checks, the TypeScript/Vite build and four grouped mocked-browser
+checks across 20 desktop/phone views passed, including both forms, forecast
+states, keyboard focus and representative contrast checks. No real backend/DB
+request or write occurred; browser/server closed. See the Git handoff below.
+
+Task 046 implements the approved card-free direction for login and the signed-in
+workspace. A white page, slim blue headings, underlined admin tabs and flat
+details/list rows replace enclosing cards and filled headers. Forecast values
+appear directly on the page: blue balance/days, teal monthly recommendation,
+muted labels and divider lines; no coloured forecast box. Figures stack below
+600px, use two columns with monthly output beneath at 600–899px and three columns
+at 900px+. The latest actual/calculation times, two record actions, on-demand
+forms and collapsed History remain. Retains Task 045's fonts, numeric alignment,
+input corners and focus styling. No wording, handler, calculation, backend,
+data, permission, route, artwork or dependency changes. Task 047 follows below;
+full Ticket 65 remains open. See the Git handoff below.
+Task 046 passed all 32 frontend checks, the TypeScript/Vite build and four
+grouped mocked-browser checks with 39 captures across phone/tablet/desktop
+widths. Text contrast is at least 5.30:1 and input outlines 4.05:1 in representative
+checks. No real backend/DB request, write or browser error; browser/server closed.
+
+Task 047 implements conditional header search: visible only above 10 unfiltered
+meters in the selected view, or while a query/filter is active. Centred between
+Meters and My/All from 600px; its own header row on phones; absent on details.
+The applied query is separate from its draft, so clearing typed text or getting
+zero results cannot hide recovery. Full reads refresh the count; create/delete
+update it and My/All clears/reloads. Account/list generations guard late replies,
+including write follow-up reads. The existing server q search and permissions
+are unchanged; no client keyword matching or pagination. At the user's follow-up
+request, visible rows have one-based display numbers, reset per current result
+list; UUIDs/names/data are untouched. Useful 045/046 styling is preserved.
+Task 048 follows below; full Ticket 65 is still open.
+Task 047 passed all 33 frontend checks and the TypeScript/Vite build. Its
+145-line implementation records a necessary review-size exception in prompt.md
+for relocating the field plus count/query/reply guards and requested numbering.
+Five grouped mocked-browser checks and 25 phone/tablet/desktop captures passed:
+thresholds, query/clear/failed-read recovery, My/All and CRUD crossings, numbering,
+pending controls and delayed old-query/new-account reset. No real API/DB writes
+or browser errors; isolated browser/server closed. See the Git handoff below.
+
+Task 048 replaces the account icon/dropdown with a direct red Sign out button
+at the top right on all devices, beside the email with a 4px gap. Emails truncate
+on narrow screens while retaining their full text/title. The stacked 48px Monitor
+logo/name stays centred, with Back on the left. Existing logout/Back handlers and
+pending guards are unchanged; unused menu state/imports are removed. The footer's
+by Roventics text is black; its 24px company logo and safe external link remain.
+No other layout, artwork, backend, data, permission, route or dependency changes.
+All 33 frontend checks and the TypeScript/Vite build passed, plus two focused
+mocked-browser groups with 15 phone/tablet/desktop captures, including long email,
+keyboard focus, Back, pending controls and sign-out failure/retry/success.
+Red/white button contrast is 4.98:1. No real API/DB writes or browser errors;
+the isolated browser/preview are closed.
+The user authorised committing and pushing completed Tasks 045–048 to master.
+Next work number is 049; full Ticket 65 remains open. Current priority is
+65 -> 66 -> 57 -> personal 56 and external 67; installable-app 68 remains future.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

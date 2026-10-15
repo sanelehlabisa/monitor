@@ -8,27 +8,27 @@ type ForecastPanelProps = {
   loading: boolean;
 };
 
-function EstimateCard({ label, value, note }: {
+function EstimateMetric({ label, value, note, colour = 'primary.main' }: {
   label: string;
   value: string;
   note?: string;
+  colour?: 'primary.main' | 'secondary.main';
 }) {
   return (
     <Box
       sx={{
-        borderRadius: 2,
         minWidth: 0,
         py: 1,
       }}
     >
-      <Typography sx={{ color: 'rgba(255, 255, 255, 0.75)' }} variant="body2">
+      <Typography color="text.secondary" variant="body2">
         {label}
       </Typography>
-      <Typography sx={{ color: 'common.white', fontWeight: 800 }} variant="h5">
+      <Typography sx={{ color: colour, fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }} variant="h5">
         {value}
       </Typography>
       {note && (
-        <Typography sx={{ color: 'rgba(255, 255, 255, 0.75)' }} variant="caption">
+        <Typography color="text.secondary" variant="caption">
           {note}
         </Typography>
       )}
@@ -60,7 +60,7 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
   return (
     <Stack spacing={2}>
       {forecast.status === 'not_enough_data' && (
-        <Box sx={{ bgcolor: 'background.default', borderRadius: 2, p: 2.5 }}>
+        <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.main', pl: 2, py: 1 }}>
           <Typography sx={{ fontWeight: 800 }}>Not enough data</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.75 }} variant="body2">
             Add at least two actual balances. Monitor will not guess a forecast.
@@ -78,11 +78,12 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
 
       {forecast.status === 'available' && (
         <Box
-          sx={{ bgcolor: 'primary.main', borderRadius: 2.5, p: { xs: 2, sm: 3 } }}
+          component="section" aria-label="Planning estimate"
+          sx={{ py: 2, borderBottom: '1px solid', borderColor: 'divider' }}
         >
           <Typography
             component="h3"
-            sx={{ color: 'common.white', fontWeight: 800 }}
+            sx={{ color: 'text.secondary', fontWeight: 700 }}
             variant="caption"
           >
             Planning estimate
@@ -90,19 +91,20 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
           <Box
             sx={{
               display: 'grid',
-              gap: 1,
+              gap: { xs: 2, sm: 3 },
               gridTemplateColumns: {
                 xs: '1fr',
                 sm: 'repeat(2, minmax(0, 1fr))',
+                md: 'repeat(3, minmax(0, 1fr))',
               },
               mt: 1.25,
             }}
           >
-            <EstimateCard
+            <EstimateMetric
               label="Estimated balance"
               value={`${forecast.estimated_balance_kwh} kWh`}
             />
-            <EstimateCard
+            <EstimateMetric
               label="Estimated remaining"
               value={
                 forecast.remaining_days === null
@@ -115,22 +117,23 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
                   : `Top up by ${localDateDisplay(forecast.run_out_at)}`
               }
             />
+            <Box sx={{ gridColumn: { sm: '1 / -1', md: 'auto' }, borderTop: '1px solid', borderColor: 'divider', borderTopWidth: { md: 0 }, pt: { xs: 2, md: 0 } }}>
+              <EstimateMetric
+                label="Monthly purchase recommendation"
+                value={`${forecast.recommended_top_up_30_days_kwh} kWh`}
+                colour="secondary.main"
+              />
+              <Typography color="text.secondary" variant="body2">
+                Additional kWh for the next 30 days, based on historical usage.
+              </Typography>
+            </Box>
           </Box>
-          <Box sx={{ mt: 2 }}>
-            <EstimateCard
-              label="Monthly purchase recommendation"
-              value={`${forecast.recommended_top_up_30_days_kwh} kWh`}
-            />
-            <Typography sx={{ color: 'rgba(255, 255, 255, 0.75)' }} variant="body2">
-              Additional kWh for the next 30 days, based on historical usage.
-            </Typography>
-          </Box>
-          <Box component="details" sx={{ color: 'rgba(255, 255, 255, 0.75)', mt: 2 }}>
+          <Box component="details" sx={{ color: 'text.secondary', mt: 2 }}>
             <Typography component="summary" sx={{ cursor: 'pointer' }} variant="caption">
               Calculation details
             </Typography>
           <Typography
-            sx={{ color: 'rgba(255, 255, 255, 0.75)', display: 'block', mt: 1.25 }}
+            sx={{ color: 'text.secondary', display: 'block', mt: 1.25 }}
             variant="caption"
           >
             Estimated use {forecast.daily_usage_kwh} kWh/day from {forecast.intervals_used}{' '}

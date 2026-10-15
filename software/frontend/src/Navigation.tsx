@@ -1,8 +1,5 @@
-import { Box, Button, Menu, MenuItem, Stack, Typography } from '@mui/material';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import LogoutIcon from '@mui/icons-material/Logout';
-import { useState } from 'react';
 
 import type { User } from './api';
 
@@ -14,8 +11,6 @@ type NavigationProps = {
 };
 
 export function Navigation({ user, busy, onLogout, onBack }: NavigationProps) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-
   return (
     <Box component={user ? 'nav' : 'header'} aria-label={user ? 'Main navigation' : undefined}
       sx={{ display: 'grid', alignItems: 'center', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', gap: 1 }}>
@@ -28,28 +23,13 @@ export function Navigation({ user, busy, onLogout, onBack }: NavigationProps) {
         <Typography component="span" variant="h4" color="primary" sx={{ fontWeight: 700 }}>Monitor</Typography>
       </Stack>
       {user && (
-        <>
-          <Button id="account-button" aria-label="Account menu" disabled={busy}
-            aria-controls={anchor ? 'account-menu' : undefined}
-            aria-haspopup="true" aria-expanded={Boolean(anchor)}
-            onClick={(event) => setAnchor(event.currentTarget)} endIcon={<AccountCircleIcon style={{ fontSize: 42 }} />}
-            sx={{ justifySelf: 'end', gridColumn: 3, gridRow: 1, minWidth: 0, maxWidth: '100%', textTransform: 'none', color: 'text.primary',
-              '& .MuiButton-endIcon': { ml: { xs: 0, sm: 0.5 }, mr: 0, flexShrink: 0 } }}>
-            <Typography noWrap variant="body2" title={user.email} sx={{ display: { xs: 'none', sm: 'block' } }}>{user.email}</Typography>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifySelf: 'end', gridColumn: 3, gridRow: 1, minWidth: 0, maxWidth: '100%' }}>
+          <Typography noWrap variant="body2" title={user.email} sx={{ minWidth: 0 }}>{user.email}</Typography>
+          <Button color="error" variant="contained" disabled={busy} onClick={onLogout}
+            sx={{ flexShrink: 0, minWidth: 0, px: 1, whiteSpace: 'nowrap' }}>
+            Sign out
           </Button>
-          <Menu id="account-menu" anchorEl={anchor} open={Boolean(anchor)}
-            onClose={() => setAnchor(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-            <MenuItem disabled sx={{ opacity: '1 !important', whiteSpace: 'normal', overflowWrap: 'anywhere', maxWidth: 280 }}>
-              <Typography variant="body2">{user.email}</Typography>
-            </MenuItem>
-            <MenuItem disabled={busy} sx={{ color: 'text.primary', fontWeight: 700 }}
-              onClick={() => { setAnchor(null); onLogout(); }}>
-              <LogoutIcon sx={{ mr: 1 }} />Sign out
-            </MenuItem>
-          </Menu>
-        </>
+        </Stack>
       )}
     </Box>
   );

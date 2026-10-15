@@ -13,7 +13,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { LoginPanel, SignedInPanel, type LoginStep } from './AuthPanels';
+import { LoginPanel, MeterSearch, SignedInPanel, type LoginStep } from './AuthPanels';
 import { ForecastPanel } from './ForecastPanel';
 import { LedgerPanel, type LedgerItem } from './LedgerPanel';
 import { MeterWorkspace, type AdminMeterView } from './MeterWorkspace';
@@ -69,42 +69,43 @@ function ledgerFailure(error: unknown, action: string): string {
 const theme = createTheme({
   // Deeper logo-inspired colours keep text readable on the light surfaces.
   palette: {
-    primary: { main: '#005aae', contrastText: '#ffffff' },
-    secondary: { main: '#007782', light: '#dcf5f6', contrastText: '#ffffff' },
-    background: { default: '#eef7fc', paper: '#ffffff' },
+    primary: { main: '#005aae', light: '#e2f0ff', contrastText: '#ffffff' },
+    secondary: { main: '#007782', dark: '#005d7a', light: '#e7f6f5', contrastText: '#ffffff' },
+    background: { default: '#ffffff', paper: '#ffffff' },
     text: { primary: '#16324b', secondary: '#4b6173' },
     divider: '#cee1ed',
   },
   typography: {
-    fontFamily: 'Arial, sans-serif',
+    fontFamily: '"Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif',
     body1: { fontSize: '0.875rem', lineHeight: 1.5 },
     body2: { fontSize: '0.875rem', lineHeight: 1.5 },
     caption: { fontSize: '0.875rem', lineHeight: 1.5 },
     subtitle1: { fontSize: '0.875rem' },
     subtitle2: { fontSize: '0.875rem' },
     button: { fontSize: '0.875rem' },
-    h4: { fontSize: '1.125rem' },
-    h5: { fontSize: '1.25rem' },
-    h6: { fontSize: '1.125rem' },
+    h4: { fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.4 },
+    h5: { fontSize: '1.25rem', fontWeight: 700, lineHeight: 1.4 },
+    h6: { fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.4 },
   },
   shape: { borderRadius: 12 },
   components: {
-    MuiCard: {
-      styleOverrides: {
-        root: { boxShadow: '0 1px 4px rgba(0, 0, 0, 0.1)' },
-      },
-    },
     MuiButton: {
       defaultProps: { disableElevation: true, size: 'small' },
       styleOverrides: {
-        root: { textTransform: 'none' },
+        root: ({ theme }) => ({ textTransform: 'none', fontWeight: 600,
+          '&.Mui-focusVisible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 3 } }),
         sizeSmall: { fontSize: '0.875rem' },
         sizeMedium: { fontSize: '0.875rem' },
         sizeLarge: { fontSize: '0.875rem' },
       },
     },
+    MuiIconButton: {
+      styleOverrides: {
+        root: ({ theme }) => ({ '&.Mui-focusVisible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 } }),
+      },
+    },
     MuiTextField: { defaultProps: { size: 'small' } },
-    MuiOutlinedInput: { styleOverrides: { notchedOutline: { borderColor: '#6a8194' } } },
+    MuiOutlinedInput: { styleOverrides: { root: { borderRadius: '10px', backgroundColor: '#ffffff' }, notchedOutline: { borderColor: '#6a8194' } } },
     MuiTab: { styleOverrides: { root: { textTransform: 'none' } } },
   },
 });
@@ -119,6 +120,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const [meters, setMeters] = useState<Meter[]>([]);
+  const [unfilteredMeters, setUnfilteredMeters] = useState<Meter[]>([]);
   const [selectedMeter, setSelectedMeter] = useState<Meter | null>(null);
   const [meterName, setMeterName] = useState('');
   const [editMeterName, setEditMeterName] = useState('');
@@ -127,6 +129,8 @@ export default function App() {
   const [meterError, setMeterError] = useState('');
   const [adminMeterView, setAdminMeterView] = useState<AdminMeterView>('mine');
   const [meterSearch, setMeterSearch] = useState('');
+  const [appliedMeterSearch, setAppliedMeterSearch] = useState('');
+  const meterFilterActive = Boolean(appliedMeterSearch);
   const [balances, setBalances] = useState<BalanceEntry[]>([]);
   const [topUps, setTopUps] = useState<TopUpEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
@@ -137,6 +141,14 @@ export default function App() {
     typeof window === 'undefined' ? '/' : window.location.pathname,
   );
   const dashboardVersion = useRef(0);
+  const meterListVersion = useRef(0);
+  const meterCount = unfilteredMeters.filter((meter) => !user?.is_admin || adminMeterView === 'all' || meter.owner_email.trim().toLowerCase() === user.email.trim().toLowerCase()).length;
+
+  function setFullMeterList(items: Meter[]) {
+    setMeters(items);
+    setUnfilteredMeters(items);
+    setAppliedMeterSearch('');
+  }
 
   useEffect(() => {
     const onPopState = () => setMeterPath(window.location.pathname);
@@ -162,8 +174,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    meterListVersion.current += 1;
     if (!user) {
-      setMeters([]);
+      setFullMeterList([]);
+      setMetersLoading(false);
       clearMeterWorkspace();
       setMeterSearch('');
       return;
@@ -173,7 +187,7 @@ export default function App() {
     setMeterError('');
     listMeters()
       .then((items) => {
-        if (active) setMeters(items);
+        if (active) setFullMeterList(items);
       })
       .catch(() => {
         if (active) setMeterError('Your meters could not be loaded. Try again.');
@@ -276,6 +290,7 @@ export default function App() {
     try {
       await logout();
       dashboardVersion.current += 1;
+      meterListVersion.current += 1;
       setUser(null);
       navigateToMeter(null);
       setAdminMeterView('mine');
@@ -290,16 +305,21 @@ export default function App() {
 
   async function handleCreateMeter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const listVersion = meterListVersion.current;
     setMeterBusy(true);
     setMeterError('');
     try {
       const meter = await createMeter(meterName);
+      if (listVersion !== meterListVersion.current) return;
       setMeterName('');
-      if (meterSearch.trim()) {
+      setUnfilteredMeters((current) => [...current, meter]);
+      if (meterSearch.trim() || meterFilterActive) {
         setMeterSearch('');
         try {
-          setMeters(await listMeters());
+          const items = await listMeters();
+          if (listVersion === meterListVersion.current) setFullMeterList(items);
         } catch {
+          if (listVersion !== meterListVersion.current) return;
           setMeters((current) => [...current, meter]);
           setMeterError('Meter added, but the full list could not be reloaded.');
         }
@@ -311,39 +331,48 @@ export default function App() {
         );
       }
     } catch (requestError) {
+      if (listVersion !== meterListVersion.current) return;
       setMeterError(
         requestError instanceof ApiError && requestError.status === 409
           ? 'You already have a meter with that name.'
           : 'The meter could not be added. Check the name and try again.',
       );
     } finally {
-      setMeterBusy(false);
+      if (listVersion === meterListVersion.current) setMeterBusy(false);
     }
   }
 
   async function handleSearchMeters(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    const version = ++meterListVersion.current;
     setMetersLoading(true);
     setMeterError('');
     try {
-      setMeters(await listMeters(meterSearch));
+      const items = await listMeters(meterSearch);
+      if (version !== meterListVersion.current) return;
+      if (meterSearch.trim()) { setMeters(items); setAppliedMeterSearch(meterSearch.trim()); }
+      else setFullMeterList(items);
     } catch {
+      if (version !== meterListVersion.current) return;
       setMeterError('Meters could not be searched. Try again.');
     } finally {
-      setMetersLoading(false);
+      if (version === meterListVersion.current) setMetersLoading(false);
     }
   }
 
   async function handleClearMeterSearch() {
+    const version = ++meterListVersion.current;
     setMeterSearch('');
     setMetersLoading(true);
     setMeterError('');
     try {
-      setMeters(await listMeters());
+      const items = await listMeters();
+      if (version === meterListVersion.current) setFullMeterList(items);
     } catch {
+      if (version !== meterListVersion.current) return;
       setMeterError('Meters could not be loaded. Try again.');
     } finally {
-      setMetersLoading(false);
+      if (version === meterListVersion.current) setMetersLoading(false);
     }
   }
 
@@ -524,11 +553,14 @@ export default function App() {
 
   async function handleRenameMeter(meter: Meter, name: string) {
     if (meterBusy || ledgerBusy) return false;
+    const listVersion = meterListVersion.current;
     const version = dashboardVersion.current;
     setMeterBusy(true);
     setMeterError('');
     try {
       const renamed = await renameMeter(meter.id, name);
+      if (listVersion !== meterListVersion.current) return true;
+      setUnfilteredMeters((current) => current.map((item) => item.id === renamed.id ? renamed : item));
       setSelectedMeter((current) => current?.id === renamed.id ? renamed : current);
       if (version === dashboardVersion.current && selectedMeter?.id === meter.id) setEditMeterName(renamed.name);
       setMeters((current) =>
@@ -538,15 +570,18 @@ export default function App() {
             left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
           ),
       );
-      if (meterSearch.trim()) {
+      if (meterSearch.trim() || meterFilterActive) {
         try {
-          setMeters(await listMeters(meterSearch));
+          const items = await listMeters(appliedMeterSearch);
+          if (listVersion === meterListVersion.current) setMeters(items);
         } catch {
+          if (listVersion !== meterListVersion.current) return true;
           setMeterError('Name saved, but the list could not be reloaded. Search again.');
         }
       }
       return true;
     } catch (requestError) {
+      if (listVersion !== meterListVersion.current) return false;
       setMeterError(
         requestError instanceof ApiError && requestError.status === 409
           ? 'That owner already has a meter with this name.'
@@ -554,16 +589,19 @@ export default function App() {
       );
       return false;
     } finally {
-      if (version === dashboardVersion.current) setMeterBusy(false);
+      if (version === dashboardVersion.current && listVersion === meterListVersion.current) setMeterBusy(false);
     }
   }
 
   async function handleDeleteMeter(meter: Meter) {
     if (meterBusy || ledgerBusy || !window.confirm(`Delete ${meter.name}? This also deletes its balance and top-up records.`)) return;
+    const listVersion = meterListVersion.current;
     setMeterBusy(true);
     setMeterError('');
     try {
       await deleteMeter(meter.id);
+      if (listVersion !== meterListVersion.current) return;
+      setUnfilteredMeters((current) => current.filter((item) => item.id !== meter.id));
       setMeters((current) =>
         current.filter((existing) => existing.id !== meter.id),
       );
@@ -572,9 +610,10 @@ export default function App() {
         clearMeterWorkspace();
       }
     } catch {
+      if (listVersion !== meterListVersion.current) return;
       setMeterError('The meter could not be deleted. Try again.');
     } finally {
-      setMeterBusy(false);
+      if (listVersion === meterListVersion.current) setMeterBusy(false);
     }
   }
 
@@ -596,7 +635,11 @@ export default function App() {
                 meterId={meterIdFromPath(meterPath) ?? undefined}
                 adminView={adminMeterView}
                 busy={meterBusy || metersLoading || ledgerBusy}
-                onAdminViewChange={setAdminMeterView}
+                onAdminViewChange={(view) => { setAdminMeterView(view); void handleClearMeterSearch(); }}
+                search={(meterCount > 10 || meterFilterActive || meterSearch.trim()) && (
+                  <MeterSearch busy={meterBusy || metersLoading || ledgerBusy} value={meterSearch} active={meterFilterActive} isAdmin={user.is_admin}
+                    onChange={setMeterSearch} onSubmit={handleSearchMeters} onClear={handleClearMeterSearch} />
+                )}
                 user={user}
               >
                 {meterBusy && !selectedMeter && !isMeterListPath(meterPath) ? (
@@ -613,14 +656,11 @@ export default function App() {
                   loading={metersLoading}
                   meters={meters}
                   name={meterName}
-                  onClearSearch={handleClearMeterSearch}
                   onCreate={handleCreateMeter}
                   onDelete={handleDeleteMeter}
                   onEditNameChange={setEditMeterName}
                   onNameChange={setMeterName}
                   onRename={handleRenameMeter}
-                  onSearch={handleSearchMeters}
-                  onSearchChange={setMeterSearch}
                   onSelect={(meter) => navigateToMeter(meter.id)}
                   selectedContent={
                     selectedMeter ? (
@@ -654,7 +694,7 @@ export default function App() {
                     ) : undefined
                   }
                   selectedMeter={selectedMeter}
-                  search={meterSearch}
+                  search={appliedMeterSearch}
                 />}
               </SignedInPanel>
             ) : (
@@ -682,7 +722,7 @@ export default function App() {
                 Manual kWh planning. No hardware or meter modification required.
               </Typography>
               <Box component="a" href="https://roventics.com" target="_blank" rel="noopener noreferrer" aria-label="Visit Roventics"
-                sx={{ alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 0.75, color: 'secondary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                sx={{ alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 0.75, color: 'common.black', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
                 <Box component="img" src="/roventics-logo.png" alt="Roventics logo" width={24} height={24} sx={{ display: 'block' }} />
                 <Typography component="span" variant="caption">by Roventics</Typography>
               </Box>

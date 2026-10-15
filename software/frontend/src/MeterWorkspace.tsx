@@ -4,7 +4,6 @@ import {
   Button,
   CircularProgress,
   IconButton,
-  InputAdornment,
   Stack,
   TextField,
   Tooltip,
@@ -13,9 +12,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import SearchIcon from '@mui/icons-material/Search';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
-import ClearIcon from '@mui/icons-material/Clear';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -42,9 +39,6 @@ type MeterWorkspaceProps = {
   onRename: (meter: Meter, name: string) => Promise<boolean>;
   onDelete: (meter: Meter) => void;
   onSelect: (meter: Meter) => void;
-  onSearchChange: (value: string) => void;
-  onSearch: (event: FormEvent<HTMLFormElement>) => void;
-  onClearSearch: () => void;
 };
 
 export function MeterWorkspace({
@@ -66,9 +60,6 @@ export function MeterWorkspace({
   onRename,
   onDelete,
   onSelect,
-  onSearchChange,
-  onSearch,
-  onClearSearch,
 }: MeterWorkspaceProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [rowName, setRowName] = useState('');
@@ -91,7 +82,7 @@ export function MeterWorkspace({
         <Box component="form" aria-label="Meter details"
           onSubmit={(event) => void saveName(event, selectedMeter, editName)}
           onKeyDown={(event) => { if (event.key === 'Escape' && !busy) { setEditingId(null); onEditNameChange(selectedMeter.name); } }}
-          sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 1, alignItems: 'center', bgcolor: 'background.default', borderRadius: 2, p: 2 }}>
+          sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 1, alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider', py: 2 }}>
           <Typography component="label" htmlFor="selected-meter-name" sx={{ fontWeight: 700 }}>Name:</Typography>
             <TextField
               id="selected-meter-name"
@@ -134,24 +125,8 @@ export function MeterWorkspace({
 
   return (
     <Stack spacing={2.5}>
-      <Box component="form" onSubmit={onSearch}>
-          <TextField
-            disabled={busy || loading}
-            fullWidth
-            label="Search meters"
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={isAdmin ? 'Name or owner email' : 'Meter name'}
-            slotProps={{ htmlInput: { maxLength: 254 }, input: { endAdornment: (
-              <InputAdornment position="end">
-                <Tooltip title="Search"><span><IconButton aria-label="Search meters" disabled={busy || loading} type="submit"><SearchIcon /></IconButton></span></Tooltip>
-                <Tooltip title="Clear search"><span><IconButton aria-label="Clear search" disabled={busy || loading || !search.trim()} onClick={onClearSearch} type="button"><ClearIcon /></IconButton></span></Tooltip>
-              </InputAdornment>
-            ) } }}
-            value={search}
-          />
-      </Box>
       <Stack spacing={1} aria-label="Meter list">
-        <Box component="form" onSubmit={onCreate} sx={{ display: 'flex', gap: 0.5, alignItems: 'center', bgcolor: 'background.default', borderRadius: 2, p: 1 }}>
+        <Box component="form" onSubmit={onCreate} sx={{ display: 'flex', gap: 0.5, alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider', py: 1, px: 0.5 }}>
           <TextField disabled={busy || loading} fullWidth label="Meter name" placeholder="Home" required value={name}
             onChange={(event) => onNameChange(event.target.value)} slotProps={{ htmlInput: { maxLength: 80 } }} />
           <Tooltip title="Add meter"><span><IconButton aria-label="Add meter" disabled={busy || loading || !name.trim()} type="submit"><AddIcon /></IconButton></span></Tooltip>
@@ -167,7 +142,7 @@ export function MeterWorkspace({
             bgcolor: 'background.default',
             border: '1px dashed',
             borderColor: 'divider',
-            borderRadius: 2,
+            borderRadius: '12px',
             p: 3,
             textAlign: 'center',
           }}
@@ -181,10 +156,12 @@ export function MeterWorkspace({
           </Typography>
         </Box>
       ) : (
-        <Stack spacing={1}>
-          {visibleMeters.map((meter) => (
-            <Stack direction="row" key={meter.id} spacing={0.5}
-              sx={{ alignItems: 'center', bgcolor: 'background.default', borderRadius: 2, p: 1 }}>
+        <Stack component="ol" spacing={1} sx={{ m: 0, p: 0, listStyle: 'none' }}>
+          {visibleMeters.map((meter, index) => (
+            <Stack component="li" direction="row" key={meter.id} spacing={0.5}
+              sx={{ alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider', py: 1, px: 0.5,
+                '&:hover, &:focus-within': { bgcolor: 'primary.light' } }}>
+              <Typography component="span" color="text.secondary" sx={{ minWidth: 28, fontVariantNumeric: 'tabular-nums' }}>{index + 1}.</Typography>
               {editingId === meter.id ? (
                 <Box component="form" sx={{ display: 'flex', flex: 1, minWidth: 0 }}
                   onKeyDown={(event) => { if (event.key === 'Escape' && !busy) setEditingId(null); }}

@@ -2,25 +2,48 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
+  IconButton,
+  InputAdornment,
   Stack,
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import BorderColorOutlinedIcon from '@mui/icons-material/BorderColorOutlined';
 import CachedIcon from '@mui/icons-material/Cached';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import type { FormEvent, ReactNode } from 'react';
 
 import type { User } from './api';
 import type { AdminMeterView } from './MeterWorkspace';
 
 export type LoginStep = 'email' | 'code';
+
+export function MeterSearch({ busy, value, active, isAdmin, onChange, onSubmit, onClear }: {
+  busy: boolean; value: string; active: boolean; isAdmin: boolean;
+  onChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onClear: () => void;
+}) {
+  return (
+    <Box component="form" onSubmit={onSubmit}>
+      <TextField disabled={busy} fullWidth label="Search meters" value={value}
+        onChange={(event) => onChange(event.target.value)} placeholder={isAdmin ? 'Name or owner email' : 'Meter name'}
+        slotProps={{ htmlInput: { maxLength: 254 }, input: { endAdornment: (
+          <InputAdornment position="end">
+            <Tooltip title="Search"><span><IconButton aria-label="Search meters" disabled={busy} type="submit"><SearchIcon /></IconButton></span></Tooltip>
+            <Tooltip title="Clear search"><span><IconButton aria-label="Clear search" disabled={busy || (!value.trim() && !active)} onClick={onClear} type="button"><ClearIcon /></IconButton></span></Tooltip>
+          </InputAdornment>
+        ) } }} />
+    </Box>
+  );
+}
 
 type LoginPanelProps = {
   step: LoginStep;
@@ -52,8 +75,8 @@ export function LoginPanel({
   const requestingCode = step === 'email';
 
   return (
-    <Card>
-      <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
+    <Box component="section">
+      <Box sx={{ py: 1 }}>
         <Box component="form" onSubmit={onSubmit}>
           <Stack spacing={2.5}>
             <Chip
@@ -132,8 +155,8 @@ export function LoginPanel({
             )}
           </Stack>
         </Box>
-      </CardContent>
-    </Card>
+      </Box>
+    </Box>
   );
 }
 
@@ -144,6 +167,7 @@ type SignedInPanelProps = {
   meterId?: string;
   adminView?: AdminMeterView;
   busy?: boolean;
+  search?: ReactNode;
   onAdminViewChange?: (view: AdminMeterView) => void;
 };
 
@@ -154,29 +178,31 @@ export function SignedInPanel({
   meterId,
   adminView = 'mine',
   busy = false,
+  search,
   onAdminViewChange,
 }: SignedInPanelProps) {
   return (
-    <Card>
-      <Stack component="header" direction="row" sx={{ alignItems: 'center', bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: '12px 12px 0 0', px: 2, pt: 1 }}>
-        <Typography variant="h4" component="h1" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', pb: 1 }}>
+    <Box component="section">
+      <Box component="header" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', sm: 'minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr)' }, alignItems: 'center', gap: 1, color: 'primary.main', borderBottom: '1px solid', borderColor: 'divider', pb: 1 }}>
+        <Typography variant="h4" component="h1" sx={{ minWidth: 0, overflowWrap: 'anywhere', gridColumn: meterId ? '1 / -1' : 1 }}>
           {meterId ? `Meter ${meterId}` : 'Meters'}
         </Typography>
+        {!meterId && search && <Box sx={{ minWidth: 0, gridColumn: { xs: '1 / -1', sm: 2 }, gridRow: { xs: 2, sm: 1 } }}>{search}</Box>}
         {!meterId && user.is_admin && (
-          <Tabs value={adminView} onChange={(_, value: AdminMeterView) => onAdminViewChange?.(value)} aria-label="Meter scope" textColor="inherit"
-            sx={{ minHeight: 36, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTab-root': { minWidth: 48, minHeight: 36, p: 1, textTransform: 'none', opacity: 1, borderRadius: '6px 6px 0 0', '&.Mui-selected': { bgcolor: 'background.paper', color: 'primary.main' } } }}>
+          <Tabs value={adminView} onChange={(_, value: AdminMeterView) => onAdminViewChange?.(value)} aria-label="Meter scope" textColor="primary"
+            sx={{ gridColumn: { xs: 2, sm: 3 }, gridRow: 1, justifySelf: 'end', minHeight: 36, '& .MuiTab-root': { minWidth: 48, minHeight: 36, p: 1, textTransform: 'none', opacity: 1, '&.Mui-selected': { fontWeight: 700 } } }}>
             <Tab id="meter-tab-mine" aria-controls="meter-workspace-content" aria-label="My meters" label="My" value="mine" disabled={busy} />
             <Tab id="meter-tab-all" aria-controls="meter-workspace-content" aria-label="All meters" label="All" value="all" disabled={busy} />
           </Tabs>
         )}
-      </Stack>
-      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+      </Box>
+      <Box sx={{ py: { xs: 2, sm: 3 } }}>
         <Stack id="meter-workspace-content" spacing={2} role={!meterId && user.is_admin ? 'tabpanel' : undefined}
           aria-labelledby={!meterId && user.is_admin ? `meter-tab-${adminView}` : undefined}>
           {error && <Alert severity="error">{error}</Alert>}
           {children}
         </Stack>
-      </CardContent>
-    </Card>
+      </Box>
+    </Box>
   );
 }

@@ -228,7 +228,7 @@ export function LedgerPanel({
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      <Box component="details">
+      <Box component="details" sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
         <Typography component="summary" sx={{ cursor: 'pointer', fontWeight: 700 }}>
           History
         </Typography>

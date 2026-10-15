@@ -17,10 +17,19 @@ profiles owned by their admin account. `All` shows every system profile
 with owner labels and the same full management controls. Switching views changes
 only presentation; it does not change ownership or backend access policy.
 
-The meter list has an inline Search/Clear form backed by
-`GET /api/meters?q=...`. Regular users search only their accessible profiles;
-administrators may find system profiles by meter name or owner email. The
-frontend renders the server response and does not duplicate keyword filtering.
+Task 047 shows Search/Clear only when the selected view has more than 10
+unfiltered meters, or a query/filter is active. It sits between Meters and
+My/All on tablet/desktop and on its own header row below 600px; never on details.
+Erasing a draft does not discard the applied filter or disable its Clear action.
+Zero/one-result searches keep the field visible; a successful full reload clears
+filtering. My/All reloads the existing complete list, and create/delete keep the
+unfiltered count current. Account changes reset counts/query and ignore old replies.
+
+Search still calls `GET /api/meters?q=...`: regular users search accessible
+profiles; administrators may match name or owner email. There is no duplicate
+client-side keyword matching or pagination. Visible meter rows are numbered
+1, 2, 3... in their current order, restarting for each search/view; these are
+display ordinals, not persisted meter identifiers. Create remains unnumbered.
 
 Development uses polling to watch bind-mounted sources because Docker Desktop
 can miss native file-change events. When dependencies change, refresh the named
@@ -50,17 +59,15 @@ commands and completed image verification are recorded in the software README.
 
 ## Navigation and meter links
 
-Tasks 038–040 keep navigation minimal: Back on the left when a meter is open,
-signed-in email and a 42px account icon on the far right (1.5 times Task 039's
-28px icon). The account
-dropdown shows the full email and a black Sign out action with a Logout icon,
-distinct from the Back arrow. Task 044 combines Task 043's Monitor branding and
-navigation into one compact row: Back left, the 48px logo above the Monitor name
-in the centre, and account right. Both controls align vertically with the whole
-logo/name block. Equal flexible side columns keep branding centred even without
-Back. Below 600px, only the account icon appears; the dropdown retains the full
-email. Desktop emails truncate rather than displace branding. Login/session
-loading retain centred stacked branding without empty navigation controls.
+Task 048 keeps Back on the left when a meter is open and replaces the former
+account icon/dropdown with a direct red Sign out button on the far right.
+The signed-in email sits beside it with a 4px gap on phones, tablets and desktop;
+it truncates rather than displacing the button or branding, with the full email
+retained as text/title. Sign out reuses the existing handler and pending guard.
+Task 044's combined branding stays: a 48px logo above the Monitor name in the
+centre, with both navigation controls vertically centred against that block.
+Equal flexible side columns keep branding centred even without Back.
+Login/session loading retain centred stacked branding without navigation controls.
 The company artwork stays in the footer; the old title/Admin badge remain absent.
 
 Selecting a meter uses `/meters/<uuid>`. Direct links and reload restore the
@@ -73,7 +80,7 @@ compatible entry links and canonicalise after sign-in. Back and logout return to
 can be retried, and leaving a meter invalidates older dashboard responses.
 
 The signed-in container is wider. Task 040 places compact Name/Owner key-value
-rows above the full-width three-estimate planning card. Task 041 starts Name
+rows above the full-width three-estimate planning summary. Task 041 starts Name
 read-only: pencil enables/focuses editing, then becomes Save. Save/Enter persists;
 Escape cancels; success returns to read-only and errors retain the draft. Owner
 is always read-only. The same edit/save behaviour applies to list rows.
@@ -103,12 +110,44 @@ top corners: `Meters` for the list and `Meter <UUID>` for details. Admin-only
 My/All tabs sit at the list header's far right; the active tab is white with
 blue text and joins the content below. Filters are not shown for one meter.
 The full detail ID can wrap on narrow phones rather than overflow.
+Task 046 supersedes the filled header/card styling with open sections and
+underlined admin tabs, retaining those titles and permissions.
 
 Search has magnifying-glass and clear-cross actions inside the input's right
 edge, with accessible labels/tooltips. Enter also submits; clear reloads the
 server list. The first list row contains only a name input plus an Add icon,
 including empty/search states. Creation still belongs to the signed-in user;
 search matching remains backend-driven, with no new API or client-side filter.
+
+### Small visual polish (Task 045)
+
+The shared MUI theme now uses Segoe UI/system sans-serif fallbacks without font
+downloads. The compact scale stays 14px body/buttons, 18px headings and 20px
+forecast values, with consistent heading/button weights and tabular estimate
+digits. Existing wording, controls and content order are unchanged.
+
+Primary blue #005aae, teal #007782 and light-blue #e2f0ff hover/focus remain.
+Task 045 initially added tinted cards and a forecast gradient; Task 046 replaces
+those choices with the open layout below while retaining its compact typography,
+10px input corners and explicit button/icon-button keyboard-focus outlines.
+Stacked branding, routes, forms, calculations and factual/estimated labels remain.
+This visual pass does not complete the wider Ticket 65 usability review.
+
+### Open phone/tablet layout (Task 046)
+
+Login and the workspace are plain sections on a white page, not enclosing cards.
+Slim blue headings and divider lines replace filled title bars. Admin-only My/All
+tabs retain their existing ARIA relationships and use the standard blue underline.
+Meter details, name-only creation and list rows are flat and divided; inputs,
+edit/delete icons and hover/focus feedback stay visible.
+
+The forecast is an open section with muted labels, blue balance/days and a teal
+monthly purchase value. It has no coloured background, rounded box or shadow.
+At widths below 600px the figures stack; 600–899px shows balance/days together
+and the monthly recommendation underneath; 900px and wider shows three columns.
+Latest actual reading/time and calculation time remain separate below. The two
+record actions stay prominent, forms open on demand, and History starts collapsed
+below a divider. Existing navigation, handlers, record order and math are unchanged.
 
 ## Mobile flow
 
@@ -195,8 +234,9 @@ records, not household readings. They were added once through the existing
 OTP/Mailpit and meter/ledger APIs; the application never automatically seeds data.
 Setup reuses existing named demo meters without overwriting their histories.
 
-Sign in with your configured administrator account, select the **All** tab, and
-search `monitor-demo@example.test`. Both profiles can be opened and managed with
+Sign in with your configured administrator account and select the **All** tab.
+Find owner `monitor-demo@example.test` in the labelled rows, or use header search
+when the view has more than 10 meters. Both profiles can be opened and managed with
 the normal admin controls; another regular user cannot read or modify them.
 The demo email can also sign in through Mailpit in local development.
 
@@ -236,7 +276,8 @@ the estimated 76 kWh already available.
    Reopen the meter or reload the page; records and the session should persist.
 5. In another browser profile, sign in with a second test email. The first
    user's meter must be absent. A configured admin can instead select the `All`
-   tab, search by the owner's email and manage that meter.
+   tab, locate the owner-labelled row (or search by email when available) and
+   manage that meter.
 6. Delete only the demo meter when finished and sign out.
 
 Input times use the browser's local timezone; the API and database retain the
@@ -278,16 +319,18 @@ Browser title is Monitor; the same PNG is the favicon and
 theme-colour metadata matches the primary blue. No PWA or logo regeneration.
 
 The existing MUI theme in App.tsx owns the palette: primary blue #005aae,
-accessible teal #007782, white cards and pale-blue #eef7fc surfaces. Section
-headers/forecast cards use blue; active tabs are white with blue text. Top-up,
-Refresh and the company link use teal; warning/error colours remain distinct.
-Typography stays 14px body/buttons, 18px headings and 20px forecasts; account
-icon remains 42px. Apart from Task 044's header alignment, existing layout,
+accessible teal #007782, a white page and light-blue interaction accents.
+Task 046 replaces the earlier cards/filled headers with open blue headings and
+blue/teal forecast values; active admin tabs have a blue underline. Top-up and
+Refresh use teal; Task 048 makes the company credit black and Sign out red.
+Typography stays 14px body/buttons, 18px headings and 20px forecasts; Task 048
+removes the former 42px account icon. Task 045 refines the system font, shades,
+corners and focus styling as described above. Task 046 changes layout only; the stacked header,
 manual forms, history and behaviour remain.
 
-The footer retains the manual-kWh note and adds the existing 24px Roventics
-logo plus by Roventics. Its https://roventics.com link opens a new tab with
-noopener/noreferrer, preserving the current meter. The Monitor identity is
+The footer retains the manual-kWh note and the existing 24px Roventics
+logo plus black by Roventics text (Task 048). Its https://roventics.com link opens
+a new tab with noopener/noreferrer, preserving the current meter. The Monitor identity is
 primary; company artwork does not determine the app palette.
 
 Verification includes 31 frontend checks, the TypeScript/Vite production build
@@ -298,6 +341,13 @@ Task 044's header refinement passes 32 frontend checks, the same asset build and
 four focused mocked-browser groups across 16 desktop/600px/390px/320px views:
 stacked branding and control alignment, long-email truncation, Back, Sign out,
 and Escape/focus restoration. No real backend or database requests are made.
+
+Task 048 passed all 33 frontend checks, the TypeScript/Vite build and two
+focused mocked-browser groups with 15 captures at 320/390/600/768/1200px.
+These cover direct red Sign out/email alignment, long-email truncation, Back,
+keyboard focus, pending controls, logout failure/retry and success, and the
+black company credit. The red button's white text measures 4.98:1 contrast.
+These are UI checks, not a new backend authentication or household validation.
 
 ### Ticket 68: Installable Web App (future)
 

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import App from './App';
-import { LoginPanel, SignedInPanel } from './AuthPanels';
+import { LoginPanel, MeterSearch, SignedInPanel } from './AuthPanels';
 import { ForecastPanel } from './ForecastPanel';
 import { LedgerPanel } from './LedgerPanel';
 import { MeterWorkspace } from './MeterWorkspace';
@@ -24,16 +24,18 @@ const notEnoughForecast: Forecast = {
   intervals_used: 0,
 };
 describe('Monitor authentication UI', () => {
-  it('combines stacked branding, Back and account controls in one navigation row', () => {
+  it('combines stacked branding, Back, email and direct red sign out in one row', () => {
     const markup = renderToStaticMarkup(
       <Navigation busy={false} onBack={noAction} onLogout={noAction}
         user={{ id: 7, email: 'admin@example.test', is_admin: true }} />,
     );
     expect(markup).toContain('<nav');
-    expect(markup).toContain('Account menu');
+    expect(markup).toContain('>Sign out</button>');
+    expect(markup).toContain('MuiButton-colorError');
     expect(markup).toContain('admin@example.test');
-    expect(markup).toContain('AccountCircleIcon');
-    expect(markup).toContain('font-size:42px');
+    expect(markup).not.toContain('AccountCircleIcon');
+    expect(markup).not.toContain('Account menu');
+    expect(markup).not.toContain('aria-haspopup');
     expect(markup).toContain('>Back</button>');
     expect(markup).toContain('ArrowBackIcon');
     expect(markup).toContain('minmax(0, 1fr) auto minmax(0, 1fr)');
@@ -41,15 +43,16 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('>Monitor</span>');
     expect(markup.indexOf('>Back</button>')).toBeLessThan(markup.indexOf('src="/monitor-logo.png"'));
     expect(markup.indexOf('src="/monitor-logo.png"')).toBeLessThan(markup.indexOf('>Monitor</span>'));
-    expect(markup.indexOf('>Monitor</span>')).toBeLessThan(markup.indexOf('id="account-button"'));
+    expect(markup.indexOf('>Monitor</span>')).toBeLessThan(markup.indexOf('title="admin@example.test"'));
+    expect(markup.indexOf('title="admin@example.test"')).toBeLessThan(markup.indexOf('>Sign out</button>'));
     expect(markup).not.toContain('Admin');
     expect(markup).not.toContain('roventics-logo.png');
     expect(markup).not.toContain('Roventics Monitor');
-    expect(markup).toContain('aria-expanded="false"');
     const signedOut = renderToStaticMarkup(
       <Navigation busy={false} onBack={noAction} onLogout={noAction} user={null} />,
     );
     expect(signedOut).not.toContain('Account menu');
+    expect(signedOut).not.toContain('Sign out');
     expect(signedOut).not.toContain('>Back</button>');
     expect(signedOut).not.toContain('<nav');
     expect(signedOut).toContain('<header');
@@ -62,7 +65,7 @@ describe('Monitor authentication UI', () => {
     const list = renderToStaticMarkup(<Navigation busy={false} onLogout={noAction} user={user} />);
     expect(list).not.toContain('>Back</button>');
     expect(list).toContain('src="/monitor-logo.png"');
-    expect(list).toContain('Account menu');
+    expect(list).toContain('>Sign out</button>');
     const busy = renderToStaticMarkup(<Navigation busy onBack={noAction} onLogout={noAction} user={user} />);
     expect(busy.match(/<button\b[^>]*disabled=""/g)).toHaveLength(2);
   });
@@ -78,7 +81,9 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('rel="noopener noreferrer"');
     expect(markup).toContain('by Roventics');
     expect(markup).toContain('#005aae');
-    expect(markup).toContain('#eef7fc');
+    expect(markup).toContain('#ffffff');
+    expect(markup).toContain('Segoe UI');
+    expect(markup).toContain('system-ui');
     expect(markup).not.toContain('Roventics Monitor');
     expect(markup).toContain('Loading your session');
   });
@@ -117,6 +122,8 @@ describe('Monitor authentication UI', () => {
 
     expect(emailMarkup).toContain('Welcome to Monitor');
     expect(emailMarkup).toContain('Send sign-in code');
+    expect(emailMarkup).not.toContain('MuiCard-root');
+    expect(codeMarkup).not.toContain('MuiCard-root');
     expect(codeMarkup).toContain('Check your email');
     expect(codeMarkup).toContain('user@example.test');
     expect(codeMarkup).toContain('Resend code');
@@ -138,14 +145,11 @@ describe('Monitor authentication UI', () => {
           loading={false}
           meters={[]}
           name=""
-          onClearSearch={noAction}
           onCreate={noAction}
           onDelete={noAction}
           onEditNameChange={noAction}
           onNameChange={noAction}
           onRename={yes}
-          onSearch={noAction}
-          onSearchChange={noAction}
           onSelect={noAction}
           selectedMeter={null}
           search=""
@@ -155,12 +159,29 @@ describe('Monitor authentication UI', () => {
 
     expect(markup).toContain('Meters');
     expect(markup).toContain('No meters yet');
+    expect(markup).not.toContain('MuiCard-root');
     expect(markup).toContain('Meter name');
     expect(markup).toContain('Add meter');
-    expect(markup).toContain('Search meters');
-    expect(markup).toContain('Clear');
+    expect(markup).not.toContain('Search meters');
+    expect(markup).not.toContain('Clear search');
     expect(markup).not.toContain('Sign out');
     expect(markup).not.toContain('estimated balance');
+  });
+
+  it('keeps header search clearable with an active filter and an empty draft', () => {
+    const search = <MeterSearch busy={false} value="" active isAdmin onChange={noAction} onSubmit={noAction} onClear={noAction} />;
+    const markup = renderToStaticMarkup(<SignedInPanel error="" search={search} user={{ id: 7, email: 'admin@example.test', is_admin: true }} />);
+    expect(markup).toContain('Search meters');
+    expect(markup).toContain('Name or owner email');
+    expect(markup).toContain('aria-label="Search meters"');
+    expect(markup).toContain('SearchIcon');
+    expect(markup).toContain('aria-label="Clear search"');
+    expect(markup).toContain('ClearIcon');
+    expect(markup).not.toMatch(/<button\b[^>]*disabled=""/);
+    const detail = renderToStaticMarkup(<SignedInPanel error="" meterId="meter-id" search={search} user={{ id: 7, email: 'user@example.test', is_admin: false }} />);
+    expect(detail).not.toContain('Search meters');
+    const pending = renderToStaticMarkup(<MeterSearch busy value="Home" active isAdmin={false} onChange={noAction} onSubmit={noAction} onClear={noAction} />);
+    expect(pending.match(/<button\b[^>]*disabled=""/g)).toHaveLength(2);
   });
 
   it('renders a selectable list and honest selected-meter state', () => {
@@ -182,14 +203,11 @@ describe('Monitor authentication UI', () => {
         loading={false}
         meters={[meter]}
         name=""
-        onClearSearch={noAction}
         onCreate={noAction}
         onDelete={noAction}
         onEditNameChange={noAction}
         onNameChange={noAction}
         onRename={yes}
-        onSearch={noAction}
-        onSearchChange={noAction}
         onSelect={noAction}
         selectedMeter={null}
         search=""
@@ -206,14 +224,11 @@ describe('Monitor authentication UI', () => {
         loading={false}
         meters={[meter]}
         name=""
-        onClearSearch={noAction}
         onCreate={noAction}
         onDelete={noAction}
         onEditNameChange={noAction}
         onNameChange={noAction}
         onRename={yes}
-        onSearch={noAction}
-        onSearchChange={noAction}
         onSelect={noAction}
         selectedContent={
           <ForecastPanel forecast={notEnoughForecast} loading={false} />
@@ -224,6 +239,9 @@ describe('Monitor authentication UI', () => {
     );
 
     expect(listMarkup).toContain('Home');
+    expect(listMarkup).toContain('<ol');
+    expect(listMarkup).toContain('<li');
+    expect(listMarkup).toContain('>1.</span>');
     expect(listMarkup).toContain('aria-label="Rename Home"');
     expect(listMarkup).toContain('aria-label="Delete Home"');
     expect(listMarkup).toContain('EditOutlinedIcon');
@@ -274,14 +292,11 @@ describe('Monitor authentication UI', () => {
           loading={false}
           meters={[ownMeter, otherMeter]}
           name=""
-          onClearSearch={noAction}
           onCreate={noAction}
           onDelete={noAction}
           onEditNameChange={noAction}
           onNameChange={noAction}
           onRename={yes}
-          onSearch={noAction}
-          onSearchChange={noAction}
           onSelect={noAction}
           selectedMeter={null}
           search=""
@@ -306,9 +321,7 @@ describe('Monitor authentication UI', () => {
     expect(allMarkup).toContain('aria-label="Delete Shop"');
     expect(mineMarkup).toContain('role="tab"');
     expect(mineMarkup).toContain('aria-selected="true"');
-    expect(mineMarkup).toContain('aria-label="Search meters"');
-    expect(mineMarkup).toContain('SearchIcon');
-    expect(mineMarkup).toContain('aria-label="Clear search"');
+    expect(mineMarkup).not.toContain('aria-label="Search meters"');
     expect(mineMarkup).toContain('aria-label="Add meter"');
   });
 
@@ -405,6 +418,13 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('Top up by');
     expect(markup).toContain('108.292 kWh');
     expect(markup).toContain('Monthly purchase recommendation');
+    expect(markup).toContain('font-variant-numeric:tabular-nums');
+    expect(markup).toContain('aria-label="Planning estimate"');
+    expect(markup).toContain('repeat(2, minmax(0, 1fr))');
+    expect(markup).toContain('repeat(3, minmax(0, 1fr))');
+    expect(markup).toContain('border-top:1px solid');
+    expect(markup).not.toContain('linear-gradient(');
+    expect(markup).not.toContain('rgba(255, 255, 255, 0.75)');
     expect(markup).toContain('Additional kWh for the next 30 days');
     expect(markup).toContain('Calculation details');
     expect(markup).toContain('Calculated');
