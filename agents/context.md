@@ -330,9 +330,20 @@ mocked-browser groups with 15 phone/tablet/desktop captures, including long emai
 keyboard focus, Back, pending controls and sign-out failure/retry/success.
 Red/white button contrast is 4.98:1. No real API/DB writes or browser errors;
 the isolated browser/preview are closed.
-The user authorised committing and pushing completed Tasks 045–048 to master.
-Next work number is 049; full Ticket 65 remains open. Current priority is
+Tasks 045–048 were committed and pushed to master as 301f50f.
+Full Ticket 65 remains open. Current priority is
 65 -> 66 -> 57 -> personal 56 and external 67; installable-app 68 remains future.
+
+Task 049 adds the existing MUI Logout icon beside the red Sign out text on all
+screens, distinct from Back. Compact icon spacing and narrower phone padding
+retain email space; additional truncation is approved. Branding, handlers,
+busy guards and all other layout/behaviour remain unchanged. All 33 frontend
+checks and the TypeScript/Vite build passed. Two mocked-browser groups with
+eight phone/tablet/desktop captures also passed,
+including long-email truncation, distinct Back, pending controls and direct
+logout. No real API/DB writes or browser errors; isolated browser/preview closed.
+The user subsequently authorised committing and pushing Task 049 to master.
+Next work number is 050; full usability Ticket 65 remains open.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

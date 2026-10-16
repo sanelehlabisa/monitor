@@ -1,5 +1,6 @@
 import { Box, Button, Stack, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 import type { User } from './api';
 
@@ -25,8 +26,8 @@ export function Navigation({ user, busy, onLogout, onBack }: NavigationProps) {
       {user && (
         <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifySelf: 'end', gridColumn: 3, gridRow: 1, minWidth: 0, maxWidth: '100%' }}>
           <Typography noWrap variant="body2" title={user.email} sx={{ minWidth: 0 }}>{user.email}</Typography>
-          <Button color="error" variant="contained" disabled={busy} onClick={onLogout}
-            sx={{ flexShrink: 0, minWidth: 0, px: 1, whiteSpace: 'nowrap' }}>
+          <Button color="error" variant="contained" disabled={busy} onClick={onLogout} startIcon={<LogoutIcon />}
+            sx={{ flexShrink: 0, minWidth: 0, px: { xs: 0.5, sm: 1 }, whiteSpace: 'nowrap', '& .MuiButton-startIcon': { mr: 0.5 } }}>
             Sign out
           </Button>
         </Stack>

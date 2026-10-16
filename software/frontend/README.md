@@ -64,6 +64,9 @@ account icon/dropdown with a direct red Sign out button on the far right.
 The signed-in email sits beside it with a 4px gap on phones, tablets and desktop;
 it truncates rather than displacing the button or branding, with the full email
 retained as text/title. Sign out reuses the existing handler and pending guard.
+Task 049 adds the MUI Logout icon beside Sign out on every screen, distinct from
+the Back arrow. A compact icon gap and narrower phone padding preserve space
+for the email; longer emails may truncate further. The red button and label stay.
 Task 044's combined branding stays: a 48px logo above the Monitor name in the
 centre, with both navigation controls vertically centred against that block.
 Equal flexible side columns keep branding centred even without Back.

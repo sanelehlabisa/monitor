@@ -32,6 +32,7 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('<nav');
     expect(markup).toContain('>Sign out</button>');
     expect(markup).toContain('MuiButton-colorError');
+    expect(markup).toContain('LogoutIcon');
     expect(markup).toContain('admin@example.test');
     expect(markup).not.toContain('AccountCircleIcon');
     expect(markup).not.toContain('Account menu');
@@ -53,6 +54,7 @@ describe('Monitor authentication UI', () => {
     );
     expect(signedOut).not.toContain('Account menu');
     expect(signedOut).not.toContain('Sign out');
+    expect(signedOut).not.toContain('LogoutIcon');
     expect(signedOut).not.toContain('>Back</button>');
     expect(signedOut).not.toContain('<nav');
     expect(signedOut).toContain('<header');
