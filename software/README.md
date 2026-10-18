@@ -7,6 +7,8 @@ dependencies.
 ## Components
 
 - [Backend](backend/README.md): authentication, meter ledger APIs and forecasting.
+- [Forecast research](backend/research/forecasting/README.md): isolated synthetic
+  datasets, plots and a rolling-linear simulator, not an application dependency.
 - [Database](database/README.md): PostgreSQL, Psycopg and versioned raw SQL.
 - [Frontend](frontend/README.md): mobile-first manual entry, estimates and history.
 - [OCR](ocr/README.md): preserved future research only.
@@ -149,10 +151,58 @@ out of scope until their roadmap status changes through an approved task.
 
 ## Planned validation and release
 
-Task 042 records requirements only; none of the following tickets is implemented
-by that planning task. Usability 65 and forecasting validation 66 precede web
-deployment 57, followed by personal 56 and external 67 testing. The root README
-owns IDs and the cross-product priority.
+Tasks 042 and 050 record requirements only; they implement none of these tickets.
+Usability 65 and forecasting validation 66 precede web deployment 57, followed by
+personal 56 and external 67 testing. The root README owns IDs and cross-product
+priority. Ticket 66's candidate research does not automatically replace the app.
+
+### Ticket 66: Offline Per-Meter Forecast Research
+
+Task 050 splits the existing validation parent into 66.1 example datasets,
+66.2 consumption transformation/plots, 66.3 a candidate versus the current
+baseline, 66.4 chronological backtests/go-no-go and 66.5 separately approved
+integration. Each depends on the previous stage; 66.5 needs a positive decision
+and fresh approval. Task 051 starts 66.1/66.2 with small generation/plotting scripts
+under `backend/research/forecasting/`. Matplotlib stays in a research-only virtual
+environment; outputs are ignored and excluded from backend Docker build context.
+Both subtickets remain open for remaining acceptance work. Task 052 replaces the
+earlier segmented-candidate plan with one rolling 90-day (optionally 60-day)
+ordinary least-squares consumption line. Task 053 makes simulator.py the sole
+normal entrypoint: one nominal 10 kWh/day household, two graphs,
+three planning estimates and a Low/Mid/High randomness slider. The slider varies
+daily use and purchase-timing jitter, not average usage or missed-record probability.
+It restarts the same-seed run and clears its scores without retraining the frozen
+prior. Scenario/speed/manual-entry controls and the error sidebar are removed;
+detailed comparisons stay in headless JSON/CSV exports. Old utility scripts are
+retired only after exact-byte archival; outputs/environment/history are preserved.
+Task 053's 20 focused checks, headless exports and native GUI verification passed.
+These stationary random examples do not establish improved forecasting or prior
+accuracy. NumPy and Matplotlib remain research-only.
+Task 055 defaults to 730 days at a nominal 0.1-second timer interval (plus
+rendering overhead) and shades the moving 60/90-day context orange on both
+graphs. This replays two years; forecasts still cover 30 days, not two years.
+The check script is removed at the user's request after local backup. Headless
+and native GUI smoke checks passed; earlier test results remain historical.
+Full candidate review, validation/go-no-go and integration approval remain open.
+Run instructions and current limits are in the research README.
+
+The live model already calculates from each meter's own history. Research uses
+synthetic files only, with dense usage truth separated from daily/weekly/irregular
+manual observations. No real/demo DB changes, pooled customer histories or
+physical device processing. Optional starting-rate defaults remain labelled
+experiments; the live Not enough data policy stays unchanged. The simulator's
+starting rate is the median of separate fictional training households' observed
+ledger rates, frozen independently of demo duration, randomness, lookback and
+reset. Fixed 10 kWh/day remains a labelled initial/fallback and comparison, not
+evidence of a real household's usage. No forecast is shown without a balance.
+
+Preserve the current weighted average as a baseline. Sparse records cannot prove
+hourly patterns; labelled interpolation is not an actual reading. Compare future
+consumption or a declared no-future-purchase balance/run-out scenario, not a
+forecast supplied with future records. Keep monthly usage distinct from extra
+kWh to buy. Detailed outputs and acceptance checks are in the backend README.
+If the candidate is not justified, retain the validated baseline; adoption is not
+required for deployment. No subtask is authorised merely by this planning record.
 
 ### Ticket 56: Personal Usage Validation
 

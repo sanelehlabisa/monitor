@@ -95,6 +95,11 @@ Documentation stays in these READMEs; no `docs/` directory. Development Compose,
 Docker build files and `.env.example` live under `software/`; real `.env` files
 are ignored.
 
+Offline [forecasting research](software/backend/research/forecasting/README.md)
+lives under `software/backend/research/`, excluded from application Docker builds.
+It generates synthetic files, graph images and an offline linear replay experiment,
+not live meter records or an automatically adopted application model.
+
 ## Roadmap
 
 Ticket IDs remain stable. The order below is the current execution order, so
@@ -156,13 +161,23 @@ retained authentication IDs appear before newer product tickets.
 
 ### Next: usable, validated website
 
-Task 042 updates planning only. Each ticket still needs its own implementation
-approval; details live in the closest software README.
+Tasks 042 and 050 update planning only. Each ticket/subticket still needs its
+own implementation approval; details live in the closest software README.
 
 - [ ] Ticket 65: Monitor Usability Review — first-user onboarding, clear actual
   readings/estimates, compact mobile states and wording; branding links to 58.
-- [ ] Ticket 66: Forecasting Algorithm Validation — deterministic synthetic kWh
-  datasets and expected results, including monthly usage versus additional purchase.
+- [ ] Ticket 66: Forecasting Algorithm Validation — offline per-meter research;
+  retain the current calculation as the baseline, not a shared user model.
+  - [ ] Ticket 66.1: Example Datasets — reproducible distinct-meter usage and
+    daily/weekly/irregular manual records; hidden truth stays separate.
+  - [ ] Ticket 66.2: Consumption & Plots — top-up-adjusted consumption, factual
+    observations and labelled assumptions (after 66.1).
+  - [ ] Ticket 66.3: Rolling Linear Simulator — one 60/90-day least-squares line,
+    simple randomness replay, labelled defaults and offline comparisons (after 66.2).
+  - [ ] Ticket 66.4: Backtests & Decision — chronological unseen-data comparisons,
+    correctness checks and an evidence-based go/no-go (after 66.3).
+  - [ ] Ticket 66.5: Approved Integration — only after a positive 66.4 decision
+    and fresh approval; retain the baseline if the candidate is not justified.
 - [ ] Ticket 57: Web Deployment — reuse Task 036's completed production images;
   plan production configuration, HTTPS, migrations, OTP email, backups, monitoring,
   privacy and logging on existing Roventics infrastructure (after 65 and 66).
@@ -176,7 +191,8 @@ approval; details live in the closest software README.
 ### Shared execution priority
 
 1. Monitor usability (65); supplied branding is complete under 58.
-2. Synthetic forecast validation (66); keep costs and price forecasts deferred.
+2. Offline forecast research/validation (66.1 -> 66.4); 66.5 is a separate
+   adoption gate, not automatic app replacement. Keep costs deferred.
 3. Monitor deployment (57).
 4. Begin personal (56) and external (67) testing.
 5. While waiting for users, return to Switch's compact prototype (Switch 84).
@@ -186,6 +202,29 @@ approval; details live in the closest software README.
 
 SPII and supplier timelines remain parallel and must not block independent work.
 Switch details remain in [its own roadmap](https://github.com/sanelehlabisa/switch).
+
+Tasks 051/052 established the offline datasets and rolling-linear experiment;
+their results remain historical work records. Task 053 consolidates the current
+workflow into one simulator: a nominal 10 kWh/day household, two graphs, three
+planning estimates and a Low/Mid/High randomness slider. Levels change daily
+usage variability and purchase-timing jitter, not average-usage classes or missed
+records. Task 055 defaults to a 730-day synthetic replay at a nominal 0.1-second
+timer interval/day, with moving orange 60/90-day context in both graphs. This is
+two years of replay, not a reliable two-year forecast; the horizon stays 30 days.
+The research check script was removed at the user's request after local backup;
+headless/native GUI smoke checks passed. The frozen separate training prior,
+60/90-day fit and offline baseline/error exports remain; no app model changes.
+Task 053's 20 focused checks, headless exports and native GUI verification passed.
+The current seed-42 independent-noise examples favour the baselines, not app
+adoption. The full 66.1/66.2 acceptance, 66.3 review,
+66.4 validation/decision and 66.5 gate stay open.
+
+Within forecast work, finish the remaining data/validation evidence, not a live
+model rewrite. The current model already uses each meter's own history. The
+simulator's calibrated/default rates are labelled research experiments only;
+the app still shows Not enough data when required. A no-go
+retains the baseline; candidate adoption is not a deployment requirement if the
+baseline passes validation. Detailed outputs/checks are in the backend README.
 
 ### Superseded or deferred ticket history
 

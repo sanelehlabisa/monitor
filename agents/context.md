@@ -342,8 +342,158 @@ checks and the TypeScript/Vite build passed. Two mocked-browser groups with
 eight phone/tablet/desktop captures also passed,
 including long-email truncation, distinct Back, pending controls and direct
 logout. No real API/DB writes or browser errors; isolated browser/preview closed.
-The user subsequently authorised committing and pushing Task 049 to master.
-Next work number is 050; full usability Ticket 65 remains open.
+Task 049 was committed and pushed to master as 737b289.
+
+Task 050 is documentation-only planning for offline per-meter forecasting.
+Ticket 66 remains the parent, with ordered subtickets 66.1 datasets, 66.2
+top-up-adjusted consumption/plots, 66.3 a small segmented candidate versus the
+current weighted average, 66.4 chronological validation/go-no-go, and 66.5
+separately approved integration after positive evidence. The existing calculation
+already uses each meter's own history; it is not trained across users.
+Datasets must distinguish hidden dense usage truth from daily/weekly/irregular
+manual observations. Do not invent hourly readings, mix meter histories, leak
+future records or silently repair inconsistent entries. Use UTC and explicit
+top-up boundaries. Evaluate consumption or a declared no-future-purchase
+balance/run-out scenario; unseen purchases must not distort comparison.
+Optional starting-rate defaults are research-only and labelled, never a live
+fallback. Preserve the current Not enough data policy, forecast contract and
+run_forecast_model entrypoint for dashboards/reminders. No replacement until
+evidence and fresh approval; a no-go retains the baseline. Existing release
+priorities remain; candidate adoption is not required if the baseline validates.
+No generator, dataset, model, dependency, live app/API/DB or sibling changes.
+Task 050 is not committed or pushed. Its initial implementation follows as Task
+051 below; the planning record itself did not authorise these future tickets.
+Full usability Ticket 65 remains open.
+
+Task 051 creates `software/backend/research/forecasting/` for isolated offline
+generation/visualisation. Small scripts generate four fictional meter profiles
+with daily/weekly/irregular observations, separate hourly truth and a manifest;
+Matplotlib renders initial balance/top-up and cumulative-consumption PNGs.
+Seeded data uses fixed UTC timestamps and stable per-meter IDs. Observed points,
+inferred segments and hidden synthetic truth are labelled separately; inconsistent
+inputs must raise rather than be repaired. Matplotlib is pinned only in research
+requirements and its ignored local environment. Generated outputs stay under
+ignored `out/`; research is excluded from backend Docker build context and its
+checks use an explicit filename outside normal backend test discovery.
+This starts 66.1/66.2 only: invalid/edge-case fixtures and complete transformation
+acceptance remain open. No forecasting candidate, backtest, live default change,
+application/API/UI/DB, real/demo data or sibling changes. Preserve the current
+forecast and integration gate. All 12 isolated research checks passed; 12 default
+PNGs were generated, decoded and representative images visually inspected.
+Seeded JSON reproducibility, conservation, UTC/boundary maths, meter isolation,
+invalid-input rejection and figure cleanup passed. Git/output/build-context
+configuration checks passed; backend pytest collection/build could not run
+because Docker was offline. No Docker restart or service/data mutation occurred.
+Tasks 050–051 are not committed or pushed. Their next work number was 052,
+implemented as the separately approved experiment below.
+Full usability Ticket 65 remains open.
+
+Task 052 established simulator.py's offline rolling 60/90-day OLS consumption
+line and 30-day forecasts under the same Ticket 66.3 ID, superseding 050's
+segmented-candidate plan. It added frozen independent training calibration,
+latest-actual balance anchoring and chronological GUI/headless error evidence.
+Its original multi-household interface, 10-second timing, 29-check verification
+and numerical comparisons are historical; see
+[Task 052 results](work/052-linear-forecast-simulator/changes.md). Task 053's
+approved simplification below supersedes that interface/generator, not the
+forecast algorithm. Earlier numbers must not describe the changed generator.
+
+Task 053 established simulator.py as the sole normal research entrypoint, retaining
+simulator_checks.py for explicit checks. One seeded household has a nominal
+10 kWh/day basis at every Low/Mid/High randomness level. The bottom slider changes
+daily usage variability and purchase-interval jitter, not average-usage classes,
+missing records or outages. Its reset keeps the same seed and clears only that
+run's scores; separately calibrated frozen training/default values are unchanged.
+Daily variation is ±10/40/80% and scheduled attempt gaps are 240 ±24/96/192
+hours. Cohort/seed-keyed usage, timing, amount and reading streams are paired
+across levels; skipped purchases and the safeguard can change actual gaps/counts.
+The current prior is calibrated before playback from five independent Mid
+training households (90 days; seeds 9173–9177), approximately 10.046 kWh/day;
+this is not the older Task 052 cohort's numerical result.
+The bounded purchase policy and separate physical truth/observations remain.
+Default playback is 0.5 seconds/day for 180 days; 365 days, CLI-only speed and
+60/90-day lookbacks remain configurable. Its original simplified GUI had exactly two
+graphs (balance and total consumption), three headline estimates (balance, days,
+additional kWh to cover the next 30 days), a small date/source label,
+Play/Pause/Reset and the randomness slider. Scenario selection, GUI speed,
+manual balance entry/deletion and the error sidebar are removed. Detailed
+baseline/error comparisons remain in headless exports for all three levels.
+Generation, OLS, causal pre-update scoring and pending 30-day horizons remain
+research-only; no forecast is available before a balance. Invalid history is
+not repaired with defaults. Retiring the three older utility files requires
+verified exact-byte archive/hashes in ignored .tmp/task053/legacy-research.zip;
+outputs, venv, work records and focused simulator checks must be preserved.
+All 20 focused checks passed, along with 180/90, 365/90 and 365/60 headless
+exports (three levels each; nine PNGs). Seed 42 annual 30-day consumption MAE
+for 90/60-day windows is 2.0451/2.3685 kWh (Low), 8.0717/9.3970 (Mid) and
+16.1019/18.7709 (High). The 90-day window wins in this independent-day-noise
+example, not as a general rule. Annual runs have 12 month-end issues, 11 matured
+30-day horizons and one pending. Native 500ms timing, mouse Play/Pause/Reset and
+all three slider positions passed; resets clear a populated run while keeping
+seed/prior fixed. Exactly two data graphs and three correct headline estimates
+were verified; the owned native window was captured and closed.
+Counterevidence matters: fixed 10 and the all-history mean have lower annual
+30-day MAE than the rolling line at all three levels. For Mid, linear/mean/fixed
+errors are 8.0717/7.8282/6.1811 kWh. The calibrated prior is worse than fixed 10
+on each level's single cold-start score (Mid absolute error 4.7409 versus 4.529).
+This UI/data simplification establishes no model/prior accuracy improvement;
+do not use it to justify adoption or general household accuracy claims.
+The three old sources were removed only after verified archival/recovery records;
+the local ZIP, environment, existing outputs and work history are retained.
+Keep full 66.1/66.2 acceptance, 66.3 review,
+66.4 validation/go-no-go and 66.5 fresh integration approval open. Matplotlib/
+NumPy remain isolated; no live app/API/DB, defaults, dependency or unavailable
+state changes. Tasks 050–053 are uncommitted; no push or sibling change is
+authorised. Task 054 below supersedes only its third-headline/startup behaviour.
+
+Task 054 changes the research GUI's third value to "Predicted monthly requirement
+(30 days)", using the existing consumption_30 = estimated rate × 30, independent
+of remaining balance. Additional top-up still uses max(0, rate × 30 - balance)
+in forecasts/exports. At 15 kWh/day, monthly requirement stays 450 kWh even when
+a purchase reduces extra needed to zero. It updates with the usage estimate;
+there is no smoothing, fixed artificial result or forced positive minimum.
+GUI launch/reset and slider reset record the known configured starting balance
+through record_balance before the first render. This is one starting reading,
+not fabricated earlier history; the source is labelled assumed default until
+recorded observations support fitting (initial monthly estimate about 301.4 kWh).
+Bare empty Simulation/forecast and headless replay remain unchanged; no known
+balance still means unavailable. Genuine zero use remains valid and invalid
+history withholds estimates. Calibration, OLS, data, 0.5-second timer, randomness,
+two graphs and live app remain unchanged. All 23 focused checks and four native
+GUI groups passed, including immediate/reset/slider defaults, no starting-record
+duplication, 15 kWh/day monthly 450 despite changing extra purchase, and zero/
+invalid states. The owned window/timer closed. A 180/90 headless rerun's eight
+JSON/CSV reports are byte-identical to Task 053, with production files unchanged.
+No accuracy benefit, app integration, dependency, commit or push is claimed or
+authorised.
+Task 055 below changes timing/replay/context and removes the check file; this
+23-check result remains historical.
+
+Task 055 is a quick user-directed change with the prompt/approval gate explicitly
+waived for this task only. Default replay is 730 fictional days with a nominal
+100ms timer interval per day (0.1 seconds plus rendering overhead). Both graphs
+shade max(START, now − lookback) through now orange to show the moving 60/90-day
+context, not a future forecast or confidence band. Two years is replay history,
+not two-year forecasting reliability; the future horizon remains 30 days.
+The model, generation/calibration algorithms, monthly requirement and additional-purchase
+equations are unchanged. The user requested deletion of simulator_checks.py;
+its exact source is retained under ignored .tmp/task055/simulator_checks.py with
+recovery hashes recorded before deletion. Historical 050–054 records/results,
+other outputs and the environment remain intact. No current research check-script
+command is provided and no test-suite rerun is claimed. The default 730/90
+headless replay passed all three levels with three decoded PNGs and a visually
+checked orange context band. Each level has 24 month-end issues, 23 matured
+horizons and one pending. An explicit 180/90 rerun's eight JSON/CSV files match
+Task 054 byte-for-byte. Native 100ms Play/Pause and context bounds on both plots
+at days 180/700 with 60/90-day lookbacks passed; the future horizon is still
+30 days. No live app/API/DB, dependency, integration, commit or push change is
+authorised. The next work number is 056; the one-task workflow
+waiver does not automatically authorise further work.
+
+The user subsequently authorised the Git handoff of completed Tasks 050–055 to
+master. Earlier uncommitted/no-commit notes describe their pre-handoff state;
+Git history records the final commit. No push or next ticket was requested.
+Wait for the user's next direction; do not start Task 056 automatically.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

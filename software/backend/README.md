@@ -162,34 +162,205 @@ as actual readings.
 Use typed Python, concise public docstrings and reusable raw-SQL repository
 functions. Production deployment settings are not defined yet.
 
-## Planned Ticket 66: Forecasting Algorithm Validation
+## Planned Ticket 66: Per-Meter Forecast Research and Validation
 
-Task 042 defines the validation work only; it adds no fixtures, tests or model
-changes. Reuse run_forecast_model and existing tests; use fixed, timezone-aware
-synthetic datasets and manually stated expected results before public testing.
-No real household dataset is yet established; demos do not prove accuracy.
+Task 050 expands the existing Ticket 66 into five ordered subtickets. This is a
+plan only: it adds no datasets, plots, tests, candidate code or live-model changes.
+Each implementation needs its own small approved task. Synthetic results are
+not household validation; Tickets 56/67 remain necessary after deployment.
 
-Validate consumption between readings (including purchased kWh), time-weighted
-daily use, estimated current balance, remaining days, run-out instant and
-additional purchase for 30 days. Distinguish total 30-day usage from the extra
-purchase after subtracting available balance; no hidden safety buffer.
+Task 051 implements an initial generator/plotting slice in
+[research/forecasting](research/forecasting/README.md). Matplotlib is isolated in
+research requirements/a local environment, not runtime requirements or images.
+Research and generated outputs are excluded from the Docker build context. Both
+66.1 and 66.2 remain open for their full acceptance work. Task 052 adds a separate
+single-script rolling-linear simulator with initial chronological error exports.
+Task 053 simplifies its current interface/generation: one nominal 10 kWh/day
+household and a Low/Mid/High randomness slider. The earlier utilities were
+archived before retirement. Task 055 removes the focused check script after
+local backup at the user's request; simulator.py is the current entrypoint.
+It defaults to 730 replay days and a nominal 0.1-second timer interval, shading
+recent 60/90-day context orange in both plots. The forecast remains 30 days,
+not a reliable two-year prediction. Headless/native GUI smoke checks passed;
+no removed research test suite was rerun.
+Task 053's historical 20 focused checks, headless
+exports and native GUI verification passed. Task 052's results
+remain historical, not the changed generator's accuracy. The current 66.3 scope
+is still one rolling line, not segmentation or live-model replacement. NumPy
+joins Matplotlib only in research requirements. Full
+validation/go-no-go and separately approved application integration remain open.
 
-Required dataset coverage:
+The live model already recalculates from one meter's history, using total
+observed consumption divided by total elapsed days. Keep `run_forecast_model`
+and its existing tests as the baseline; do not pool users' histories. The API
+and reminder repositories enforce meter scope before calling this pure function.
 
-- Normal consistent use and top-ups between readings, including interval edges.
-- Changing consumption, missing days and irregular observation intervals.
-- Invalid negative consumption, duplicate/reordered or impossible timestamps.
-- Insufficient history, unusually high consumption and valid zero use.
-- Elapsed time after the latest reading, later top-ups and exhausted balance.
+Research contracts shared by all subtickets:
 
-For a fixed current time: 450 kWh 30 days earlier, a 300 kWh top-up 15 days
-earlier and 300 kWh now imply (450 + 300 - 300) / 30 = 15 kWh/day.
-Expected outputs are 300 kWh current balance, 20 days remaining, run-out in
-20 days, 450 kWh total 30-day usage and 150 kWh additional purchase. This
-example documents the existing contract; it does not add a total-usage API field.
+- Use synthetic kWh only, stable distinct meter IDs, recorded seeds/configuration,
+  timezone-aware UTC instants and explicit Decimal/rounding rules.
+- Count top-ups in `(previous reading, current reading]`; purchases exactly at
+  the previous reading are excluded and those at the current reading included.
+  Later purchases known by `as_of` affect projected balance, not past usage.
+- Keep sparse observed balances/top-ups separate from dense hidden usage truth.
+  Never invent hourly observations or silently repair impossible records.
+- No real/demo DB writes, runtime/API changes or heavy frameworks. Research-only
+  Matplotlib/NumPy do not change backend dependencies. Hardware/OCR/ML,
+  costs and payments stay deferred.
+- The live app retains `not_enough_data` until its existing requirements are met.
+  Optional cold-start defaults are labelled research scenarios, never actual
+  meter readings or learned rates; live adoption requires separate approval.
 
-Acceptance: deterministic expected-output examples and repeatable checks of
-statuses, UTC/local equivalence, rounding and invalid/unavailable states.
-Report model limitations; file small approved fixes separately if checks fail.
-Optional purchase costs, tariffs and future-cost estimates remain deferred:
-no such columns currently exist. Do not introduce ML, OCR or an LLM.
+### Ticket 66.1: Reproducible Synthetic Meter Datasets
+
+Depends on: the existing ledger/forecast contracts; no model change.
+
+Outputs: a small reproducible dataset generator, its seed/configuration manifest,
+distinct meter profiles, separate observed/truth files and expected example results.
+
+- Cover steady low/high use, changing use and a weekly pattern. Sample the same
+  profiles with daily, weekly and irregular manual readings, including long gaps.
+- Include a 30-day worked example and longer histories with a full held-out
+  30-day horizon; do not score beyond the available hidden truth.
+- Include purchased kWh, several purchases between readings, exact interval-edge
+  purchases, elapsed time after the last reading and later known purchases.
+- Add labelled cases for insufficient history, zero/high use, exhausted balance,
+  negative inferred consumption, duplicate times, reordered inputs and future or
+  timezone-naive timestamps. Invalid cases must stay distinguishable from valid.
+
+Acceptance: reruns reproduce values/IDs and sampling; valid histories conserve
+energy and match hand-calculated intervals within documented rounding. Changing
+another meter's data cannot affect a meter's inputs. Hidden truth is unavailable
+to the forecasting adapter; no generated fixture is inserted into the app DB.
+
+### Ticket 66.2: Consumption Transformation and Visualisation
+
+Depends on: 66.1's checked datasets and observation/truth separation.
+
+Outputs: one reusable transformation, labelled plots and a short rebuild/readme
+explanation; keep visualisation offline, not a new application screen.
+
+- Calculate cumulative consumed energy at each real observation:
+  `consumed(t) = initial balance + purchases in (initial time, t] - balance(t)`.
+- Plot observed balance/top-up events and adjusted consumption against actual
+  elapsed time. Fit consumption, not the saw-tooth balance jumps from purchases.
+- Distinguish observations, inferred connecting segments and hidden evaluation
+  truth visually. Sparse intervals identify average use, not hourly behaviour.
+- Surface invalid chronology/consumption rather than clipping it into plausible
+  data. Reordered valid inputs may be sorted explicitly, preserving source facts.
+
+Acceptance: transformed intervals match 66.1's expected consumption, including
+boundary purchases and UTC-equivalent timestamps. Plots cannot misrepresent
+interpolation as a measured reading or expose hidden truth to candidate inputs.
+
+### Ticket 66.3: Rolling Linear Simulator and Baselines
+
+Depends on: 66.1/66.2; retain the unchanged live method for comparison.
+
+Outputs: simulator.py, readable equations,
+two-graph replay, PNGs and JSON/CSV error summaries. Task 053 simplifies 052's
+interface/generation without replacing its single-line forecasting algorithm.
+That experiment supersedes the segmented scope originally planned by 050.
+
+- Fit one ordinary least-squares `y = mx + c` to reconstructed consumption at
+  actual balance times in the latest 90 days, optionally 60. Use actual elapsed
+  days, never invented hourly readings, segments, blending or periodic models.
+- Require two distinct valid in-window readings for a fitted rate. Otherwise,
+  when a balance exists, show the explicitly assumed frozen starting rate.
+  Calibrate that rate as the median of separate fictional training households'
+  consumption/elapsed-day ledger rates. Training IDs/seeds/parameters are separate
+  from demo households, and calibration does not change with demo duration,
+  randomness, lookback or reset. Fixed 10 kWh/day is the labelled initial/fallback
+  and comparison. None of these defaults changes the live app's cold-start policy.
+- Reconstruct with purchases in `(previous reading, current reading]`. Reject
+  inconsistent or non-finite inputs; never hide them with a default. Zero use
+  is valid, with no finite run-out. No recorded balance means no prediction.
+- Anchor current/future balance to the latest actual reading plus known later
+  purchases minus estimated use, not the fitted intercept. Predict the next
+  30 days with no buffer; future balance assumes no further purchases. Distinguish
+  total 30-day consumption from additional kWh after the remaining balance.
+- Default to 730 fictional replay days at a nominal 0.1-second timer interval
+  plus rendering overhead (CLI-adjustable). This is not a two-year forecast;
+  the future horizon stays 30 days.
+  One household keeps a nominal 10 kWh/day basis across Low/Mid/High levels;
+  randomness changes daily-use variability and purchase-interval jitter, not
+  average-usage classes or missed top-ups. The bounded purchase policy prevents
+  outages; it does not validate physical exhaustion.
+- GUI shows exactly two graphs (balance and total consumption), three headline
+  estimates (current balance, remaining days and predicted monthly requirement
+  for 30 days), a small date/source label, Play/Pause/Reset and one bottom
+  randomness slider.
+  Orange shading marks max(start, now − 60/90 days) through now in both graphs,
+  not a future prediction or confidence band.
+  Changing the level restarts the same-seed run and clears that run's scores,
+  never the frozen calibration. No scenario/speed/manual-entry/error-sidebar UI.
+  Task 054 uses existing consumption_30 = rate × 30 for the third headline,
+  independent of balance, while additional-purchase math/exports stay unchanged.
+  GUI launch/reset records the configured starting balance before rendering,
+  enabling a labelled assumed-default estimate without inventing earlier readings.
+  Empty-ledger/headless policies, zero/invalid states and the model are unchanged;
+  all 23 focused checks and native GUI checks passed. Eight headless JSON/CSV
+  reports match Task 053 byte-for-byte; this is not an accuracy improvement.
+- Reveal hidden truth only through simulated now for plots/scoring, never fitting.
+  Score new readings before refitting; freeze prior prediction/error snapshots.
+  Compare with fixed 10 kWh/day and the current consumption/elapsed-time baseline
+  on the same available records. Headless exports cover all three randomness
+  levels. Report calendar month-end balance and matured
+  30-day consumption errors, kWh MAE/bias and scored/pending counts by month and
+  randomness level. Month-end means a pre-reading current-balance estimate at 00:00 UTC
+  on the last calendar day, not a balance forecast issued one month earlier.
+  Signed errors are prediction minus truth. Future horizons stay pending;
+  yearly month-end results are not every-day accuracy. JSON/CSV/PNG outputs
+  remain ignored research artefacts.
+
+Acceptance: deterministic, explainable replay, reproducible calibration/data,
+correct sparse/zero/invalid and 60/90-day boundaries, no future-data leakage,
+slider reset/frozen-calibration behaviour and immutable pre-update errors within
+a run. Task 053's 20 focused checks, headless exports and native GUI verification
+passed. In its current stationary independent-noise examples, fixed 10 and the
+all-history mean outperform the rolling line; the calibrated cold prior also
+does not improve on fixed 10. Historical 052 results and current
+exports do not close the broader 66.4 held-out
+validation, adoption decision or 66.5 integration gate. Launch instructions,
+equations and experiment limitations are in the research README.
+
+### Ticket 66.4: Chronological Validation and Adoption Decision
+
+Depends on: checked 66.1-66.3 outputs; fix evaluation rules before final scoring.
+
+Outputs: repeatable chronological backtests, per-profile/cadence error tables and
+plots, documented limits and a written go/no-go against the current baseline.
+
+- At each cutoff use only observations and purchases known by that cutoff;
+  separate tuning periods from later held-out periods. Truth is scoring-only.
+- Report error in consumed/current kWh and additional 30-day purchase, plus
+  remaining-days/run-out error where a finite comparison is meaningful. Include
+  bias, worst cases and unavailable/fallback counts, not only an overall average.
+- Compare future consumption directly, or define a no-future-purchase balance/
+  run-out counterfactual from the cutoff. Unknown later purchases must not make
+  a correct run-out prediction appear wrong; report horizons with no run-out.
+- Check interval boundaries, UTC/local equivalence, rounding, mixed-meter
+  isolation, corrections/deletions and all invalid/unavailable dataset cases.
+- Agree numerical improvement/non-regression criteria before held-out scoring;
+  show results by meter profile and reading cadence, not just favourable examples.
+
+Acceptance: reproducible expected-output tests and held-out evidence justify a
+go/no-go. No-go keeps the existing model; synthetic improvement alone does not
+prove household accuracy. Record failures as small separately approved fixes.
+
+### Ticket 66.5: Separately Approved Application Integration
+
+Depends on: 66.4 evidence, an explicit go decision and fresh implementation approval.
+
+Outputs: only if approved, a small reviewed integration/rollback plan and checks
+for the dashboard and reminder callers through the same `run_forecast_model`.
+
+Acceptance: preserve meter ownership, UTC/kWh contracts, actual-versus-estimated
+labels, honest unavailable states and sparse-data fallbacks. No parallel model
+inside the UI or email runner. Keep the current method recoverable; any cold-start
+policy or output-contract change needs explicit separate scope and approval.
+
+Shared reference: 450 kWh 30 days earlier, a 300 kWh purchase 15 days earlier
+and 300 kWh now imply `(450 + 300 - 300) / 30 = 15 kWh/day`. At that instant:
+300 kWh available, 20 days remaining, 450 kWh total 30-day use and only 150 kWh
+additional purchase. Retain this distinction without adding a total-usage API field.
