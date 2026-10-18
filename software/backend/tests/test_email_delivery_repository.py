@@ -2,7 +2,6 @@
 
 from datetime import UTC, datetime
 import json
-from pathlib import Path
 import re
 import time
 from urllib.request import urlopen
@@ -10,12 +9,9 @@ from uuid import uuid4
 
 from app.database import connect_database
 from app.email_delivery import EmailDeliveryError, deliver_login_code
-from app.migrations import run_migrations
 from app.otp import code_digest
 from app.settings import Settings
 from pytest import raises
-
-MIGRATIONS_DIRECTORY = Path("/migrations")
 
 
 class FailingSender:
@@ -56,7 +52,6 @@ def test_delivery_failure_invalidates_but_retains_challenge() -> None:
     """Failed sends remain counted but cannot later authenticate a user."""
 
     settings = Settings(otp_hmac_secret="delivery-test-secret")
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     email = _unique_email("failed-delivery")
     now = datetime(2026, 10, 8, tzinfo=UTC)
     try:
@@ -78,7 +73,6 @@ def test_generated_code_reaches_only_requested_mailpit_recipient() -> None:
     """Real SMTP delivery matches the HMAC-only PostgreSQL challenge."""
 
     settings = Settings(otp_hmac_secret="mailpit-integration-secret")
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     email = _unique_email("mailpit-delivery")
     try:
         with connect_database(settings) as connection:

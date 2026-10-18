@@ -1,18 +1,14 @@
 """Live PostgreSQL authorization tests for reminder settings APIs."""
 
-from pathlib import Path
 from uuid import uuid4
 
 from app.auth_api import COOKIE_NAME
 from app.database import connect_database
 from app.main import create_app
 from app.meters import create_meter
-from app.migrations import run_migrations
 from app.sessions import create_session
 from app.settings import Settings
 from fastapi.testclient import TestClient
-
-MIGRATIONS_DIRECTORY = Path("/migrations")
 
 
 def _client_for(settings: Settings, email: str) -> tuple[TestClient, int]:
@@ -35,7 +31,6 @@ def test_reminder_settings_defaults_updates_validation_and_access() -> None:
     other_email = f"reminder-api-other-{suffix}@example.test"
     admin_email = f"reminder-api-admin-{suffix}@example.test"
     settings = Settings(environment="test", admin_emails=admin_email)
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     owner, owner_id = _client_for(settings, owner_email)
     other, _ = _client_for(settings, other_email)
     admin, _ = _client_for(settings, admin_email)

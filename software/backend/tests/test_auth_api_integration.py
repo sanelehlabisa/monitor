@@ -1,7 +1,6 @@
 """Live PostgreSQL and Mailpit test for the human authentication API."""
 
 import json
-from pathlib import Path
 import re
 import time
 from urllib.request import urlopen
@@ -9,11 +8,8 @@ from uuid import uuid4
 
 from app.database import connect_database
 from app.main import create_app
-from app.migrations import run_migrations
 from app.settings import Settings
 from fastapi.testclient import TestClient
-
-MIGRATIONS_DIRECTORY = Path("/migrations")
 
 
 def _mailpit_code_for(email: str) -> str:
@@ -49,7 +45,6 @@ def test_new_user_can_sign_in_use_me_and_log_out() -> None:
     """The complete open-signup flow uses Mailpit and an opaque cookie."""
 
     settings = Settings(environment="development")
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     email = f"auth-api-{uuid4().hex}@example.test"
     client = TestClient(create_app(settings))
     try:

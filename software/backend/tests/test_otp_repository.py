@@ -1,11 +1,9 @@
 """PostgreSQL integration tests for OTP request and verification policy."""
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from uuid import uuid4
 
 from app.database import connect_database
-from app.migrations import run_migrations
 from app.otp import (
     OtpRateLimitError,
     OtpVerificationError,
@@ -17,18 +15,11 @@ from app.settings import Settings
 from psycopg.errors import CheckViolation
 from pytest import raises
 
-MIGRATIONS_DIRECTORY = Path("/migrations")
 SECRET = "integration-test-secret"
 
 
 def _unique_email(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex}@example.test"
-
-
-def _prepare_database() -> Settings:
-    settings = Settings()
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
-    return settings
 
 
 def _remove_email(settings: Settings, email: str) -> None:
@@ -40,7 +31,7 @@ def _remove_email(settings: Settings, email: str) -> None:
 def test_issue_enforces_limits_and_stores_only_digest() -> None:
     """Issuance applies cooldown/hour policy and supersedes the previous code."""
 
-    settings = _prepare_database()
+    settings = Settings()
     email = _unique_email("issue")
     start = datetime(2026, 1, 1, tzinfo=UTC)
     try:
@@ -76,7 +67,7 @@ def test_issue_enforces_limits_and_stores_only_digest() -> None:
 def test_verification_enforces_attempts_one_use_and_user_creation() -> None:
     """Only a valid live code creates a user, and successful codes work once."""
 
-    settings = _prepare_database()
+    settings = Settings()
     email = _unique_email("verify")
     start = datetime(2026, 1, 2, tzinfo=UTC)
     try:
@@ -118,7 +109,7 @@ def test_verification_enforces_attempts_one_use_and_user_creation() -> None:
 def test_expired_codes_and_database_constraints_are_rejected() -> None:
     """Expiry and normalized-email checks protect invalid stored state."""
 
-    settings = _prepare_database()
+    settings = Settings()
     email = _unique_email("expired")
     start = datetime(2026, 1, 3, tzinfo=UTC)
     try:

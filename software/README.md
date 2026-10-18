@@ -9,7 +9,8 @@ dependencies.
 - [Backend](backend/README.md): authentication, meter ledger APIs and forecasting.
 - [Forecast research](backend/research/forecasting/README.md): isolated synthetic
   datasets, plots and a rolling-linear simulator, not an application dependency.
-- [Database](database/README.md): PostgreSQL, Psycopg and versioned raw SQL.
+- [Database](database/README.md): PostgreSQL, Psycopg, fresh SQL bootstrap and
+  separately approved additive upgrades.
 - [Frontend](frontend/README.md): mobile-first manual entry, estimates and history.
 - [OCR](ocr/README.md): preserved future research only.
 
@@ -41,22 +42,22 @@ After updating from the former Keycloak stack, remove its obsolete container:
 docker compose -f dev.docker-compose.yaml down --remove-orphans
 ```
 
-Reset all local database and frontend dependency volumes:
+PostgreSQL runs `database/schema.sql` then fresh-only `database/seed.sql` only
+when its persistent data volume is empty. Restart/recreation does not replay
+SQL, duplicate examples or overwrite roles. The API no longer executes or mounts
+numbered migrations. Existing data is preserved but not automatically upgraded;
+never use volume deletion or fresh seeds as an upgrade/partial-init repair.
+The [database README](database/README.md) documents recovery and the explicit
+`upgrade-058.sql` procedure, which requires separate approval on the current DB.
 
-This is destructive and is not an upgrade procedure. First inventory data,
-back it up and obtain explicit reset approval; Task 056 authorises no reset.
-
-```powershell
-docker compose -f dev.docker-compose.yaml down --volumes
-```
-
-Backend and frontend sources are bind-mounted for reload. Rebuild after changing
+Backend and frontend sources are bind-mounted for reload; Uvicorn watches only
+`app/`, not the offline research environment. Rebuild after changing
 Python or npm dependencies. The ignored `.env` is the visible source of Compose
 development values; Compose reports required missing values instead of silently
 using a second set of inline defaults. The committed `.env.example` contains
 development-only examples and must not be exposed as production configuration.
 
-The API health baseline, raw SQL migrations and Material UI shell exist. Tickets
+The API health baseline, explicit SQL schema and Material UI shell exist. Tickets
 43-46 implement email OTP delivery, digest-only sessions, the human auth API and
 the Material UI login flow with secure HTTP-only cookie transport. Tasks 015-018
 complete raw-SQL meter profiles, authorised CRUD and signed-in user/admin meter
@@ -112,8 +113,9 @@ reload. A practical local walkthrough is in the frontend README.
 ## Production images (Task 036 preparation)
 
 The Dockerfiles now have named `development` and `production` targets.
-Development Compose explicitly selects `development`; its commands, mounts,
-ports and runtime environment values are unchanged. Build the production images
+Development Compose explicitly selects `development`; reload, ports and runtime
+environment values remain. Task 058 replaces migration startup/mounts with
+fresh PostgreSQL initialization. Build the production images
 from `software/`:
 
 ```powershell
@@ -130,7 +132,7 @@ To run, the frontend needs a reachable `backend:8000` name on its Docker network
 The backend defaults to production mode and requires a unique
 `MONITOR_OTP_HMAC_SECRET` at runtime. Supply the database, public origin, admin
 and SMTP settings explicitly for the deployment; development defaults are not a
-production configuration. SQL migrations and database setup are not performed by
+production configuration. Schema installation and upgrades are not performed by
 the image command. See the component READMEs for the runtime boundaries.
 
 This is image preparation only, not a ready deployment stack. Remaining Ticket 57
@@ -161,12 +163,17 @@ forecast validation 66 and deployment 57, then personal 56/external 67 testing.
 The root README owns IDs and cross-product priority. Ticket 66's candidate
 research does not automatically replace the app.
 
-### Ticket 69: Database and Access Refocus (planned)
+### Ticket 69: Database and Access Refocus
 
-- 69.1 audits existing data and agrees the target schema/backup/restore path.
-- 69.2 introduces schema.sql/seed.sql for fresh persistent Docker volumes only;
-  existing volumes need a separately approved safe transition, never a reset
-  hidden in startup. Keep both backend and frontend hot reload.
+- 69.1 recovery verification passed in Task 057; Task 058 accepts the additive
+  target without authorizing changes to the existing database.
+- 69.2 adds schema.sql/seed.sql for fresh persistent Docker volumes and an
+  explicit upgrade script. Task 058 passed fresh/copy-upgrade, persistence, both
+  reload paths and source-preservation/cleanup checks. Its 64 backend checks
+  used cached image dependencies; a network-disabled fresh build could
+  not fetch uncached pip requirements, so no fresh image build is claimed.
+  Rehearsal uses only a restored copy. Existing-volume execution needs approval,
+  never a reset or seed hidden in startup. Both reload paths are retained.
 - 69.3 makes DB user/admin types the sole role authority and removes admin env
   configuration everywhere active. Signup stays open and creates regular users.
   Seed hlabisasanele730@gmail.com as admin only during fresh setup; later role
@@ -189,7 +196,10 @@ transition, deletion/onboarding and scheduling policies must be settled in the
 relevant implementation prompt. Database details are in the
 [database README](database/README.md); role/access/reminder details in the
 [backend README](backend/README.md); sharing/planning controls in the
-[frontend README](frontend/README.md). Current code, config and data are unchanged.
+[frontend README](frontend/README.md). Task 058 changes bootstrap and app-only
+development reload; current-data preservation, owner access and env-admin authority
+remain. Fresh seeds include the approved admin identity and fictional examples;
+their DB types do not activate DB-based privileges until 69.3/Task 059.
 
 ### Ticket 70: Readable HTML Emails (planned)
 

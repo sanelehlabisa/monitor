@@ -1,4 +1,4 @@
-"""Apply versioned PostgreSQL migrations without an ORM."""
+"""Historical migration runner; unsupported for schema.sql/058 databases."""
 
 from pathlib import Path
 
@@ -31,6 +31,12 @@ def run_migrations(
     files = migration_files(directory)
     applied_count = 0
     with connect_database(settings) as connection:
+        if connection.execute(
+            """SELECT 1 FROM information_schema.columns
+               WHERE table_schema = 'monitor' AND table_name = 'users'
+               AND column_name = 'type'"""
+        ).fetchone():
+            raise RuntimeError("Legacy migrations are unsupported; see database/README.md")
         connection.execute(CREATE_MIGRATIONS_TABLE)
         connection.commit()
         applied = {

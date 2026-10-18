@@ -1,11 +1,9 @@
 """PostgreSQL integration tests for opaque user sessions."""
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from uuid import uuid4
 
 from app.database import connect_database
-from app.migrations import run_migrations
 from app.sessions import (
     SESSION_TTL,
     SessionAuthenticationError,
@@ -16,8 +14,6 @@ from app.sessions import (
 )
 from app.settings import Settings
 from pytest import raises
-
-MIGRATIONS_DIRECTORY = Path("/migrations")
 
 
 def _create_user(settings: Settings, email: str) -> int:
@@ -38,7 +34,6 @@ def test_multiple_sessions_authenticate_and_store_only_digests() -> None:
     """One user may sign in independently on more than one device."""
 
     settings = Settings()
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     email = f"sessions-{uuid4().hex}@example.test"
     user_id = _create_user(settings, email)
     now = datetime(2026, 10, 9, tzinfo=UTC)
@@ -81,7 +76,6 @@ def test_expired_and_revoked_sessions_share_one_error() -> None:
     """Callers cannot distinguish invalid session states through the domain."""
 
     settings = Settings()
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     email = f"session-state-{uuid4().hex}@example.test"
     user_id = _create_user(settings, email)
     start = datetime(2026, 10, 9, tzinfo=UTC)

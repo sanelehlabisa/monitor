@@ -1,17 +1,13 @@
 """Live PostgreSQL authorization tests for the meter CRUD API."""
 
-from pathlib import Path
 from uuid import uuid4
 
 from app.auth_api import COOKIE_NAME
 from app.database import connect_database
 from app.main import create_app
-from app.migrations import run_migrations
 from app.sessions import create_session
 from app.settings import Settings
 from fastapi.testclient import TestClient
-
-MIGRATIONS_DIRECTORY = Path("/migrations")
 
 
 def _client_for(settings: Settings, email: str) -> tuple[TestClient, int]:
@@ -33,11 +29,15 @@ def test_meter_api_enforces_owner_scope_and_admin_access() -> None:
     other_email = f"meter-other-{uuid4().hex}@example.test"
     admin_email = f"meter-admin-{uuid4().hex}@example.test"
     settings = Settings(environment="test", admin_emails=admin_email)
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     normal, _ = _client_for(settings, normal_email)
     other, _ = _client_for(settings, other_email)
     admin, _ = _client_for(settings, admin_email)
     try:
+        existing = admin.get("/api/meters")
+        assert existing.status_code == 200
+        existing_meters = {
+            item["id"]: item["owner_email"] for item in existing.json()
+        }
         denied = TestClient(create_app(settings)).get("/api/meters")
         home = normal.post("/api/meters", json={"name": " Home "})
         shop = other.post("/api/meters", json={"name": "Shop"})
@@ -61,9 +61,11 @@ def test_meter_api_enforces_owner_scope_and_admin_access() -> None:
 
         admin_list = admin.get("/api/meters")
         assert admin_list.status_code == 200
-        assert {item["owner_email"] for item in admin_list.json()} == {
-            normal_email,
-            other_email,
+        assert {
+            item["id"]: item["owner_email"] for item in admin_list.json()
+        } == existing_meters | {
+            home.json()["id"]: normal_email,
+            shop.json()["id"]: other_email,
         }
         owner_match = admin.get(
             "/api/meters", params={"q": other_email[6:24].upper()}

@@ -1,20 +1,16 @@
 """PostgreSQL integration tests for per-meter reminder settings."""
 
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from app.database import connect_database
 from app.meters import MeterNotFoundError, create_meter, delete_meter
-from app.migrations import run_migrations
 from app.reminder_settings import get_reminder_settings, upsert_reminder_settings
 from app.settings import Settings
 from psycopg import Connection
 from psycopg.errors import CheckViolation
 from pytest import raises
-
-MIGRATIONS_DIRECTORY = Path("/migrations")
 
 
 def _create_user(connection: Connection[Any], prefix: str) -> tuple[int, str]:
@@ -30,7 +26,6 @@ def test_reminder_settings_defaults_upsert_scope_and_cascade() -> None:
     """Settings are opt-in, owner-scoped, admin-readable and meter-owned."""
 
     settings = Settings()
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     with connect_database(settings) as connection:
         owner_id, owner_email = _create_user(connection, "reminder-owner")
         other_id, other_email = _create_user(connection, "reminder-other")
@@ -79,7 +74,6 @@ def test_reminder_settings_validation_and_constraints() -> None:
     """Repository and schema reject unsafe days and timezone values."""
 
     settings = Settings()
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     with connect_database(settings) as connection:
         owner_id, email = _create_user(connection, "reminder-values")
         meter = create_meter(connection, owner_id, "Home")

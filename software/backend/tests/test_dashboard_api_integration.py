@@ -2,7 +2,6 @@
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
 from uuid import uuid4
 
 from app.auth_api import COOKIE_NAME
@@ -10,13 +9,10 @@ from app.balance_entries import create_balance_entry, update_balance_entry
 from app.database import connect_database
 from app.main import create_app
 from app.meters import create_meter
-from app.migrations import run_migrations
 from app.sessions import create_session
 from app.settings import Settings
 from app.top_up_entries import create_top_up_entry
 from fastapi.testclient import TestClient
-
-MIGRATIONS_DIRECTORY = Path("/migrations")
 
 
 def _client_for(settings: Settings, email: str) -> tuple[TestClient, int]:
@@ -39,7 +35,6 @@ def test_dashboard_states_history_corrections_and_access() -> None:
     other_email = f"dashboard-other-{suffix}@example.test"
     admin_email = f"dashboard-admin-{suffix}@example.test"
     settings = Settings(environment="test", admin_emails=admin_email)
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     owner, owner_id = _client_for(settings, owner_email)
     other, _ = _client_for(settings, other_email)
     admin, _ = _client_for(settings, admin_email)

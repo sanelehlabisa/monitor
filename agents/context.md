@@ -48,8 +48,9 @@ actual reading and its observation time beside forecast output.
 ## Active technology
 
 - `software/backend/`: FastAPI REST service and pure forecasting/domain logic.
-- `software/database/`: currently versioned PostgreSQL SQL through Psycopg;
-  planned 69.2 simplifies fresh initialization only. No ORM.
+- `software/database/`: fresh PostgreSQL schema.sql/seed.sql initialization,
+  explicit manually approved existing-data upgrades and raw Psycopg. No ORM.
+  The current development volume remains on its preserved pre-058 schema.
 - `software/frontend/`: React, Vite and Material UI, designed mobile-first.
 - `software/ocr/`: deferred research only, not an active dependency.
 - `hardware/`: deferred research only, not an active V1 dependency.
@@ -554,6 +555,72 @@ local research commit to master, then preparing the next batch. Begin with
 057 / Ticket 69.1's audit/recovery gate; 69.2/69.3 depend on that evidence and
 their own approved prompts. This is not permission to reset an existing volume
 or execute the remaining refocus tickets without review.
+
+Task 057 completes 69.1's technical data-audit/recovery gate with all current
+data preserved. After initial unavailable/stopped attempts, the user explicitly
+approved starting only monitor-dev-database-1 on monitor-dev_postgres-data.
+PostgreSQL 17.11 was verified. A held read-only exported snapshot supplied a
+full-database custom-format backup and private comparison inventory; isolated
+restoration matched every record, schema/constraint/index, ownership/ACL and
+sequence. Identity advancement was tested only on the clone. There are eight
+domain tables plus BOTH monitor.schema_migrations and public.schema_migrations;
+preserve both bookkeeping tables during future work. The current database has
+2 users, 4 meters, 7 balances and 4 top-ups; auth/reminder state was preserved too.
+The source's logical state, start time and restart count were unchanged after
+the audit; the approved PostgreSQL startup naturally changes physical files.
+No source SQL writes, migrations, seeds or role changes were performed.
+
+The verified sensitive backup, private evidence and RECOVERY.md are retained
+outside OneDrive/Git in %LOCALAPPDATA%/Monitor/backups/task057/
+20261018T161738Z-452d70772a48/. Access is restricted but not encrypted; the
+database README/work record retain its hash. Only the identity-checked disposable
+monitor-task057-452d70772a48 container and its -data volume were removed.
+The source database is healthy; frontend/backend/Mailpit remain stopped.
+Logical recovery does not cover cluster roles/passwords or tablespaces and is
+not an upgrade rehearsal. Task 058 subsequently accepts the additive target
+and rehearses it on a copy only, as recorded below. No automatic reset, source
+upgrade, runtime role cutover, commit or push is authorised by this audit.
+
+Task 058 / 69.2 is approved and complete for fresh setup and copy-only upgrade
+rehearsal. PostgreSQL mounts schema.sql then seed.sql on empty volumes; the API
+no longer runs/mounts migrations. Historical SQL and the guarded legacy runner
+remain inactive references. Fresh setup has nine domain tables, constrained
+users.type default user and user_meters membership storage; current owner
+columns/indexes and every existing auth/ledger/reminder contract remain intact.
+Fresh seeds contain the approved DB-admin identity and a separate fictional
+monitor-seed@example.test owner with two meters, four balances and two top-ups.
+They provide no OTP/session bypass or enabled reminders. DB types are not runtime
+authority until separately approved 059/69.3; admin environment settings remain.
+
+upgrade-058.sql is an explicit one-time transaction, never a startup script or
+fresh-seed replay. Rehearsal retained all original-column records, auth/ledger
+state, constraints, sequence and BOTH migration histories; owner memberships
+were backfilled and every existing type defaulted to user without promotion.
+The copy has eleven physical tables; fresh setup has nine without fake history.
+Later sharing cutover must repeat owner backfill and resolve creator cascades/
+last-member safety. No shared authorization is enabled by these storage fields.
+
+All 64 backend checks passed on an isolated fresh DB/Mailpit with current code
+and cached development dependencies matching the pinned requirements. A new
+network-disabled image build missed its pip cache and failed; no fresh-image
+build success is claimed. Isolated restart/recreation preserved full records and
+a manual seed-admin demotion. Both development reloads passed; the backend
+development CMD now watches app/ only after discovering full-tree research-venv
+scanning at about 90% CPU. Production CMD and UI content are unchanged.
+Source read-only inventories matched before/after, with ID/start/restart count
+unchanged; the original app/frontend/Mailpit remain stopped and DB healthy.
+Six final task containers, three volumes and one internal network were removed
+after exact-identity checks. Backup 057 remains verified/retained; private 058
+evidence is outside Git/OneDrive under %LOCALAPPDATA%/Monitor/backups/task058/
+20261018T163729Z-150c1a57666f/. No live upgrade, role mapping, email, commit or
+push occurred. Next is 059 / DB-only roles, requiring its own approved prompt
+and an explicit current-volume transition decision before activation.
+
+The user subsequently authorised committing/pushing completed Tasks 057-058 to
+master and starting Task 059 planning. Earlier no-commit notes describe task
+completion time. Task 059 still needs its clarification/prompt approval; this
+Git handoff does not authorise applying upgrade-058.sql, changing existing DB
+roles or starting the stopped source services.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh

@@ -14,7 +14,7 @@ COPY app ./app
 EXPOSE 8000
 
 FROM base AS development
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app"]
 
 FROM base AS production
 ENV MONITOR_ENVIRONMENT=production

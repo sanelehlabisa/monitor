@@ -2,13 +2,11 @@
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from app.database import connect_database
 from app.meters import MeterNotFoundError, create_meter
-from app.migrations import run_migrations
 from app.settings import Settings
 from app.top_up_entries import (
     TopUpEntryNotFoundError,
@@ -21,8 +19,6 @@ from app.top_up_entries import (
 from psycopg import Connection
 from psycopg.errors import CheckViolation
 from pytest import raises
-
-MIGRATIONS_DIRECTORY = Path("/migrations")
 
 
 def _create_user(connection: Connection[Any], prefix: str) -> tuple[int, str]:
@@ -38,7 +34,6 @@ def test_top_up_crud_allows_repeated_times_and_enforces_owner_scope() -> None:
     """Purchases can share a time while foreign users cannot reach the meter."""
 
     settings = Settings()
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     with connect_database(settings) as connection:
         owner_id, owner_email = _create_user(connection, "top-up-owner")
         other_id, other_email = _create_user(connection, "top-up-other")
@@ -80,7 +75,6 @@ def test_top_up_values_and_database_constraints_are_strict() -> None:
     """Repository and schema reject zero, negative and over-precise purchases."""
 
     settings = Settings()
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     with connect_database(settings) as connection:
         owner_id, email = _create_user(connection, "top-up-values")
         meter = create_meter(connection, owner_id, "Home")

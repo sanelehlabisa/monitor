@@ -4,12 +4,24 @@ FastAPI REST service with a reusable application factory, typed configuration
 and a process-only health endpoint. Core settings use the `MONITOR_` prefix;
 SMTP settings use the approved Job Talk-style names in `.env.example`.
 
-The backend connects directly through Psycopg and applies pending SQL files
-before Compose starts Uvicorn. Run the suite from `software/`:
+The backend connects directly through Psycopg. PostgreSQL's empty-volume init
+runs `schema.sql` then `seed.sql`; Compose starts Uvicorn without running or
+mounting numbered migrations. Integration checks no longer apply migrations.
+Run checks only inside a dedicated verification environment with an explicitly
+isolated `MONITOR_DATABASE_URL` and initialized schema, never the current DB:
 
 ```powershell
-docker compose -f dev.docker-compose.yaml run --rm backend python -m pytest
+python -m pytest
 ```
+
+Existing volumes need the separately approved `upgrade-058.sql` procedure in the
+[database README](../database/README.md). The retained `app.migrations` CLI is
+historical and unsupported for schema.sql databases; do not run it against them.
+Task 058's 64 backend checks passed against the current bind-mounted code using
+the cached backend image; installed versions matched requirements. Fresh/copy-
+upgrade, persistence, both reload paths and source-preservation/cleanup passed.
+A network-disabled fresh image build failed because required pip cache
+was unavailable; no dependency change or successful fresh build is claimed.
 
 `GET /health` reports service name, version and configured environment without
 probing PostgreSQL. Development CORS allows credentialed
@@ -17,24 +29,27 @@ GET/POST/PATCH/DELETE requests from the configured `MONITOR_CORS_ORIGIN`.
 
 ## Docker targets
 
-`development` retains Uvicorn reload and is selected explicitly by development
-Compose. The default `production` target uses the same pinned Python/dependencies
+`development` retains Uvicorn reload, limited to `app/` so the isolated research
+environment is not scanned, and is selected explicitly by development Compose.
+The default `production` target uses the same pinned Python/dependencies
 and app code, starts Uvicorn without `--reload` and runs as numeric UID/GID
 10001. It defaults `MONITOR_ENVIRONMENT` to `production`, so the existing settings
 validator refuses startup with the development OTP secret. Supply the unique
 secret and deployment database/origin/admin/SMTP values at runtime; no credential
 is built into the image. Local `.env*` files are excluded from build context.
 
-The image command does not apply SQL migrations or create a database. Production
-Compose and migration orchestration require a separate Ticket 57 task. Process health
+The image command does not install/upgrade SQL or create a database. Production
+Compose and schema/upgrade orchestration require a separate Ticket 57 task. Process health
 does not validate database/SMTP connectivity. Task 036's image builds and
 disposable production smoke checks passed; see the software README.
 
 ## Authentication foundation
 
 Ticket 43 implements the storage and backend policy used by human
-authentication. Any normalized email can receive a challenge. A user row is
-created only after correct verification, and repeated successful logins reuse it.
+authentication. Any normalized email can receive a challenge. Open signup
+creates a user only after correct verification; repeated successful logins reuse
+it. Fresh development seeds provision example accounts without credentials or
+sessions: they still require ordinary email OTP verification to sign in.
 
 Codes are random six-digit values with a 10-minute expiry, five attempts, a
 60-second resend cooldown, five requests per email per hour, one-use behavior
@@ -74,11 +89,12 @@ one domain error. Task 013 connects this boundary to `monitor_session`, which is
 HTTP-only, SameSite Lax, path `/`, fixed to the same 30-day maximum age and
 Secure outside local development. Logout revokes only the presented session.
 
-## Current application behavior (before Ticket 69)
+## Current application access and forecasting
 
 The owner-based access, environment-configured admins and opt-in reminders below
-describe the running application. Task 056 plans their replacement under Ticket
-69; it does not change code, configuration or existing data.
+describe the current application contract. Task 058 adds schema types/membership
+storage for fresh setup and a copy-only upgrade rehearsal, not shared access or
+DB-role authority. Those remain separately approved 69.3/69.4 work.
 
 Task 015 implements raw-SQL storage for nickname-only meter profiles. The
 repository supports owner-scoped CRUD plus explicit unrestricted lookups. Task
@@ -166,15 +182,22 @@ as actual readings.
 Use typed Python, concise public docstrings and reusable raw-SQL repository
 functions. Production deployment settings are not defined yet.
 
-## Planned Ticket 69: Database and Sharing Simplification
+## Ticket 69: Database and Sharing Simplification
 
 Task 056 is documentation-only planning. Each implementation needs a separately
-approved prompt; no schema reset, seed, migration or email send is authorised
-here. Keep the existing OTP/session APIs, raw Psycopg repositories, meter/ledger
+approved prompt. Tasks 057/058 cover recovery and bootstrap only; no current-DB
+upgrade, reset, seed or email send is authorized by them. Keep OTP/session APIs,
+raw Psycopg repositories, meter/ledger
 routes, finite reminder runner, SMTP boundary and `run_forecast_model`.
 
 Dependencies: [database Tickets 69.1/69.2](../database/README.md) establish the
 audited schema, backup/restore gate and fresh-setup seed before 69.3/69.4.
+Task 058 introduces constrained `users.type` (default `user`) and `user_meters`
+with user/meter composite PK, cascading FKs and meter-first index. Original owner
+columns/queries remain the compatibility bridge. Neither stored type nor a
+membership row changes current access; `MONITOR_ADMIN_EMAILS` still governs
+admins until 059. Fresh seed types are asserted as data, not active permissions.
+The current volume is untouched; old schema/admin mappings require separate review.
 [Frontend Tickets 69.5/69.6](../frontend/README.md) consume the resulting access
 contract and fixed first-of-month planning date. The 30-day quantities and
 predicted run-out remain distinct from that calendar planning date; no forecast

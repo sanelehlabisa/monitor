@@ -22,6 +22,11 @@ Task 056 plans a database/access refocus; it does not implement it. The current
 app still uses single-owner meters, environment-configured admins and existing
 opt-in reminders. Planned sharing, DB-only roles and simpler monthly planning
 are tracked under Ticket 69 below.
+Task 057 verified recovery of all current data. Task 058 adds fresh-volume SQL
+bootstrap and an additive upgrade script rehearsed only on a copy. Fresh/copy-
+upgrade, persistence, both reload paths, source-preservation/cleanup and 64 backend
+checks passed using cached dependencies; no fresh image build is claimed.
+The existing database is not upgraded or seeded by this work.
 
 ## User value
 
@@ -92,7 +97,7 @@ monitor/
 `-- software/
     |-- backend/        # FastAPI and domain services
     |-- frontend/       # React and Material UI
-    |-- database/       # PostgreSQL and raw SQL migrations
+    |-- database/       # PostgreSQL schema, fresh seeds and explicit upgrade SQL
     `-- ocr/            # deferred OCR research
 ```
 
@@ -171,10 +176,11 @@ own implementation approval; details live in the closest software README.
 
 - [ ] Ticket 69: Database & Access Refocus — preserve existing functionality and
   data; reuse raw SQL, OTP, cookie sessions and the reminder runner.
-  - [ ] Ticket 69.1: Data Safety & Schema Review — inventory existing data,
-    backup/restore plan and minimal nine-domain-table design.
-  - [ ] Ticket 69.2: Fresh SQL Bootstrap — schema.sql/seed.sql and persistent
-    Docker initialization; existing volumes need an explicit safe upgrade path.
+  - [x] Ticket 69.1: Data Safety & Schema Review — verified full-data recovery
+    (Task 057) and accepted additive nine-domain-table target (Task 058).
+  - [x] Ticket 69.2: Fresh SQL Bootstrap — schema.sql/seed.sql, persistent Docker
+    initialization and copy-only additive-upgrade rehearsal (Task 058).
+    Executing the existing-volume upgrade still requires separate approval.
   - [ ] Ticket 69.3: DB-Only User/Admin Roles — keep signup open; seed the approved
     admin and remove all admin env dependencies, without runtime email overrides.
   - [ ] Ticket 69.4: Shared-Meter Backend Access — membership, full admin scope,
@@ -214,7 +220,7 @@ own implementation approval; details live in the closest software README.
 
 ### Shared execution priority
 
-1. Database/access refocus (69.1 -> 69.7), starting with data safety, not a reset.
+1. Database/access refocus (69.3 -> 69.7), after recovery/bootstrap; never a reset.
 2. HTML email presentation (70) after reminder semantics; complete usability (65).
 3. Offline forecast research/validation (66.1 -> 66.4); 66.5 is a separate
    adoption gate, not automatic app replacement. Keep costs deferred.

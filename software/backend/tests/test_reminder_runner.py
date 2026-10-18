@@ -3,7 +3,6 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from email.message import EmailMessage
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -11,7 +10,6 @@ from app.balance_entries import create_balance_entry
 from app.database import connect_database
 from app.email_delivery import EmailDeliveryError
 from app.meters import Meter, create_meter
-from app.migrations import run_migrations
 from app.reminder_deliveries import (
     claim_reminder_delivery,
     complete_reminder_delivery,
@@ -21,7 +19,6 @@ from app.reminder_settings import upsert_reminder_settings
 from app.settings import Settings
 from psycopg import Connection
 
-MIGRATIONS_DIRECTORY = Path("/migrations")
 NOW = datetime(2026, 10, 10, 10, tzinfo=UTC)
 
 
@@ -72,7 +69,6 @@ def test_runner_sends_due_messages_once_to_the_owner() -> None:
     """Monthly and low-balance messages are deduplicated per approved keys."""
 
     settings = Settings(environment="test")
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     with connect_database(settings) as connection:
         user_id, email = _create_user(connection, "reminder-run")
         _configured_meter(connection, user_id)
@@ -96,7 +92,6 @@ def test_failed_delivery_releases_claim_for_retry() -> None:
     """SMTP failure is counted and the same due reminder can retry later."""
 
     settings = Settings(environment="test")
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     with connect_database(settings) as connection:
         user_id, email = _create_user(connection, "reminder-retry")
         _configured_meter(connection, user_id)
@@ -116,7 +111,6 @@ def test_monthly_sends_without_forecast_but_low_balance_does_not() -> None:
     """Unavailable history prompts a reading without inventing a low warning."""
 
     settings = Settings(environment="test")
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     with connect_database(settings) as connection:
         user_id, email = _create_user(connection, "reminder-empty")
         meter = create_meter(connection, user_id, "Home")
@@ -144,7 +138,6 @@ def test_stale_claim_can_recover_but_sent_or_active_claim_cannot() -> None:
     """Only an abandoned pending claim becomes available to a later runner."""
 
     settings = Settings(environment="test")
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     with connect_database(settings) as connection:
         user_id, email = _create_user(connection, "reminder-claim")
         meter = create_meter(connection, user_id, "Home")

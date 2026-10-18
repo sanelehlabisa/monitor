@@ -2,7 +2,6 @@
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -17,13 +16,10 @@ from app.balance_entries import (
 )
 from app.database import connect_database
 from app.meters import MeterNotFoundError, create_meter
-from app.migrations import run_migrations
 from app.settings import Settings
 from psycopg import Connection
 from psycopg.errors import CheckViolation
 from pytest import raises
-
-MIGRATIONS_DIRECTORY = Path("/migrations")
 
 
 def _create_user(connection: Connection[Any], prefix: str) -> tuple[int, str]:
@@ -39,7 +35,6 @@ def test_balance_crud_ordering_conflicts_and_owner_scope() -> None:
     """Balances support correction while foreign users cannot reach the meter."""
 
     settings = Settings()
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     with connect_database(settings) as connection:
         owner_id, owner_email = _create_user(connection, "balance-owner")
         other_id, other_email = _create_user(connection, "balance-other")
@@ -91,7 +86,6 @@ def test_balance_values_and_database_constraints_are_strict() -> None:
     """Repository and schema reject negative, over-precise and invalid values."""
 
     settings = Settings()
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     with connect_database(settings) as connection:
         owner_id, email = _create_user(connection, "balance-values")
         meter = create_meter(connection, owner_id, "Home")

@@ -1,19 +1,15 @@
 """Live PostgreSQL authorization tests for manual ledger APIs."""
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from uuid import uuid4
 
 from app.auth_api import COOKIE_NAME
 from app.database import connect_database
 from app.main import create_app
 from app.meters import create_meter
-from app.migrations import run_migrations
 from app.sessions import create_session
 from app.settings import Settings
 from fastapi.testclient import TestClient
-
-MIGRATIONS_DIRECTORY = Path("/migrations")
 
 
 def _client_for(settings: Settings, email: str) -> tuple[TestClient, int]:
@@ -35,7 +31,6 @@ def test_manual_ledger_crud_validation_and_access() -> None:
     other_email = f"ledger-other-{uuid4().hex}@example.test"
     admin_email = f"ledger-admin-{uuid4().hex}@example.test"
     settings = Settings(environment="test", admin_emails=admin_email)
-    run_migrations(settings, MIGRATIONS_DIRECTORY)
     owner, owner_id = _client_for(settings, owner_email)
     other, _ = _client_for(settings, other_email)
     admin, _ = _client_for(settings, admin_email)
