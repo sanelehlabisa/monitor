@@ -74,7 +74,11 @@ one domain error. Task 013 connects this boundary to `monitor_session`, which is
 HTTP-only, SameSite Lax, path `/`, fixed to the same 30-day maximum age and
 Secure outside local development. Logout revokes only the presented session.
 
-## Planned product boundary
+## Current application behavior (before Ticket 69)
+
+The owner-based access, environment-configured admins and opt-in reminders below
+describe the running application. Task 056 plans their replacement under Ticket
+69; it does not change code, configuration or existing data.
 
 Task 015 implements raw-SQL storage for nickname-only meter profiles. The
 repository supports owner-scoped CRUD plus explicit unrestricted lookups. Task
@@ -161,6 +165,132 @@ as actual readings.
 
 Use typed Python, concise public docstrings and reusable raw-SQL repository
 functions. Production deployment settings are not defined yet.
+
+## Planned Ticket 69: Database and Sharing Simplification
+
+Task 056 is documentation-only planning. Each implementation needs a separately
+approved prompt; no schema reset, seed, migration or email send is authorised
+here. Keep the existing OTP/session APIs, raw Psycopg repositories, meter/ledger
+routes, finite reminder runner, SMTP boundary and `run_forecast_model`.
+
+Dependencies: [database Tickets 69.1/69.2](../database/README.md) establish the
+audited schema, backup/restore gate and fresh-setup seed before 69.3/69.4.
+[Frontend Tickets 69.5/69.6](../frontend/README.md) consume the resulting access
+contract and fixed first-of-month planning date. The 30-day quantities and
+predicted run-out remain distinct from that calendar planning date; no forecast
+math or Ticket 66 adoption gate changes.
+Keep existing clients working through the schema/access transition; do not
+activate a membership-only schema or reminder contract before its dependent
+backend/UI changes are ready and checked together.
+
+### Ticket 69.3: DB-Only User Types and Admin Seed
+
+Depends on: 69.1/69.2's agreed user schema and fresh-setup path.
+
+- Store constrained `users.type` values `user` and `admin`; this DB value is the
+  sole role authority. Resolve it for every authenticated request, including
+  `/api/me`, rather than trusting a role cached in a cookie or matching an email.
+- Keep OTP signup open. Correct verification creates a regular `user` unless
+  that account already exists; repeated login preserves its stored type.
+  Preserve digests, expiry, abuse controls and opaque cookie sessions.
+- Seed `hlabisasanele730@gmail.com` as admin only during the approved fresh
+  setup. This grants no password, OTP bypass or runtime email privilege. A
+  restart or repeat login must not undo a manually changed DB role.
+- Remove all admin environment settings and dependencies in that
+  implementation, including Compose/examples, settings and role checks. There
+  is no bootstrap-admin env, env fallback or hardcoded-email runtime override.
+  Later promotions/demotions are manual DB operations, not a new API/UI.
+
+Acceptance: new and returning OTP users retain the correct DB type; a role
+change affects the next request using an existing session. Admins retain full
+meter access and regular users do not gain it by email/configuration. Check
+fresh seeding, preserved manual demotion and removal of admin-env references.
+Existing-volume role assignment follows 69.1's explicit data-safety decision,
+not a silently reapplied fresh seed.
+
+### Ticket 69.4: Membership Persistence and Backend Authorization
+
+Depends on: 69.1/69.2's membership schema and 69.3's DB role authority.
+
+- Replace ordinary-user owner scope with membership scope. Create a meter and
+  its creator membership atomically. Every member may manage that meter's
+  readings, top-ups and membership; DB admins retain global access without
+  becoming members automatically.
+- Apply the same server-side scope to every protected meter path: list/search,
+  detail/rename/delete (subject to the agreed deletion policy), nested ledger
+  CRUD, dashboard, reminder settings and membership operations. Authorize
+  parent meter and nested record IDs together; keep
+  generic missing/inaccessible responses and backend keyword filtering.
+- Prevent removing the last member. Serialize/check membership changes within
+  the transaction so concurrent removals, leaving and account-deletion paths
+  cannot orphan a meter. Account deletion must not cascade-delete a shared
+  meter or its ledger merely because the departing account was its creator or
+  former owner; handle a last membership explicitly before deleting the user.
+- Settle whole-meter deletion rights separately from leaving/removing members
+  in the implementation prompt. Also settle creator/owner display and minimal
+  sharing onboarding with 69.5; do not silently add invitations, unverified
+  account creation or a second ownership authority.
+
+Acceptance: two members can manage one meter while a non-member cannot reach
+any of its protected resources, including nested IDs and search results.
+Removal takes effect on the next request. Check DB-admin access, atomic
+creation, sequential/concurrent last-member guards and account deletion without
+accidental shared-data loss. Reuse existing APIs/error conventions where useful;
+69.5 owns the minimal MUI integration.
+
+### Ticket 69.7: Day-Before Planning Email to Meter Members
+
+Depends on: 69.3/69.4's roles/memberships and 69.6's fixed planning date.
+
+- Send the monthly planning email the day before the 1st, to every current
+  member of that meter initially, with no per-member opt-in or schedule
+  selector. This replaces the current owner-only, default-disabled monthly
+  opt-in contract, not merely its recipient query. This is not every registered
+  account. Global admin access alone does not make an admin a recipient; an
+  admin receives only as a member.
+- Choose the saved meter timezone, send time and scheduler/catch-up policy in
+  the implementation prompt. Use that one explicit timezone for scheduling,
+  not whichever member device happens to call the API. Keep UTC storage.
+- Deduplicate monthly delivery per meter, recipient and target planning cycle:
+  a December 31 send for January 1 belongs to the January cycle. Check month
+  lengths, leap years and year boundaries; do not key it only by send month.
+- Extend existing durable claims to recipient-level delivery for both reminder
+  types. One recipient's failure/retry must not resend successful recipients;
+  removal ends future eligibility, including rechecking membership before a
+  pending send. Preserve abandoned-claim recovery and SMTP-failure release,
+  without claiming exactly-once SMTP delivery across crashes.
+- Retain predicted-low-balance reminders and their valid-forecast/lead-time
+  eligibility, deduplicated per recipient and predicted local run-out date.
+  Never send a low-balance forecast for unavailable/inconsistent history or
+  invent one from defaults. A monthly email may instead request a fresh actual
+  reading. Keep estimate labels and the warning to verify the physical meter;
+  Monitor never buys electricity or guarantees a forecast.
+
+Acceptance: use isolated SMTP capture to check multi-member fan-out, non-member
+and admin-only exclusion, membership removal, recipient-specific retry/dedup,
+overlapping runner claims, timezone/month/year boundaries and unavailable/zero/
+valid low-balance cases. Reuse the finite runner and SMTP; no new service or
+forecast implementation. Explain automatic member delivery in 69.5/69.6.
+
+## Planned Ticket 70: Readable HTML Email and App Links
+
+Separate presentation ticket after the 69.7 recipient/scheduling contract; reuse
+existing OTP delivery, reminder runner and SMTP abstraction. Do not redesign
+authentication or change forecast math to format a message.
+
+- Give OTP and both reminder types concise, readable HTML with a plain-text
+  fallback. Escape meter names and all other inserted user-controlled content;
+  retain the OTP's reviewed expiry/security guidance and honest forecast states.
+- Build links from a trusted public app origin agreed in the implementation
+  prompt. Reminder links may target `/meters/<id>`; normal OTP login and backend
+  authorization still apply. Do not put OTPs, session tokens or new magic-login
+  credentials in URLs, and do not derive links from untrusted request input.
+
+Acceptance: inspect both MIME alternatives in Mailpit, including long/escaped
+names, unavailable estimates and mobile-readable messages. Follow links while
+signed out, as a member and as a non-member; verify normal login return/access
+checks, trusted origins and absence of secret-bearing URLs. No real recipient
+send or extra mail service is required.
 
 ## Planned Ticket 66: Per-Meter Forecast Research and Validation
 

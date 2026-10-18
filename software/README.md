@@ -16,7 +16,8 @@ dependencies.
 ## Development stack
 
 Copy `.env.example` to `.env`, set the local administrator email list and change
-the development password, then run:
+the development password, then run. These are the current instructions;
+planned Ticket 69.3 removes the admin email setting only when implemented:
 
 ```powershell
 docker compose -f dev.docker-compose.yaml up --build
@@ -41,6 +42,9 @@ docker compose -f dev.docker-compose.yaml down --remove-orphans
 ```
 
 Reset all local database and frontend dependency volumes:
+
+This is destructive and is not an upgrade procedure. First inventory data,
+back it up and obtain explicit reset approval; Task 056 authorises no reset.
 
 ```powershell
 docker compose -f dev.docker-compose.yaml down --volumes
@@ -151,10 +155,57 @@ out of scope until their roadmap status changes through an approved task.
 
 ## Planned validation and release
 
-Tasks 042 and 050 record requirements only; they implement none of these tickets.
-Usability 65 and forecasting validation 66 precede web deployment 57, followed by
-personal 56 and external 67 testing. The root README owns IDs and cross-product
-priority. Ticket 66's candidate research does not automatically replace the app.
+Tasks 042, 050 and 056 record requirements only; they implement none of these
+tickets. Refocus 69 is now first, followed by email presentation 70/usability 65,
+forecast validation 66 and deployment 57, then personal 56/external 67 testing.
+The root README owns IDs and cross-product priority. Ticket 66's candidate
+research does not automatically replace the app.
+
+### Ticket 69: Database and Access Refocus (planned)
+
+- 69.1 audits existing data and agrees the target schema/backup/restore path.
+- 69.2 introduces schema.sql/seed.sql for fresh persistent Docker volumes only;
+  existing volumes need a separately approved safe transition, never a reset
+  hidden in startup. Keep both backend and frontend hot reload.
+- 69.3 makes DB user/admin types the sole role authority and removes admin env
+  configuration everywhere active. Signup stays open and creates regular users.
+  Seed hlabisasanele730@gmail.com as admin only during fresh setup; later role
+  changes are manual DB edits, not overwritten on restart or by email matching.
+- 69.4 adds shared membership and authorization across every protected meter,
+  ledger, dashboard and reminder endpoint, with full global admin access and
+  safe concurrent last-member protection. 69.5 adds only the necessary sharing
+  controls and membership-aware My/All/search integration, not a UI redesign.
+- 69.6 fixes the monthly planning date to the 1st without replacing the model,
+  changing 30-day quantities or hiding an earlier predicted run-out.
+- 69.7 sends the monthly reminder the day before the 1st to all meter members,
+  not all application users; global admin access alone does not subscribe them.
+  Retain low-balance eligibility, UTC storage/local dates and per-recipient
+  deduplication. No per-member opt-in, weekly selector or new scheduling service.
+
+Keep the existing eight domain tables plus membership (nine total), including
+separate reminder settings/delivery claims, hashed OTP/session state and real
+occurrence times. Rates stay derived from each meter's history. Exact safe
+transition, deletion/onboarding and scheduling policies must be settled in the
+relevant implementation prompt. Database details are in the
+[database README](database/README.md); role/access/reminder details in the
+[backend README](backend/README.md); sharing/planning controls in the
+[frontend README](frontend/README.md). Current code, config and data are unchanged.
+
+### Ticket 70: Readable HTML Emails (planned)
+
+After 69.7's recipient/message contract, reuse the SMTP boundary for readable
+HTML OTP and reminder messages, with plain-text fallback, escaped names and
+trusted links to the existing app routes. Links retain ordinary login and meter
+access checks; no new authentication channel, notification service or magic token.
+Implementation detail/acceptance is in the backend README.
+
+### Ticket 68: Future Mobile and Local-Only Use
+
+Extend the existing future installable-app ticket rather than creating a
+duplicate. Guest device-local records need no login; account storage/sharing
+requires login. Decide platform, data transfer/sync and notification behavior
+in that future ticket after usage evidence. No framework selection, mobile
+implementation or public unauthenticated server storage is approved now.
 
 ### Ticket 66: Offline Per-Meter Forecast Research
 
@@ -222,7 +273,7 @@ the later approved implementation prompt. Release follows 65/66 readiness.
 
 - Production Docker configuration without reload, minimal explicit runtime env
   and secrets, HTTPS/public origin and secure-cookie login.
-- Versioned SQL migration procedure, persistent PostgreSQL data, backup schedule
+- Reviewed schema/upgrade procedure following 69.1/69.2, persistent data, backup schedule
   and a demonstrated restore/rollback procedure before pilot invitations.
 - Real SMTP/OTP delivery with a verified request/login/logout flow; no public
   Mailpit, database or administrative debug endpoint.

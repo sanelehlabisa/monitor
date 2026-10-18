@@ -5,6 +5,10 @@ management and manual kWh history. It restores cookie sessions through
 `/api/me`, supports email/code/resend/logout, and lets a signed-in user add,
 list, select, rename and delete nickname-only software meters.
 
+The following describes the current implementation. Ticket 69 below plans
+database roles, shared meters and a fixed monthly planning date; none is active
+yet, and Task 056 changes documentation only.
+
 Regular users see and manage only their own meters. Users whose normalized email
 is configured as an administrator see every meter's owner email and the same
 select/rename/confirmed-delete controls for all meters. Task 039 hides the nav
@@ -290,7 +294,9 @@ household trial is still needed to establish whether manual entry is convenient.
 ## Usability, identity and future installation
 
 Task 042 created planning requirements only. Task 043 implements identity Ticket
-58 below; full usability 65 and installable-app 68 remain separate future tasks.
+58 below; full usability 65, the Ticket 69 refocus and future installation/local
+use under 68 need separately approved implementation. The [root roadmap](../../README.md)
+owns execution order.
 
 ### Ticket 65: Monitor Usability Review
 
@@ -352,10 +358,65 @@ keyboard focus, pending controls, logout failure/retry and success, and the
 black company credit. The red button's white text measures 4.98:1 contrast.
 These are UI checks, not a new backend authentication or household validation.
 
-### Ticket 68: Installable Web App (future)
+### Ticket 69.5: Minimal shared-meter UI/API integration (planned)
 
-Only after personal/external web-usage evidence (56/67) justifies it, plan a
-minimal installable PWA on the HTTPS website, with supplied icons/manifest and
-an install/open smoke check. Define connectivity/stale-estimate behaviour before
-adding caching; never represent a stale estimate as a fresh reading.
-No React Native, store publishing or push-notification expansion is approved.
+Depends on the database/setup, DB-role and membership/authorization work in
+69.1–69.4; see the [database plan](../database/README.md) and
+[backend contracts](../backend/README.md). Reuse email-OTP login, secure cookie
+sessions, existing meter/ledger APIs and the compact MUI workspace.
+
+Every meter member may manage its balance/top-up records and membership;
+global admins retain full access even without membership. Represent membership,
+not ownership, in the future list/details UI: My means meters the signed-in user
+belongs to, and admin All includes every meter. Server-side keyword search must
+support meter names and member emails within authorized scope, not only the old
+owner email; the frontend consumes results rather than filtering account data.
+
+Surface backend membership/save failures and last-member-removal rejection
+without losing drafts or bypassing authorization. Whole-meter deletion rights,
+creator/owner display, and whether sharing initially uses existing verified users
+or invitations remain decisions for the implementation prompt, not defaults here.
+
+Acceptance: desktop/phone flows for two members, a non-member and a global admin;
+membership/list changes, scoped email search, last-member rejection and recovery.
+Keep existing ledger, navigation and stale-response guards; no sharing UI is
+implemented by this plan.
+
+### Ticket 69.6: Fixed monthly planning date (planned)
+
+Reuse the dashboard and backend date contract after the relevant 69.1–69.5
+dependencies. Present the 1st as the fixed monthly planning date, clearly separate
+from the forecasted run-out date; it must not imply the meter will last until then.
+Keep quantities on the existing 30-day basis: usage is daily rate × 30, while
+additional purchase is max(0, that usage − estimated balance). Do not convert
+these to calendar-month quantities, replace the model or invent missing estimates.
+
+The [backend plan](../backend/README.md) owns 69.7 day-before monthly emails to
+every meter member, retaining low-balance eligibility. Do not add per-member
+opt-ins or weekly/monthly schedule selectors. Saved timezone and send time remain
+implementation decisions; the current browser-local display/UTC persistence and
+absence of frontend reminder controls remain unchanged until approved work lands.
+
+Acceptance: distinguish fixed planning and predicted run-out dates on desktop/
+phone, including unavailable/zero-use states and month/year boundaries. Verify
+30-day amounts remain unchanged and agree with the API; email scheduling stays
+in the finite backend runner, not the browser.
+
+### Ticket 68: Future installation and guest/local-only use
+
+After personal/external web-usage evidence (56/67), scope a minimal installable
+experience. Guest/local-only mobile use needs no login and keeps records in local
+device storage; account storage and shared meters require login and server authorization.
+This is a future mode, not permission to bypass the current app's authentication
+or store session credentials in local storage.
+
+Choose the platform and persistence approach in that ticket; no PWA framework,
+native framework, store release or new service is committed here. Decide local
+data durability/loss, guest-to-account transfer, duplicates/conflict handling,
+multi-device synchronization, connectivity/stale-estimate behaviour and
+notifications before implementation. Never present a stale estimate as fresh.
+Account/sharing integration depends on the relevant Ticket 69 contracts above.
+
+Acceptance: an approved platform/storage and transfer/conflict design, followed by
+a focused guest-local versus authenticated-account flow and install/open check.
+No caching, sync, mobile implementation or notification expansion is added now.

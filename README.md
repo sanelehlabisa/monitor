@@ -18,6 +18,11 @@ The municipal meter number is not required. A top-up record documents energy
 already purchased; Monitor does not sell electricity or execute payments.
 Tariffs, Rand amounts and cost forecasts are outside V1.
 
+Task 056 plans a database/access refocus; it does not implement it. The current
+app still uses single-owner meters, environment-configured admins and existing
+opt-in reminders. Planned sharing, DB-only roles and simpler monthly planning
+are tracked under Ticket 69 below.
+
 ## User value
 
 The dashboard should clearly distinguish actual entries from estimates and show:
@@ -161,9 +166,27 @@ retained authentication IDs appear before newer product tickets.
 
 ### Next: usable, validated website
 
-Tasks 042 and 050 update planning only. Each ticket/subticket still needs its
+Tasks 042, 050 and 056 update planning only. Each ticket/subticket still needs its
 own implementation approval; details live in the closest software README.
 
+- [ ] Ticket 69: Database & Access Refocus — preserve existing functionality and
+  data; reuse raw SQL, OTP, cookie sessions and the reminder runner.
+  - [ ] Ticket 69.1: Data Safety & Schema Review — inventory existing data,
+    backup/restore plan and minimal nine-domain-table design.
+  - [ ] Ticket 69.2: Fresh SQL Bootstrap — schema.sql/seed.sql and persistent
+    Docker initialization; existing volumes need an explicit safe upgrade path.
+  - [ ] Ticket 69.3: DB-Only User/Admin Roles — keep signup open; seed the approved
+    admin and remove all admin env dependencies, without runtime email overrides.
+  - [ ] Ticket 69.4: Shared-Meter Backend Access — membership, full admin scope,
+    all endpoint checks and concurrent last-member protection.
+  - [ ] Ticket 69.5: Minimal Sharing UI — member management and membership-aware
+    My/All views/search, retaining existing record-management flows.
+  - [ ] Ticket 69.6: Monthly Planning Date — fixed 1st, separate from predicted
+    run-out; retain current 30-day quantities and model.
+  - [ ] Ticket 69.7: Shared-Member Reminders — monthly email the day before the
+    1st, all meter members, per-recipient dedupe and retained low-balance rules.
+- [ ] Ticket 70: Readable HTML Emails — OTP/reminder HTML with plain-text fallback
+  and safe app links; reuse SMTP after 69.7's recipient/message contract.
 - [ ] Ticket 65: Monitor Usability Review — first-user onboarding, clear actual
   readings/estimates, compact mobile states and wording; branding links to 58.
 - [ ] Ticket 66: Forecasting Algorithm Validation — offline per-meter research;
@@ -185,20 +208,28 @@ own implementation approval; details live in the closest software README.
   checks; compare real household predictions with later readings and return usage.
 - [ ] Ticket 67: External User Testing — a consented 3-5-user deployed pilot for
   onboarding, repeat entries, usefulness and failures; not proof of paid demand.
-- [ ] Ticket 68: Installable Web App — future PWA only after web-usage validation;
-  no React Native or mobile-store work before evidence warrants it.
+- [ ] Ticket 68: Future Mobile & Local-Only Use — reuse the installable-app ticket:
+  guest device storage without login, optional account storage with login.
+  Platform, transfer/sync and notification decisions remain future work.
 
 ### Shared execution priority
 
-1. Monitor usability (65); supplied branding is complete under 58.
-2. Offline forecast research/validation (66.1 -> 66.4); 66.5 is a separate
+1. Database/access refocus (69.1 -> 69.7), starting with data safety, not a reset.
+2. HTML email presentation (70) after reminder semantics; complete usability (65).
+3. Offline forecast research/validation (66.1 -> 66.4); 66.5 is a separate
    adoption gate, not automatic app replacement. Keep costs deferred.
-3. Monitor deployment (57).
-4. Begin personal (56) and external (67) testing.
-5. While waiting for users, return to Switch's compact prototype (Switch 84).
-6. Measure, design and locally print its temporary enclosure (Switch 84).
-7. Complete at least two continuous weeks of internal testing (Switch 84).
-8. Replace the temporary circuit after PCB arrival/bring-up (Switch 85).
+4. Monitor deployment (57).
+5. Begin personal (56) and external (67) testing; mobile/local-only 68 stays later.
+6. While waiting for users, return to Switch's compact prototype (Switch 84).
+7. Measure, design and locally print its temporary enclosure (Switch 84).
+8. Complete at least two continuous weeks of internal testing (Switch 84).
+9. Replace the temporary circuit after PCB arrival/bring-up (Switch 85).
+
+Detailed dependencies and acceptance live in the [database](software/database/README.md),
+[backend](software/backend/README.md) and [frontend](software/frontend/README.md)
+READMEs. This ordering is planning, not batch execution approval. No existing
+volume may be reset automatically; completed tickets and forecast research stay
+intact. Ticket 68's new scope does not weaken today's server authentication.
 
 SPII and supplier timelines remain parallel and must not block independent work.
 Switch details remain in [its own roadmap](https://github.com/sanelehlabisa/switch).

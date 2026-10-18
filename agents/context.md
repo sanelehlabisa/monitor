@@ -14,11 +14,14 @@ profiles, and records two kinds of events:
 
 Dates default to now but remain editable. A municipal meter identifier is not
 required. Each meter belongs to its user in V1, and every API/query must enforce
-that ownership. Sharing and multi-user meter access require later evidence.
+that ownership in the current runtime. Shared membership is planned under
+69.4/69.5, not implemented by Task 056.
 
 V1 does not accept Rand amounts, use tariffs or execute purchases. "Top-up"
 means recording electricity already bought. Users may opt into monthly planning
 email or a predicted-low-balance email when a valid forecast exists.
+These are current defaults; planned 69.7 replaces owner-only/opt-in assumptions
+with all-member delivery as specified below. No reminder setting changed yet.
 
 ## Forecast contract
 
@@ -45,8 +48,8 @@ actual reading and its observation time beside forecast output.
 ## Active technology
 
 - `software/backend/`: FastAPI REST service and pure forecasting/domain logic.
-- `software/database/`: PostgreSQL with explicit versioned SQL through Psycopg;
-  no ORM.
+- `software/database/`: currently versioned PostgreSQL SQL through Psycopg;
+  planned 69.2 simplifies fresh initialization only. No ORM.
 - `software/frontend/`: React, Vite and Material UI, designed mobile-first.
 - `software/ocr/`: deferred research only, not an active dependency.
 - `hardware/`: deferred research only, not an active V1 dependency.
@@ -66,11 +69,60 @@ user is created only after successful verification. Task 013 exposes the human
 authentication routes and transports opaque sessions in secure HTTP-only
 cookies. Generic request responses avoid account enumeration, and neither email
 nor an OTP is an API token.
+Administrator access currently uses MONITOR_ADMIN_EMAILS. Planned 69.3 moves
+authority into the DB and removes that environment setting; it is still required
+by the current code/Compose until that implementation is approved and completed.
 
 Device UUIDs, device credentials and provisioning are not V1 requirements.
 They remain future research if automated meter capture is later justified.
 
+## Approved refocus plan (Task 056; documentation only)
+
+Next priority is Ticket 69, split into 69.1 data safety/schema review, 69.2 fresh
+SQL/Docker bootstrap, 69.3 DB-only user/admin roles, 69.4 shared-member backend
+access, 69.5 minimal sharing UI, 69.6 first-of-month planning and 69.7 shared
+email delivery. Root README owns stable IDs/order; component READMEs define
+dependencies, acceptance and decisions that need a future implementation prompt.
+
+- Preserve data first: inspect existing volumes, plan backup/restore and validate
+  recovery in isolation before an explicitly approved transition. Fresh
+  schema.sql/seed.sql initialization does not upgrade an existing volume. No
+  automatic reset, rewriting applied history or executing seeds in this task.
+- Target nine domain tables: existing eight plus user_meters membership. Keep
+  separate reminder settings/claims, hashed OTP/session security and distinct
+  occurrence/audit times. Rates remain derived per meter, not stored truth.
+- Signup stays open. New accounts default to user; DB user/admin type is the
+  planned sole authority. Seed hlabisasanele730@gmail.com as admin with full
+  system-wide access during fresh setup only. Later promotions/demotions are
+  manual DB changes; no env fallback, runtime email override or restart
+  re-promotion. Remove admin env dependencies in 69.3, not during planning.
+- Members may manage readings and membership. Protect the last member under
+  concurrent removals and account deletion; every protected endpoint must check
+  membership or global admin scope. Whole-meter deletion, creator display,
+  sharing onboarding and saved timezone/send-time policy need implementation
+  clarification. No invitation system or extra roles are assumed.
+- Fix monthly planning to the 1st; keep predicted run-out independent and
+  retain the existing rolling 30-day quantities/model. Monthly email is due
+  the day before the 1st, keyed to that target cycle across month/year changes.
+  Email every member of that meter, not all accounts; global admin access alone
+  is not membership. No per-member opt-in or weekly/monthly schedule selector.
+  Preserve low-balance eligibility; use per-recipient dedupe and stop future
+  sends on membership removal. Store UTC times and use saved timezone for local
+  calendar scheduling. Reuse the finite runner/SMTP, not another service.
+- Ticket 70 separately plans readable HTML OTP/reminder mail, plain-text fallback
+  and trusted app links with normal login/access checks, never magic tokens.
+- Reuse future 68 for local-only mobile use without login versus account
+  storage/sharing with login. Platform, transfer/sync and notifications remain
+  future decisions; today's protected backend still requires authentication.
+
+After 69, prioritise 70/usability 65, existing validation 66 and deployment 57,
+then household/external evidence 56/67; 68 stays future. Forecast integration
+still requires 66.5 approval. No implementation ticket is approved by this plan.
+
 ## Work history and current direction
+
+Earlier task paragraphs describe their completion-time scope; the approved plan
+above supersedes earlier prospective priority/deferred-sharing guidance only.
 
 - Tasks 001-004 created the repository, three-service Docker stack, FastAPI
   baseline and direct-Psycopg migration system.
@@ -490,10 +542,18 @@ at days 180/700 with 60/90-day lookbacks passed; the future horizon is still
 authorised. The next work number is 056; the one-task workflow
 waiver does not automatically authorise further work.
 
-The user subsequently authorised the Git handoff of completed Tasks 050–055 to
-master. Earlier uncommitted/no-commit notes describe their pre-handoff state;
-Git history records the final commit. No push or next ticket was requested.
-Wait for the user's next direction; do not start Task 056 automatically.
+The user authorised the Git handoff of completed Tasks 050–055, committed on
+master as 7e4a3ef (local; not pushed). Earlier uncommitted/no-commit notes describe
+their pre-handoff state. Task 056 subsequently updates planning only: Tickets
+69.1–69.7, separate HTML email 70 and expanded future 68. No running feature,
+SQL/config, data, service or research implementation changed. Record verification
+in its changes.md; next work number is 057 and requires normal approval.
+
+The user subsequently authorised committing/pushing Task 056 and the earlier
+local research commit to master, then preparing the next batch. Begin with
+057 / Ticket 69.1's audit/recovery gate; 69.2/69.3 depend on that evidence and
+their own approved prompts. This is not permission to reset an existing volume
+or execute the remaining refocus tickets without review.
 
 After login, the active product flow is a list of the user's nickname-only
 software meter profiles. Selecting one meter provides balance and purchased-kWh
@@ -510,8 +570,10 @@ baseline and must show `Not enough data` until real readings support the
 calculation.
 
 Development Compose reads its explicit values from the ignored `software/.env`.
-The committed `.env.example` contains only safe local examples; personal admin
-emails and secrets must remain untracked.
+The committed `.env.example` contains only safe local examples; credentials and
+secrets must remain untracked. The current admin list remains in ignored .env
+until 69.3 removes it. The user-approved future seed identity is documented above;
+do not treat it as a hardcoded runtime privilege check.
 
 The root README owns stable ticket IDs and the current execution order. Ticket
 48 performs an explicit active-code/domain cleanup before authentication and
