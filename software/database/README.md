@@ -46,8 +46,10 @@ preserving occurrence times separately from audit times. Rates/forecasts are
 derived, not stored truth. Task 063 code uses current membership/admin access,
 with transactional last-member guards. Fresh schema restricts creator/member-user
 deletion, while explicit whole-meter deletion retains history/member cascades.
-The current development DB has NOT received these FK changes; app services stay
-off until a separately approved source transition. No account-delete API is added.
+Task 064 applied these FK changes to the current development DB after fresh
+backup/restore/rehearsal verification. The later user-started stack passed
+read-only checks and remains running; do not replay the transition.
+No account-delete API is added.
 
 ## Earlier recovery (Task 059)
 
@@ -92,7 +94,7 @@ frontend/backend/Mailpit stayed stopped. Fresh/reload checks passed in 058;
 68 isolated backend checks passed in 059. These are historical results, not a
 new live-browser verification.
 
-## Latest recovery and copy-only gate (Task 063)
+## Earlier recovery and copy-only gate (Task 063)
 
 A fresh current-data snapshot and exact restore are verified at
 %LOCALAPPDATA%/Monitor/backups/task063/20261018T190432Z-f9f5d7fc8a08/.
@@ -116,15 +118,45 @@ and two volumes were removed; source inventories/metadata remained unchanged.
 Details and limits are in [Task 063 results](../../agents/work/063-shared-meter-backend/changes.md).
 This is not approval to run the transaction or start apps on the current volume.
 
+## Latest recovery and live transition (Task 064)
+
+The separately approved transaction was applied once and verified at
+2026-10-18T19:45:25Z,
+after fresh full-backup/exact-restore rehearsal and final source-preservation
+checks. It changed exactly two user FK actions to RESTRICT; zero membership
+backfills were needed. All original records, roles, auth state, sequences and
+both history tables match the rehearsed state. PostgreSQL was not restarted.
+
+Retained private recovery set, outside Git/OneDrive:
+
+    %LOCALAPPDATA%/Monitor/backups/task064/20261018T194005Z-2730c044ddfe/
+
+monitor.dump is 27,606 bytes; SHA-256
+9a3c3d83b5c4ca8edf1b176b19f68741d01b0db636cf4a1d1b074a44d0fc07c1.
+It includes RECOVERY.md, frozen reviewed SQL/schema and private before/rehearsed/
+live inventories and execution evidence, restricted to the user/SYSTEM, not
+encrypted. The reviewed SQL/schema hashes match Task 063 above. The dump is the
+pre-064 state; restore/rehearse only on an isolated copy under an approved plan.
+Never automatically overwrite the current volume or replay seeds/role assignments.
+
+The initial Docker health gate failed; the bounded backend-only diagnostic then
+passed unchanged and stopped again, with independent full-inventory preservation
+checks. The user subsequently restarted PostgreSQL on the same volume and
+rebuilt/started the full app. Current read-only checks confirm both user FKs use
+RESTRICT, five meter-child FKs retain CASCADE, all nine domain tables and both
+histories remain, roles persist and no orphaned/memberless meters exist.
+All services remain running; the final verification performed no service actions
+or DB writes. Do not rerun the committed SQL as a startup repair. See
+[Task 064 results](../../agents/work/064-shared-backend-activation/changes.md).
+
 ## Remaining database/access work
 
 The [root roadmap](../../README.md) owns stable IDs and priority; the
 [backend](../backend/README.md) and [frontend](../frontend/README.md) define detail.
 
 - 69.1-69.3: recovery, fresh bootstrap and DB-only roles are complete.
-- 69.4: Task 063 implements shared authorization, concurrent last-member safety
-  and restrictive user FKs. Its reviewed memberless-meter backfill/FK transition
-  still needs a separately approved live cutover after a fresh backup/rehearsal.
+- 69.4: shared authorization, preserved-data FK transition and running-stack
+  read-only smoke checks are complete in Tasks 063/064.
 - 69.5: minimal membership-aware UI/My/All/search after backend guards.
 - 69.6: fixed 1st-of-month planning, separate from run-out/30-day quantities.
 - 69.7: day-before monthly email to all meter members, not all accounts; retain

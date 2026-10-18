@@ -19,10 +19,13 @@ dependencies.
 Copy `.env.example` to `.env` and change the development password. Administrator
 authority comes only from `users.type`, not environment settings. Task 059's
 guarded source transition passed after backup/rehearsal and approval to stop
-writers. Source app/frontend/Mailpit remain off; Task 059 does not start them.
-Task 063's shared backend also leaves them off after a separately approved stop.
-Its current-DB safety transition must be approved/applied before source activation;
-fresh initialization is not an existing-volume upgrade. For an approved fresh setup:
+writers. Task 064 separately applied the shared-backend FK transition after a
+fresh backup/restore/rehearsal and exact live preservation checks. Do not rerun
+that transaction or fresh seeds. Following the initial health timeout and bounded
+diagnostic, the user independently restarted/rebuilt the full stack. Read-only
+UI/API/schema checks passed; all four services remain running. No health-probe
+configuration change was made. Fresh initialization is not an existing-volume
+upgrade. For an approved fresh setup:
 
 ```powershell
 docker compose -f dev.docker-compose.yaml up --build
@@ -173,7 +176,10 @@ development reload, leaving the current DB untouched then. Task 059 moves
 authority to DB roles while retaining owner access and the same public API/cookie
 contract; sharing is not enabled. See backend/database guidance for manual role
 changes and the verified guarded source transition. No source login/session
-writes or real emails were needed; the original app services stay off.
+writes or real emails were needed for those checks. Task 064 subsequently applied
+the preserved-data FK transition; its initial health gate failed, but the later
+user-started full stack passed read-only checks and remains running. See its work
+record for the historical stopped-state diagnostics; no SQL replay is needed.
 
 ### Ticket 70: Readable HTML Emails (planned)
 

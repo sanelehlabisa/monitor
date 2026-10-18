@@ -114,9 +114,19 @@ Secure outside local development. Logout revokes only the presented session.
 
 ## Current backend access and forecasting
 
-Task 063 implements membership-based code; the existing database transition and
-source app activation remain separate approval gates. Fresh-schema and copy
-verification results belong in its work record, not a live deployment claim.
+Task 063 implements membership-based code. Task 064 safely applied its reviewed
+existing-data transition after a fresh backup/restore/rehearsal. The app startup
+then failed Docker's health gate: the app started successfully, but its probe
+repeatedly exceeded the 3-second timeout. Task-started apps were stopped.
+A separately approved bounded backend-only retry passed host /health 200 and
+Docker health unchanged, then stopped again. Exact probe wall times were
+1.52/1.88s including Docker CLI overhead; the new native health sample was 1.29s.
+The earlier timeout did not recur in that diagnostic; its cause is not proven
+and no fix was applied. The user subsequently started the full stack. Read-only
+HTTP/schema checks passed, API bytes/dependency pins match the approved code,
+and all four services were left running. A transient preflight health-state
+rejection was observed before the passing run; uninterrupted health is not claimed.
+Live OTP/write/browser validation remains outstanding.
 All 90 isolated backend checks passed; API comparison found only three new
 member operations and their response schema, with existing payloads unchanged.
 
@@ -168,8 +178,9 @@ Never invoke the CLI, even with --help, as an application smoke check.
 Fresh/upgrade targets restrict deletion of users still referenced as creator or
 member, preventing accidental shared-data cascades. Explicit meter deletion
 still cascades through its history/memberships. There is no account-deletion API,
-transfer workflow or trigger. Do not apply the work-record upgrade SQL to the
-source or start source apps without the separately approved transition.
+transfer workflow or trigger. Task 064 already applied the work-record upgrade
+SQL once; do not replay it or restore automatically. Current source services
+are user-started and must not be restarted/stopped as a verification shortcut.
 
 Use typed Python, concise docstrings and reusable raw SQL. No ORM, device uploads,
 tariffs, Rand amounts, payment, model adoption or production deployment is added.
@@ -188,7 +199,8 @@ Task 058 introduces constrained `users.type` (default `user`) and `user_meters`
 with user/meter composite PK, cascading FKs and meter-first index. Original owner
 columns/queries remain the compatibility bridge. Task 058 left runtime roles and
 the current volume unchanged; Task 059 now uses stored roles. Task 063 code uses
-membership access, but its FK/backfill transition is not applied to the source.
+membership access; Task 064 applied its FK/backfill transition with all data
+preserved. Read-only checks on the later user-started stack passed; it stays running.
 The earlier approved source upgrade/one-time assignment
 followed a new verified backup and isolated rehearsal before source execution.
 [Frontend Tickets 69.5/69.6](../frontend/README.md) consume the resulting access
@@ -225,7 +237,7 @@ Task 059 verified a new backup/restore and exact rehearsal, then upgraded the
 current database and promoted only the existing approved admin identity. The
 other account remains `user`; no source account/OTP/session creation, seed replay
 or emails occurred. The changed service preflight was resolved by explicit
-approval to stop only frontend/backend/Mailpit; they remain off, with the same
+approval to stop only frontend/backend/Mailpit; they stayed off then, with the same
 source DB kept running. Original records and both migration histories survived.
 All 68 backend checks passed on an isolated fresh DB/Mailpit using current code
 and cached dependency versions matching requirements. No fresh-image build is
@@ -273,7 +285,8 @@ Depends on: 69.1/69.2's membership schema and 69.3's DB role authority.
 - Task 063 settles permanent deletion for any current member/admin and sharing
   by normalized email with automatic regular-user creation. No invitations or
   session bypass. Retain creator metadata; 69.5 handles minimal sharing display.
-  The live FK/backfill transition and source activation remain separately gated.
+  Task 064's live FK/backfill transition and running-stack read-only checks passed.
+  The initial health-timeout history does not justify replaying SQL.
 
 Acceptance: two members can manage one meter while a non-member cannot reach
 any of its protected resources, including nested IDs and search results.

@@ -6,7 +6,11 @@ management and manual kWh history. It restores cookie sessions through
 list, select, rename and delete nickname-only software meters.
 
 The following describes the current UI. Task 059 makes stored DB roles active;
-Task 063 implements the shared backend, with live activation separately gated.
+Task 063 implements the shared backend; Task 064 applied its safe DB transition.
+After the initial health timeout/diagnostic, the user started the full stack.
+Read-only checks passed for served UI/deep links, transformed main/App modules,
+branding assets and signed-out API denial through the frontend proxy. Services
+remain running; live browser/login/write verification is still outstanding.
 Sharing controls and membership-aware admin My remain 69.5 work; planning 69.6 is future.
 
 Regular users receive their accessible meter memberships from the backend; no

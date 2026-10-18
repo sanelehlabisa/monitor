@@ -19,8 +19,11 @@ already purchased; Monitor does not sell electricity or execute payments.
 Tariffs, Rand amounts and cost forecasts are outside V1.
 
 Task 056 planned the database/access refocus under Ticket 69. Task 063 adds
-member-based backend code; its live database transition and sharing UI remain
-separately gated. Opt-in reminders and monthly planning are not redesigned here.
+member-based backend code. Task 064 safely applied its live DB transition after
+fresh backup/rehearsal, preserving all data. The user subsequently started the
+full stack; read-only UI/API/schema checks passed and all four services were left
+running. The earlier health timeout did not require a code/configuration change.
+Sharing UI, reminder redesign and monthly planning remain separate work.
 Task 059 changes administrator authority to stored `users.type`,
 without email/environment overrides. Its guarded source transition and 68 isolated
 backend checks passed; task-resource cleanup is verified.
@@ -31,7 +34,8 @@ checks passed using cached dependencies; no fresh image build is claimed.
 Task 058 left the existing database untouched. Task 059 then upgraded it only
 after a new verified backup/rehearsal and writer-stop approval, preserving all
 original records and assigning only the approved existing admin. No seed replay
-or account creation occurred; source app/frontend/Mailpit remain stopped.
+or account creation occurred. Task 064's initial startup/diagnostic history is
+retained in its work record; the current user-started stack is running.
 
 ## User value
 
@@ -195,10 +199,10 @@ own implementation approval; details live in the closest software README.
   - [x] Ticket 69.3: DB-Only User/Admin Roles — verified guarded source upgrade,
     open signup, stored roles and no admin-env/email fallback (Task 059).
     The one-time existing-admin assignment is not runtime email privilege.
-  - [ ] Ticket 69.4: Shared-Meter Backend Access — membership, full admin scope,
+  - [x] Ticket 69.4: Shared-Meter Backend Access — membership, full admin scope,
     all endpoint checks and concurrent last-member protection.
-    Task 063 implements backend code and copy-only verification; current-DB
-    backfill/FK transition and activation need separate approval before completion.
+    Tasks 063/064 implement and verify the backend and preserved-data DB cutover.
+    The user-started stack passed read-only UI/API/schema smoke checks and remains running.
   - [ ] Ticket 69.5: Minimal Sharing UI — member management and membership-aware
     My/All views/search, retaining existing record-management flows.
   - [ ] Ticket 69.6: Monthly Planning Date — fixed 1st, separate from predicted

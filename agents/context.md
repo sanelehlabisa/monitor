@@ -12,7 +12,8 @@ READMEs hold details; historical results stay in work/ and Git.
   and ignored software/.env. Never print/commit secrets or private records.
 - A meter needs only a name. Task 063 backend code authorizes current members or
   DB admins, including permanent deletion of a meter/history. Last-member removal
-  is rejected; leaving does not delete a meter. Live activation is separately gated.
+  is rejected; leaving does not delete a meter. Task 064 applied the live FK
+  transition; the user-started full stack passed read-only smoke checks and remains running.
 - Record actual remaining kWh (non-negative) and purchased kWh (positive), with
   editable occurrence times separate from audit times. Store UTC instants;
   the browser converts local input/display.
@@ -64,10 +65,18 @@ Recalculate after ledger changes/Refresh; never silently adopt a research prior.
 - At Task 060 preflight, monitor-dev-database-1 was healthy/running on
   monitor-dev_postgres-data; backend/frontend/Mailpit remained stopped as agreed.
   Recheck actual state before work. Tasks 060-062 do not authorize source starts.
-- Task 063 preflight found all services running again. The user separately
-  authorized stopping only frontend/backend/Mailpit, leaving PostgreSQL running.
-  Those three stay off. Source data and FK definitions remain unchanged; code
-  activation requires the separately approved backfill/FK transition.
+- Task 064 applied exactly two FK changes after fresh recovery verification
+  (zero required backfills), preserving records, roles, auth state, sequences and
+  both histories. Do not replay that transaction, seeds or role assignments.
+- After the initial health timeout and successful bounded diagnostic, the user
+  independently restarted PostgreSQL and rebuilt/started the app services.
+  Read-only UI/API/schema smoke checks passed; all four were left running.
+  PostgreSQL retains the same ID/image/volume, with user restart time
+  2026-10-18T20:07:27.610825244Z and restart count 0. App IDs/images changed through
+  that user action, not an agent rebuild. Historical identities stay in work/064.
+  One transient health-state sample was rejected before HTTP; the subsequent
+  full smoke run was healthy throughout. No probe fix/root cause is claimed.
+  The final handoff made no service actions, DB writes, login sessions or mail.
 - Run checks against isolated labelled DB/Mailpit resources, never source data
   or real email. The finite reminder CLI can send mail even with --help; verify
   by import/isolated checks only.
@@ -86,12 +95,15 @@ framework/layer, compatibility shim or eager re-export architecture.
 All 67 backend and 33 frontend checks passed; OpenAPI is byte-identical and
 TypeScript/Vite plus mocked browser checks passed using pinned Docker deps.
 The host node_modules has missing MUI declarations and was left unchanged.
-Source services remain stopped; only isolated verification resources were used
-and cleaned. Details/recovery are in the work records. The user authorized the
+At those tasks' completion source services remained stopped; only isolated
+verification resources were used and cleaned. Details/recovery are in the work
+records. The user authorized the
 Git handoff of completed Tasks 059-062 to master (2f8af81); earlier no-commit notes
-describe completion-time state. The user subsequently approved Task 063's Git
-handoff to master and preparation of the next task. This does not approve its
-separately reviewed live transition or source-service activation.
+describe completion-time state. Task 063 was subsequently committed/pushed to
+master as 59e7e20. The user approved Task 064's live-transition prompt and app
+startup. Its DB and activation checks passed. The user subsequently authorized
+testing the already-running stack and publishing Task 064 to master; earlier
+no-commit/off-state notes describe their completion-time state.
 
 ## Shared backend (Task 063)
 
@@ -102,7 +114,8 @@ Parent locks plus separate access rechecks serialize member changes, meter/ledge
 writes and dispatch. Any member/admin may permanently delete the meter/history;
 last-member removal is rejected even for admins. Fresh targets restrict creator/
 member-user deletion rather than cascading shared data. There is no account-delete
-API/transfer workflow. Work-record upgrade.sql is copy-only, never startup SQL.
+API/transfer workflow. Work-record upgrade.sql was explicitly applied once in
+Task 064, never by startup SQL; it must not be replayed against the current DB.
 Backfill only memberless interim meters, never re-add a creator who already left
 an otherwise shared meter. Legacy opt-in reminders require creator membership
 and recheck before SMTP; fan-out/schedule redesign remains 69.7. UI sharing and
@@ -114,9 +127,10 @@ Existing API payloads are unchanged; only three member operations were added.
 
 ## Remaining priorities
 
-1. Task 063 code and isolated verification are complete. Separately approve/apply
-   its safe existing-data transition before source activation. 69.4 remains
-   incomplete until that gate. Then implement 69.5 minimal sharing UI, not a redesign.
+1. Ticket 69.4 is complete through Tasks 063/064: backend checks, preserved-data
+   cutover and running-stack read-only smoke passed. Next is 69.5 minimal sharing
+   UI, not a redesign; it still needs its own questions/prompt/approval.
+   Live OTP/write/browser validation remains separate from anonymous smoke.
 2. 69.6 fixes planning to the 1st, separate from predicted run-out and retaining
    current rolling 30-day quantities/model. It is not active yet.
 3. 69.7 emails all meter members (not all accounts/admins) the day before the 1st.
