@@ -18,9 +18,10 @@ The municipal meter number is not required. A top-up record documents energy
 already purchased; Monitor does not sell electricity or execute payments.
 Tariffs, Rand amounts and cost forecasts are outside V1.
 
-Task 056 planned the database/access refocus under Ticket 69. Meters remain
-owner-scoped, with opt-in reminders; sharing and simpler monthly planning remain
-future work. Task 059 changes administrator authority to stored `users.type`,
+Task 056 planned the database/access refocus under Ticket 69. Task 063 adds
+member-based backend code; its live database transition and sharing UI remain
+separately gated. Opt-in reminders and monthly planning are not redesigned here.
+Task 059 changes administrator authority to stored `users.type`,
 without email/environment overrides. Its guarded source transition and 68 isolated
 backend checks passed; task-resource cleanup is verified.
 Task 057 verified recovery of all current data. Task 058 adds fresh-volume SQL
@@ -196,6 +197,8 @@ own implementation approval; details live in the closest software README.
     The one-time existing-admin assignment is not runtime email privilege.
   - [ ] Ticket 69.4: Shared-Meter Backend Access — membership, full admin scope,
     all endpoint checks and concurrent last-member protection.
+    Task 063 implements backend code and copy-only verification; current-DB
+    backfill/FK transition and activation need separate approval before completion.
   - [ ] Ticket 69.5: Minimal Sharing UI — member management and membership-aware
     My/All views/search, retaining existing record-management flows.
   - [ ] Ticket 69.6: Monthly Planning Date — fixed 1st, separate from predicted

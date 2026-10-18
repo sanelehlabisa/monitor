@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 from psycopg import Connection
 
 from app.modules.ledger_values import normalize_kwh, normalize_occurred_at
-from app.modules.meters import get_meter
+from app.modules.meters import get_meter, lock_meter_access
 
 
 class TopUpEntryNotFoundError(Exception):
@@ -39,7 +39,7 @@ def create_top_up_entry(
 
     entry_id = uuid4()
     with connection.transaction():
-        get_meter(connection, meter_id, owner_user_id)
+        lock_meter_access(connection, meter_id, owner_user_id)
         connection.execute(
             """INSERT INTO monitor.top_up_entries
                (id, meter_id, top_up_kwh, occurred_at)
@@ -99,7 +99,7 @@ def update_top_up_entry(
     """Correct both the value and occurrence time of an accessible top-up."""
 
     with connection.transaction():
-        get_meter(connection, meter_id, owner_user_id)
+        lock_meter_access(connection, meter_id, owner_user_id)
         result = connection.execute(
             """UPDATE monitor.top_up_entries
                SET top_up_kwh = %s, occurred_at = %s,
@@ -126,7 +126,7 @@ def delete_top_up_entry(
     """Delete one top-up inside an accessible meter."""
 
     with connection.transaction():
-        get_meter(connection, meter_id, owner_user_id)
+        lock_meter_access(connection, meter_id, owner_user_id)
         result = connection.execute(
             "DELETE FROM monitor.top_up_entries WHERE id = %s AND meter_id = %s",
             (entry_id, meter_id),

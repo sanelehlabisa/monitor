@@ -86,8 +86,8 @@ def test_user_type_defaults_and_constraints() -> None:
             connection.rollback()
 
 
-def test_membership_keys_and_cascading_foreign_keys() -> None:
-    """Membership rejects duplicates/missing meters and follows both FK deletes."""
+def test_membership_keys_restrict_user_delete_and_cascade_meter_delete() -> None:
+    """Membership rejects invalid keys, protects users and follows meter deletion."""
 
     with connect_database(Settings()) as connection:
         try:
@@ -120,9 +120,11 @@ def test_membership_keys_and_cascading_foreign_keys() -> None:
             ).fetchone()
             assert seed_meter is not None
             connection.execute(insert, (user[0], seed_meter[0]))
-            connection.execute("DELETE FROM monitor.users WHERE id = %s", (user[0],))
+            with raises(ForeignKeyViolation):
+                with connection.transaction():
+                    connection.execute("DELETE FROM monitor.users WHERE id = %s", (user[0],))
             assert connection.execute(
                 "SELECT 1 FROM monitor.user_meters WHERE user_id = %s", (user[0],)
-            ).fetchone() is None
+            ).fetchone() is not None
         finally:
             connection.rollback()

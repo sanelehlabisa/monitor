@@ -20,10 +20,17 @@ class MeterNameRequest(BaseModel):
 
 
 class MeterResponse(BaseModel):
-    """Safe meter representation including owner identity for admin displays."""
+    """Compatible meter representation; owner_email is creator metadata only."""
 
     id: UUID
     name: str
     owner_email: str
     created_at: datetime
     updated_at: datetime
+
+
+class MemberResponse(BaseModel):
+    """A meter member, without global role or account-existence details."""
+
+    user_id: int
+    email: str

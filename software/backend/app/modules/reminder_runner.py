@@ -16,6 +16,7 @@ from app.modules.email_delivery import (
     SmtpEmailSender,
 )
 from app.modules.forecasting import ForecastResult, run_forecast_model
+from app.modules.meters import MeterNotFoundError, get_meter, lock_meter_access
 from app.modules.otp import normalize_email
 from app.modules.reminder_deliveries import (
     ReminderCandidate,
@@ -145,37 +146,43 @@ def run_due_reminders(
     candidates = list_reminder_candidates(connection)
     sent = skipped = failures = 0
     for candidate in candidates:
-        balances = list_balance_entries(
-            connection, candidate.meter_id, candidate.owner_user_id
-        )
-        top_ups = list_top_up_entries(
-            connection, candidate.meter_id, candidate.owner_user_id
-        )
-        forecast = run_forecast_model(balances, top_ups, calculation_time)
-        for due in _due_reminders(candidate, forecast, calculation_time):
-            claim_id = claim_reminder_delivery(
-                connection,
-                candidate.meter_id,
-                due.reminder_type,
-                due.dedupe_key,
-                calculation_time,
-            )
-            if claim_id is None:
-                skipped += 1
-                continue
-            message = (
-                build_monthly_reminder_message(candidate, forecast, settings.email_from)
-                if due.reminder_type == "monthly"
-                else build_low_balance_message(candidate, forecast, settings.email_from)
-            )
-            try:
-                email_sender.send(message)
-            except EmailDeliveryError:
-                release_reminder_delivery(connection, claim_id)
-                failures += 1
-                continue
-            complete_reminder_delivery(connection, claim_id, calculation_time)
-            sent += 1
+        try:
+            # Serialize dispatch with membership removal and meter deletion.
+            # SMTP is not transactional: a process crash may still repeat mail.
+            with connection.transaction():
+                lock_meter_access(connection, candidate.meter_id, candidate.owner_user_id)
+                balances = list_balance_entries(
+                    connection, candidate.meter_id, candidate.owner_user_id
+                )
+                top_ups = list_top_up_entries(
+                    connection, candidate.meter_id, candidate.owner_user_id
+                )
+                forecast = run_forecast_model(balances, top_ups, calculation_time)
+                for due in _due_reminders(candidate, forecast, calculation_time):
+                    claim_id = claim_reminder_delivery(
+                        connection, candidate.meter_id, due.reminder_type,
+                        due.dedupe_key, calculation_time,
+                    )
+                    if claim_id is None:
+                        skipped += 1
+                        continue
+                    message = (
+                        build_monthly_reminder_message(candidate, forecast, settings.email_from)
+                        if due.reminder_type == "monthly"
+                        else build_low_balance_message(candidate, forecast, settings.email_from)
+                    )
+                    get_meter(connection, candidate.meter_id, candidate.owner_user_id)
+                    try:
+                        email_sender.send(message)
+                    except EmailDeliveryError:
+                        release_reminder_delivery(connection, claim_id)
+                        failures += 1
+                        continue
+                    complete_reminder_delivery(connection, claim_id, calculation_time)
+                    sent += 1
+        except MeterNotFoundError:
+            # Candidate selection can race a legitimate leave/delete request.
+            continue
     return ReminderRunResult(len(candidates), sent, skipped, failures)
 
 

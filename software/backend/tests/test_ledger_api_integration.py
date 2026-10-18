@@ -11,6 +11,7 @@ from app.modules.meters import create_meter
 from app.modules.sessions import create_session
 from app.settings import Settings
 from fastapi.testclient import TestClient
+from tests.support import cleanup_users
 
 
 def _client_for(
@@ -114,7 +115,4 @@ def test_manual_ledger_crud_validation_and_access() -> None:
             assert owner.post(url, json=payload).status_code == 422
     finally:
         with connect_database(settings) as connection:
-            connection.execute(
-                "DELETE FROM monitor.users WHERE email IN (%s, %s, %s)",
-                (owner_email, other_email, admin_email),
-            )
+            cleanup_users(connection, (owner_email, other_email, admin_email))

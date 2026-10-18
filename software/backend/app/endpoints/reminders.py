@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.endpoints.auth import AuthenticatedUser, require_authenticated_user
 from app.database import connect_database
-from app.endpoints.meters import meter_owner_scope
+from app.endpoints.meters import meter_access_scope
 from app.modules.meters import MeterNotFoundError
 from app.modules.reminder_settings import (
     ReminderSettings,
@@ -30,7 +30,7 @@ def reminders_show(
     try:
         with connect_database(request.app.state.settings) as connection:
             settings = get_reminder_settings(
-                connection, meter_id, meter_owner_scope(authenticated)
+                connection, meter_id, meter_access_scope(authenticated)
             )
     except MeterNotFoundError as error:
         raise _not_found() from error
@@ -51,7 +51,7 @@ def reminders_update(
             settings = upsert_reminder_settings(
                 connection,
                 meter_id,
-                meter_owner_scope(authenticated),
+                meter_access_scope(authenticated),
                 **payload.model_dump(),
             )
     except MeterNotFoundError as error:

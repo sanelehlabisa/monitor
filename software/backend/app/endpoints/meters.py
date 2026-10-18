@@ -8,6 +8,13 @@ from psycopg import Connection
 
 from app.endpoints.auth import AuthenticatedUser, require_authenticated_user
 from app.database import connect_database
+from app.modules.memberships import (
+    LastMemberError,
+    MemberNotFoundError,
+    list_members,
+    remove_member,
+    share_member,
+)
 from app.modules.meters import (
     Meter,
     MeterNameConflictError,
@@ -19,7 +26,8 @@ from app.modules.meters import (
     rename_meter,
 )
 
-from app.schemas.meters import MeterNameRequest, MeterResponse
+from app.schemas.auth import EmailRequest
+from app.schemas.meters import MemberResponse, MeterNameRequest, MeterResponse
 
 router = APIRouter(prefix="/api/meters", tags=["meters"])
 
@@ -33,7 +41,7 @@ def meters_index(
     """List accessible meters, optionally filtered by one keyword."""
 
     with connect_database(request.app.state.settings) as connection:
-        meters = list_meters(connection, meter_owner_scope(authenticated), q)
+        meters = list_meters(connection, meter_access_scope(authenticated), q)
     return [_response(meter) for meter in meters]
 
 
@@ -43,7 +51,7 @@ def meters_create(
     request: Request,
     authenticated: AuthenticatedUser = Depends(require_authenticated_user),
 ) -> MeterResponse:
-    """Create a meter owned by the signed-in user."""
+    """Create a meter with the signed-in user as its first member."""
 
     try:
         with connect_database(request.app.state.settings) as connection:
@@ -62,7 +70,7 @@ def meters_show(
     """Return an accessible meter without revealing inaccessible IDs."""
 
     with connect_database(request.app.state.settings) as connection:
-        meter = _find(connection, meter_id, meter_owner_scope(authenticated))
+        meter = _find(connection, meter_id, meter_access_scope(authenticated))
     return _response(meter)
 
 
@@ -78,7 +86,7 @@ def meters_rename(
     try:
         with connect_database(request.app.state.settings) as connection:
             meter = rename_meter(
-                connection, meter_id, meter_owner_scope(authenticated), payload.name
+                connection, meter_id, meter_access_scope(authenticated), payload.name
             )
     except MeterNotFoundError as error:
         raise _not_found() from error
@@ -93,27 +101,85 @@ def meters_delete(
     request: Request,
     authenticated: AuthenticatedUser = Depends(require_authenticated_user),
 ) -> Response:
-    """Delete an accessible meter."""
+    """Permanently delete a meter and history as a current member or admin."""
 
     try:
         with connect_database(request.app.state.settings) as connection:
-            delete_meter(connection, meter_id, meter_owner_scope(authenticated))
+            delete_meter(connection, meter_id, meter_access_scope(authenticated))
     except MeterNotFoundError as error:
         raise _not_found() from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def meter_owner_scope(authenticated: AuthenticatedUser) -> int | None:
-    """Return the repository owner scope for a regular user or administrator."""
+@router.get("/{meter_id}/members", response_model=list[MemberResponse])
+def members_index(
+    meter_id: UUID,
+    request: Request,
+    authenticated: AuthenticatedUser = Depends(require_authenticated_user),
+) -> list[MemberResponse]:
+    """List an accessible meter's members without exposing a global directory."""
+
+    try:
+        with connect_database(request.app.state.settings) as connection:
+            members = list_members(
+                connection, meter_id, meter_access_scope(authenticated)
+            )
+    except MeterNotFoundError as error:
+        raise _not_found() from error
+    return [MemberResponse(**member.__dict__) for member in members]
+
+
+@router.post("/{meter_id}/members", response_model=MemberResponse)
+def members_share(
+    meter_id: UUID,
+    payload: EmailRequest,
+    request: Request,
+    authenticated: AuthenticatedUser = Depends(require_authenticated_user),
+) -> MemberResponse:
+    """Share by normalized email, provisioning only a regular account if absent."""
+
+    try:
+        with connect_database(request.app.state.settings) as connection:
+            member = share_member(
+                connection, meter_id, meter_access_scope(authenticated), payload.email
+            )
+    except MeterNotFoundError as error:
+        raise _not_found() from error
+    return MemberResponse(**member.__dict__)
+
+
+@router.delete("/{meter_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def members_remove(
+    meter_id: UUID,
+    user_id: int,
+    request: Request,
+    authenticated: AuthenticatedUser = Depends(require_authenticated_user),
+) -> Response:
+    """Remove one member, including oneself, unless they are the last member."""
+
+    try:
+        with connect_database(request.app.state.settings) as connection:
+            remove_member(
+                connection, meter_id, meter_access_scope(authenticated), user_id
+            )
+    except (MeterNotFoundError, MemberNotFoundError) as error:
+        raise _not_found() from error
+    except LastMemberError as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def meter_access_scope(authenticated: AuthenticatedUser) -> int | None:
+    """Return the repository member scope, or unrestricted access for an admin."""
 
     return None if authenticated.is_admin else authenticated.user.id
 
 
 def _find(
-    connection: Connection[Any], meter_id: UUID, owner_user_id: int | None
+    connection: Connection[Any], meter_id: UUID, access_user_id: int | None
 ) -> Meter:
     try:
-        return get_meter(connection, meter_id, owner_user_id)
+        return get_meter(connection, meter_id, access_user_id)
     except MeterNotFoundError as error:
         raise _not_found() from error
 

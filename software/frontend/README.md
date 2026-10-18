@@ -5,10 +5,12 @@ management and manual kWh history. It restores cookie sessions through
 `/api/me`, supports email/code/resend/logout, and lets a signed-in user add,
 list, select, rename and delete nickname-only software meters.
 
-The following describes the current implementation. Task 059 makes stored DB
-roles active; Ticket 69's shared meters and fixed planning date remain future.
+The following describes the current UI. Task 059 makes stored DB roles active;
+Task 063 implements the shared backend, with live activation separately gated.
+Sharing controls and membership-aware admin My remain 69.5 work; planning 69.6 is future.
 
-Regular users see and manage only their own meters. Users whose stored type is
+Regular users receive their accessible meter memberships from the backend; no
+sharing controls are added by Task 063. Users whose stored type is
 `admin` see every meter's owner email and the same
 select/rename/confirmed-delete controls for all meters. Task 039 hides the nav
 role badge without changing administrator access. New
@@ -17,8 +19,8 @@ in user.
 
 Administrators default to the `My` tab so they can quickly create and test
 profiles owned by their admin account. `All` shows every system profile
-with owner labels and the same full management controls. Switching views changes
-only presentation; it does not change ownership or backend access policy.
+with creator/legacy owner labels and the same management controls. Switching views changes
+only presentation; it does not change membership or backend access policy.
 
 Task 047 shows Search/Clear only when the selected view has more than 10
 unfiltered meters, or a query/filter is active. It sits between Meters and
@@ -29,7 +31,7 @@ filtering. My/All reloads the existing complete list, and create/delete keep the
 unfiltered count current. Account changes reset counts/query and ignore old replies.
 
 Search still calls `GET /api/meters?q=...`: regular users search accessible
-profiles; administrators may match name or owner email. There is no duplicate
+profiles; the Task 063 backend matches names/current member emails. There is no duplicate
 client-side keyword matching or pagination. Visible meter rows are numbered
 1, 2, 3... in their current order, restarting for each search/view; these are
 display ordinals, not persisted meter identifiers. Create remains unnumbered.
@@ -123,7 +125,8 @@ records will also be deleted. Actions do not open the meter or nest buttons.
 Rename failures retain the draft for retry; conflicting controls are disabled
 while saving, without hiding the row. A rename under search refreshes the server
 query rather than introducing client-side keyword matching. Administrators have
-the same actions for every meter in All meters; owner-only access is unchanged.
+the same actions for every meter in All meters. Task 063 updates backend access
+to memberships without adding sharing controls to this UI.
 
 Task 039 centralises typography in the existing MUI theme: one Arial/sans-serif
 font stack, 16px body/labels/buttons and 20–22px headings/forecast values at the
@@ -392,12 +395,13 @@ global admins retain full access even without membership. Represent membership,
 not ownership, in the future list/details UI: My means meters the signed-in user
 belongs to, and admin All includes every meter. Server-side keyword search must
 support meter names and member emails within authorized scope, not only the old
-owner email; the frontend consumes results rather than filtering account data.
+owner email; Task 063 implements this query. The frontend consumes its results.
 
 Surface backend membership/save failures and last-member-removal rejection
-without losing drafts or bypassing authorization. Whole-meter deletion rights,
-creator/owner display, and whether sharing initially uses existing verified users
-or invitations remain decisions for the implementation prompt, not defaults here.
+without losing drafts or bypassing authorization. Any member/admin may permanently
+delete a meter/history. Sharing accepts email, creates missing regular accounts
+and links IDs; no invitation or OTP bypass. Keep creator metadata clearly labelled
+in the future UI rather than treating it as ownership authority.
 
 Acceptance: desktop/phone flows for two members, a non-member and a global admin;
 membership/list changes, scoped email search, last-member rejection and recovery.

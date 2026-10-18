@@ -10,7 +10,7 @@ from psycopg import Connection
 from psycopg.errors import UniqueViolation
 
 from app.modules.ledger_values import normalize_kwh, normalize_occurred_at
-from app.modules.meters import get_meter
+from app.modules.meters import get_meter, lock_meter_access
 
 
 class BalanceEntryNotFoundError(Exception):
@@ -45,7 +45,7 @@ def create_balance_entry(
     entry_id = uuid4()
     try:
         with connection.transaction():
-            get_meter(connection, meter_id, owner_user_id)
+            lock_meter_access(connection, meter_id, owner_user_id)
             connection.execute(
                 """INSERT INTO monitor.balance_entries
                    (id, meter_id, balance_kwh, occurred_at)
@@ -110,7 +110,7 @@ def update_balance_entry(
 
     try:
         with connection.transaction():
-            get_meter(connection, meter_id, owner_user_id)
+            lock_meter_access(connection, meter_id, owner_user_id)
             result = connection.execute(
                 """UPDATE monitor.balance_entries
                    SET balance_kwh = %s, occurred_at = %s,
@@ -141,7 +141,7 @@ def delete_balance_entry(
     """Delete one entry inside an accessible meter."""
 
     with connection.transaction():
-        get_meter(connection, meter_id, owner_user_id)
+        lock_meter_access(connection, meter_id, owner_user_id)
         result = connection.execute(
             "DELETE FROM monitor.balance_entries WHERE id = %s AND meter_id = %s",
             (entry_id, meter_id),

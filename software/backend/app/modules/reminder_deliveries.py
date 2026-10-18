@@ -30,7 +30,7 @@ class ReminderCandidate:
 def list_reminder_candidates(
     connection: Connection[Any],
 ) -> list[ReminderCandidate]:
-    """List meters with at least one explicitly enabled email reminder."""
+    """List opted-in meters whose legacy creator recipient is still a member."""
 
     rows = connection.execute(
         """SELECT meters.id, meters.name, users.id, users.email,
@@ -40,6 +40,8 @@ def list_reminder_candidates(
            FROM monitor.reminder_settings AS reminders
            JOIN monitor.meters AS meters ON meters.id = reminders.meter_id
            JOIN monitor.users AS users ON users.id = meters.user_id
+           JOIN monitor.user_meters AS members
+             ON members.meter_id = meters.id AND members.user_id = users.id
            WHERE reminders.monthly_enabled OR reminders.low_balance_enabled
            ORDER BY meters.id"""
     ).fetchall()

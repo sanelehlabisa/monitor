@@ -20,6 +20,7 @@ from app.settings import Settings
 from psycopg import Connection
 from psycopg.errors import CheckViolation
 from pytest import raises
+from tests.support import cleanup_users
 
 
 def _create_user(connection: Connection[Any], prefix: str) -> tuple[int, str]:
@@ -76,10 +77,7 @@ def test_balance_crud_ordering_conflicts_and_owner_scope() -> None:
             with raises(BalanceEntryNotFoundError):
                 get_balance_entry(connection, meter.id, corrected.id, owner_id)
         finally:
-            connection.execute(
-                "DELETE FROM monitor.users WHERE email IN (%s, %s)",
-                (owner_email, other_email),
-            )
+            cleanup_users(connection, (owner_email, other_email))
 
 
 def test_balance_values_and_database_constraints_are_strict() -> None:
@@ -113,4 +111,4 @@ def test_balance_values_and_database_constraints_are_strict() -> None:
                         (uuid4(), meter.id, Decimal("-1"), occurred_at),
                     )
         finally:
-            connection.execute("DELETE FROM monitor.users WHERE email = %s", (email,))
+            cleanup_users(connection, (email,))

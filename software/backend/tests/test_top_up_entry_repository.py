@@ -19,6 +19,7 @@ from app.modules.top_up_entries import (
 from psycopg import Connection
 from psycopg.errors import CheckViolation
 from pytest import raises
+from tests.support import cleanup_users
 
 
 def _create_user(connection: Connection[Any], prefix: str) -> tuple[int, str]:
@@ -65,10 +66,7 @@ def test_top_up_crud_allows_repeated_times_and_enforces_owner_scope() -> None:
             with raises(TopUpEntryNotFoundError):
                 get_top_up_entry(connection, meter.id, corrected.id, owner_id)
         finally:
-            connection.execute(
-                "DELETE FROM monitor.users WHERE email IN (%s, %s)",
-                (owner_email, other_email),
-            )
+            cleanup_users(connection, (owner_email, other_email))
 
 
 def test_top_up_values_and_database_constraints_are_strict() -> None:
@@ -102,4 +100,4 @@ def test_top_up_values_and_database_constraints_are_strict() -> None:
                         (uuid4(), meter.id, Decimal("0"), occurred_at),
                     )
         finally:
-            connection.execute("DELETE FROM monitor.users WHERE email = %s", (email,))
+            cleanup_users(connection, (email,))

@@ -10,6 +10,7 @@ from app.modules.sessions import create_session
 from app.settings import Settings
 from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
+from tests.support import cleanup_users
 
 
 def _client_for(
@@ -88,10 +89,7 @@ def test_meter_api_enforces_owner_scope_and_admin_access() -> None:
         assert me.json()["is_admin"] is True
     finally:
         with connect_database(settings) as connection:
-            connection.execute(
-                "DELETE FROM monitor.users WHERE email IN (%s, %s, %s)",
-                (normal_email, other_email, admin_email),
-            )
+            cleanup_users(connection, (normal_email, other_email, admin_email))
 
 
 def test_same_cookie_observes_promotion_and_demotion(monkeypatch: MonkeyPatch) -> None:
@@ -123,6 +121,4 @@ def test_same_cookie_observes_promotion_and_demotion(monkeypatch: MonkeyPatch) -
             assert client.cookies.get(COOKIE_NAME) == cookie
     finally:
         with connect_database(settings) as connection:
-            connection.execute(
-                "DELETE FROM monitor.users WHERE email IN (%s, %s)", (email, owner_email)
-            )
+            cleanup_users(connection, (email, owner_email))

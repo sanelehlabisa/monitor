@@ -14,6 +14,7 @@ from app.modules.sessions import create_session
 from app.settings import Settings
 from app.modules.top_up_entries import create_top_up_entry
 from fastapi.testclient import TestClient
+from tests.support import cleanup_users
 
 
 def _client_for(
@@ -111,7 +112,4 @@ def test_dashboard_states_history_corrections_and_access() -> None:
         assert corrected["balances"][-1]["id"] == str(first.id)
     finally:
         with connect_database(settings) as connection:
-            connection.execute(
-                "DELETE FROM monitor.users WHERE email IN (%s, %s, %s)",
-                (owner_email, other_email, admin_email),
-            )
+            cleanup_users(connection, (owner_email, other_email, admin_email))

@@ -20,7 +20,9 @@ Copy `.env.example` to `.env` and change the development password. Administrator
 authority comes only from `users.type`, not environment settings. Task 059's
 guarded source transition passed after backup/rehearsal and approval to stop
 writers. Source app/frontend/Mailpit remain off; Task 059 does not start them.
-For a ready/new setup:
+Task 063's shared backend also leaves them off after a separately approved stop.
+Its current-DB safety transition must be approved/applied before source activation;
+fresh initialization is not an existing-volume upgrade. For an approved fresh setup:
 
 ```powershell
 docker compose -f dev.docker-compose.yaml up --build
@@ -55,7 +57,7 @@ using a second set of inline defaults. The committed `.env.example` contains
 development-only examples and must not be exposed as production configuration.
 
 Current features are email OTP/cookie login, name-only meter management,
-owner/admin access, server-side search and timestamped balance/purchase history.
+member/admin backend access, server-side search and timestamped balance/purchase history.
 The open blue/teal Material UI workspace uses linkable `/meters/<uuid>` details,
 on-demand record forms and a prominent forecast summary with manual Refresh.
 One deterministic model derives estimates from each meter's own history and

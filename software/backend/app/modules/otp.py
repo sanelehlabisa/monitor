@@ -40,7 +40,7 @@ class IssuedOtp:
 
 @dataclass(frozen=True)
 class User:
-    """Authenticated user created only after successful OTP verification."""
+    """Stored account; authentication still requires successful OTP verification."""
 
     id: int
     email: str

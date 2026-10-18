@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from psycopg import Connection
 
-from app.modules.meters import get_meter
+from app.modules.meters import get_meter, lock_meter_access
 
 DEFAULT_MONTHLY_DAY = 1
 DEFAULT_LOW_BALANCE_DAYS = Decimal("3.00")
@@ -111,7 +111,7 @@ def upsert_reminder_settings(
     ):
         raise ValueError("Reminder enabled values must be true or false")
     with connection.transaction():
-        get_meter(connection, meter_id, owner_user_id)
+        lock_meter_access(connection, meter_id, owner_user_id)
         connection.execute(
             """INSERT INTO monitor.reminder_settings
                (meter_id, monthly_enabled, monthly_day, low_balance_enabled,

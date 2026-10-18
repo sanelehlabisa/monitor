@@ -53,7 +53,7 @@ CREATE INDEX user_sessions_user_created_idx
 
 CREATE TABLE monitor.meters (
     id UUID PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES monitor.users (id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES monitor.users (id) ON DELETE RESTRICT,
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -64,9 +64,9 @@ CREATE TABLE monitor.meters (
 CREATE UNIQUE INDEX meters_user_name_unique_idx ON monitor.meters (user_id, LOWER(name));
 CREATE INDEX meters_user_created_idx ON monitor.meters (user_id, created_at, id);
 
--- Staged only: owner-based API access remains until the sharing implementation.
+-- User deletion must never silently remove shared meters or memberships.
 CREATE TABLE monitor.user_meters (
-    user_id BIGINT NOT NULL REFERENCES monitor.users (id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES monitor.users (id) ON DELETE RESTRICT,
     meter_id UUID NOT NULL REFERENCES monitor.meters (id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, meter_id)
 );

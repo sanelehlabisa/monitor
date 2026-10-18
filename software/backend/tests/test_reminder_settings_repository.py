@@ -11,6 +11,7 @@ from app.settings import Settings
 from psycopg import Connection
 from psycopg.errors import CheckViolation
 from pytest import raises
+from tests.support import cleanup_users
 
 
 def _create_user(connection: Connection[Any], prefix: str) -> tuple[int, str]:
@@ -64,10 +65,7 @@ def test_reminder_settings_defaults_upsert_scope_and_cascade() -> None:
             ).fetchone()
             assert count == (0,)
         finally:
-            connection.execute(
-                "DELETE FROM monitor.users WHERE email IN (%s, %s)",
-                (owner_email, other_email),
-            )
+            cleanup_users(connection, (owner_email, other_email))
 
 
 def test_reminder_settings_validation_and_constraints() -> None:
@@ -108,4 +106,4 @@ def test_reminder_settings_validation_and_constraints() -> None:
                         (meter.id,),
                     )
         finally:
-            connection.execute("DELETE FROM monitor.users WHERE email = %s", (email,))
+            cleanup_users(connection, (email,))

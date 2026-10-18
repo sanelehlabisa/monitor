@@ -69,8 +69,9 @@ disposable production smoke checks passed; see the software README.
 
 Ticket 43 implements the storage and backend policy used by human
 authentication. Any normalized email can receive a challenge. Open signup
-creates a user only after correct verification; repeated successful logins reuse
-it. Fresh development seeds provision example accounts without credentials or
+creates a user after correct verification; repeated successful logins reuse it.
+Authorized sharing may provision a regular account first, but cannot authenticate
+it or bypass OTP. Fresh development seeds provision accounts without credentials or
 sessions: they still require ordinary email OTP verification to sign in.
 
 Codes are random six-digit values with a 10-minute expiry, five attempts, a
@@ -111,101 +112,67 @@ one domain error. Task 013 connects this boundary to `monitor_session`, which is
 HTTP-only, SameSite Lax, path `/`, fixed to the same 30-day maximum age and
 Secure outside local development. Logout revokes only the presented session.
 
-## Current application access and forecasting
+## Current backend access and forecasting
 
-The owner-based access and opt-in reminders below remain the current application
-contract. Task 059 derives administrator authority only from `users.type`, read
-through existing OTP/session user queries on every authenticated request. Public
-`is_admin` responses and opaque cookie shapes are unchanged; no email override,
-environment fallback, cached cookie role or extra privilege query is used.
-The guarded source upgrade and 68 isolated backend checks passed; final resource
-cleanup is verified. Sharing remains 69.4 work; source app services remain off.
+Task 063 implements membership-based code; the existing database transition and
+source app activation remain separate approval gates. Fresh-schema and copy
+verification results belong in its work record, not a live deployment claim.
+All 90 isolated backend checks passed; API comparison found only three new
+member operations and their response schema, with existing payloads unchanged.
 
-Task 015 implements raw-SQL storage for nickname-only meter profiles. The
-repository supports owner-scoped CRUD plus explicit unrestricted lookups. Task
-016 exposes authenticated `/api/meters` list/create and `/api/meters/{id}`
-get/rename/delete routes. Regular users are always scoped to their own meters.
-Users whose stored type is `admin` may list and manage every existing meter;
-new meters still belong to the user who creates them.
-Inaccessible and missing IDs share the same HTTP 404 response.
+- `users.type` is the sole admin authority, read on every authenticated request.
+  Members manage their meter; admins manage all meters without automatic membership.
+  Inaccessible/missing resources share generic 404 responses.
+- `/api/meters` supports list/create; `/{meter_id}` supports get/rename/permanent
+  delete. Creation atomically records creator membership. Any member/admin may
+  permanently delete a whole meter/history; leaving removes membership only.
+- `GET/POST /api/meters/{meter_id}/members` lists/shares by email; POST returns
+  `{user_id,email}` identically for existing/new accounts. DELETE with a member
+  user ID removes membership; the last member cannot be removed (409), even by
+  an admin. Parent locks and separate access rechecks serialize removal/deletion
+  with member changes and ledger writes.
+- Sharing normalizes/validates email and creates a missing regular account in the
+  same transaction as membership. It never overwrites an existing type, creates
+  a session, sends an invitation or exposes a global user directory. A correct
+  OTP is still needed to sign in, including for provisioned accounts.
+- Optional `GET /api/meters?q=keyword` performs scoped case-insensitive literal
+  substring search over name/member emails in SQL, without duplicate meters.
+  Blank keywords retain the accessible list. No ranking/pagination is implied.
+- Creator fields (`user_id`/`owner_email`) and creator-name uniqueness remain
+  compatibility metadata, never permission overrides. The frontend sharing/My
+  presentation remains Ticket 69.5 work; no new UI is included here.
 
-Task 032 adds optional `GET /api/meters?q=keyword` filtering in the raw-SQL
-query. Matching is a case-insensitive literal substring across meter name and
-owner email after the existing user/admin scope is applied. Missing or blank
-keywords retain the complete accessible list; no client-side search, ranking or
-pagination is implied.
+Nested balance/top-up CRUD and dashboard/reminder settings all use the same
+member/admin access. Balance kWh is non-negative; purchases positive; both allow
+at most three decimals and timezone-aware non-future occurrence times. Actual
+balances have unique per-meter times; purchases may share times. Nested IDs are
+authorized together with their parent, retaining generic inaccessible errors.
 
-Task 019 adds raw-SQL remaining-balance storage and owner-scoped repository
-CRUD. Balance kWh is non-negative with at most three decimal places. Occurrence
-times are timezone-aware and unique per meter, and corrections update both the
-value and time while preserving creation/update audit timestamps. HTTP exposure
-arrives in Task 021.
+All forecast callers still use `app.modules.forecasting.run_forecast_model`.
+At least two actual balances are required. Adjacent intervals include top-ups
+and yield one time-weighted daily rate; inconsistent history is unavailable.
+Zero observed use has no finite run-out date. Dashboard output is derived,
+not stored, and includes actual records and latest actual reading/time.
+The additional 30-day purchase is `max(0, rate * 30 - estimated_balance)`, not
+total monthly consumption. Forecast math and unavailable states are unchanged.
 
-Task 020 adds matching raw-SQL storage and scoped CRUD for purchased top-up
-energy. Top-ups must be greater than zero with at most three decimals. Repeated
-occurrence times are allowed because separate purchases can happen together.
-This records energy already bought; it is not a payment or Rand transaction.
+Reminder GET/PATCH retains existing disabled-by-default settings, day 1-28,
+lead time up to 30 days and saved IANA timezone. Saving never sends mail.
+The finite `python -m app.modules.reminder_runner` remains opt-in/creator-only
+until 69.7, and sends only while that creator is still a member. It skips stale
+removed/deleted candidates and rechecks before SMTP under the meter lock.
+Monthly/low-balance eligibility, dedupe/retry rules and SMTP boundary remain;
+SMTP is not transactional and crash retries are not exactly-once delivery.
+Never invoke the CLI, even with --help, as an application smoke check.
 
-Task 021 exposes nested authenticated CRUD at
-`/api/meters/{meter_id}/balances` and `/api/meters/{meter_id}/top-ups`, with
-entry IDs appended for get/update/delete. Inputs require timezone-aware,
-non-future occurrence times and the reviewed Decimal constraints. Regular users
-remain owner-scoped; DB admins may manage every meter. Foreign, missing
-and meter-mismatched resources share a generic 404.
+Fresh/upgrade targets restrict deletion of users still referenced as creator or
+member, preventing accidental shared-data cascades. Explicit meter deletion
+still cascades through its history/memberships. There is no account-deletion API,
+transfer workflow or trigger. Do not apply the work-record upgrade SQL to the
+source or start source apps without the separately approved transition.
 
-Tasks 023-024 complete the pure forecasting domain behind one public
-`run_forecast_model` boundary. The initial implementation validates every
-adjacent actual-balance interval, accounts for top-ups, and calculates one
-time-weighted daily-use rate. It then estimates current balance, remaining days,
-run-out time and the kWh needed to cover 30 days with no hidden buffer. Fewer
-than two readings return `not_enough_data`; impossible history returns
-`inconsistent_history`. Zero observed use remains a valid zero-rate result with
-no finite run-out date. Forecast output is derived and is not stored.
-
-Task 025 exposes `GET /api/meters/{meter_id}/dashboard`. It returns latest
-actual data, separate balance/top-up records, a labelled combined newest-first
-history and the current forecast result. The endpoint uses established
-owner/admin scope and recalculates through `run_forecast_model` on every request;
-it does not cache or persist estimates.
-
-Task 027 adds raw-SQL per-meter reminder preferences. Both monthly and
-predicted-low-balance emails default to disabled. Saved settings contain a day
-from 1-28, positive low-balance lead days up to 30 and a validated IANA timezone
-captured by a later browser UI. Missing rows return safe disabled defaults and
-settings cascade when their meter is deleted.
-
-Task 028 adds the finite command, now `python -m app.modules.reminder_runner`, for an
-external scheduler configured during deployment. It evaluates opted-in meters
-in their saved timezone, calls only `run_forecast_model`, and sends email to the
-meter owner through the existing SMTP boundary. Monthly reminders deduplicate by
-local month and still request a fresh reading when no forecast exists.
-Low-balance reminders require an available forecast and deduplicate by predicted
-local run-out date. Durable claims prevent overlapping normal sends, recover
-after 30 minutes if abandoned, and are released immediately after SMTP failure.
-The command logs aggregate counts only. No background service is introduced.
-
-Task 029 exposes authenticated GET/PATCH
-`/api/meters/{meter_id}/reminders`. Missing preferences return disabled
-defaults, while saved values retain the monthly day, predicted-low-balance lead
-days and validated IANA timezone. Regular users remain owner-scoped and
-DB administrators may manage every meter; inaccessible and missing
-meters share the same generic 404. Saving settings never triggers email.
-
-Authenticated users will create and select their own nickname-only meter
-profiles, then record:
-
-- actual remaining balance in kWh and its observed date/time; and
-- manually purchased top-up energy in kWh and its purchase date/time.
-
-API and repository queries must enforce meter ownership. V1 does not accept
-device uploads, images, municipal identifiers, Rand amounts or tariffs.
-
-HTTP consumers must call the single forecast-model boundary rather than copy its
-mathematics. Estimates must include their factual basis and never be presented
-as actual readings.
-
-Use typed Python, concise public docstrings and reusable raw-SQL repository
-functions. Production deployment settings are not defined yet.
+Use typed Python, concise docstrings and reusable raw SQL. No ORM, device uploads,
+tariffs, Rand amounts, payment, model adoption or production deployment is added.
 
 ## Ticket 69: Database and Sharing Simplification
 
@@ -220,8 +187,9 @@ audited schema, backup/restore gate and fresh-setup seed before 69.3/69.4.
 Task 058 introduces constrained `users.type` (default `user`) and `user_meters`
 with user/meter composite PK, cascading FKs and meter-first index. Original owner
 columns/queries remain the compatibility bridge. Task 058 left runtime roles and
-the current volume unchanged; Task 059 now uses stored roles. Membership rows
-still do not grant shared access. The approved source upgrade/one-time assignment
+the current volume unchanged; Task 059 now uses stored roles. Task 063 code uses
+membership access, but its FK/backfill transition is not applied to the source.
+The earlier approved source upgrade/one-time assignment
 followed a new verified backup and isolated rehearsal before source execution.
 [Frontend Tickets 69.5/69.6](../frontend/README.md) consume the resulting access
 contract and fixed first-of-month planning date. The 30-day quantities and
@@ -302,10 +270,10 @@ Depends on: 69.1/69.2's membership schema and 69.3's DB role authority.
   cannot orphan a meter. Account deletion must not cascade-delete a shared
   meter or its ledger merely because the departing account was its creator or
   former owner; handle a last membership explicitly before deleting the user.
-- Settle whole-meter deletion rights separately from leaving/removing members
-  in the implementation prompt. Also settle creator/owner display and minimal
-  sharing onboarding with 69.5; do not silently add invitations, unverified
-  account creation or a second ownership authority.
+- Task 063 settles permanent deletion for any current member/admin and sharing
+  by normalized email with automatic regular-user creation. No invitations or
+  session bypass. Retain creator metadata; 69.5 handles minimal sharing display.
+  The live FK/backfill transition and source activation remain separately gated.
 
 Acceptance: two members can manage one meter while a non-member cannot reach
 any of its protected resources, including nested IDs and search results.

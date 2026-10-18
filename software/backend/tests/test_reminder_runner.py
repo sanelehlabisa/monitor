@@ -18,6 +18,7 @@ from app.modules.reminder_runner import run_due_reminders
 from app.modules.reminder_settings import upsert_reminder_settings
 from app.settings import Settings
 from psycopg import Connection
+from tests.support import cleanup_users
 
 NOW = datetime(2026, 10, 10, 10, tzinfo=UTC)
 
@@ -85,7 +86,7 @@ def test_runner_sends_due_messages_once_to_the_owner() -> None:
             assert any("Monthly electricity" in message["Subject"] for message in sender.messages)
             assert any("may run low" in message["Subject"] for message in sender.messages)
         finally:
-            connection.execute("DELETE FROM monitor.users WHERE email = %s", (email,))
+            cleanup_users(connection, (email,))
 
 
 def test_failed_delivery_releases_claim_for_retry() -> None:
@@ -104,7 +105,7 @@ def test_failed_delivery_releases_claim_for_retry() -> None:
             assert failed.delivery_failures == 2
             assert retried.messages_sent == 2
         finally:
-            connection.execute("DELETE FROM monitor.users WHERE email = %s", (email,))
+            cleanup_users(connection, (email,))
 
 
 def test_monthly_sends_without_forecast_but_low_balance_does_not() -> None:
@@ -131,7 +132,7 @@ def test_monthly_sends_without_forecast_but_low_balance_does_not() -> None:
             assert result.messages_sent == 1
             assert "fresh balance" in sender.messages[0].get_content()
         finally:
-            connection.execute("DELETE FROM monitor.users WHERE email = %s", (email,))
+            cleanup_users(connection, (email,))
 
 
 def test_stale_claim_can_recover_but_sent_or_active_claim_cannot() -> None:
@@ -168,4 +169,4 @@ def test_stale_claim_can_recover_but_sent_or_active_claim_cannot() -> None:
             )
             assert sent is None
         finally:
-            connection.execute("DELETE FROM monitor.users WHERE email = %s", (email,))
+            cleanup_users(connection, (email,))

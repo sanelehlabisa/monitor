@@ -33,8 +33,9 @@ stored history table or data.
 | reminder_settings | Disabled-by-default monthly/low-balance preferences. |
 | reminder_deliveries | Durable pending/sent claims and per-meter deduplication. |
 
-OTP signup creates a user only after verification; plaintext OTPs/tokens are never
-stored. Only users.type grants admin access, without env/email fallback. Fresh
+OTP signup creates a user after verification; Task 063 sharing may provision a
+regular account first without granting authentication. Plaintext OTPs/tokens are
+never stored. Only users.type grants admin access, without env/email fallback. Fresh
 seeds provision hlabisasanele730@gmail.com as admin and monitor-seed@example.test
 examples, without credentials/sessions or enabled mail. Login/restart never
 overwrites manual role changes; see the [backend README](../backend/README.md).
@@ -42,12 +43,15 @@ overwrites manual role changes; see the [backend README](../backend/README.md).
 Meter names are case-insensitively unique per owner. Balances have unique
 per-meter occurrence times; purchases may share a time. Store UTC instants,
 preserving occurrence times separately from audit times. Rates/forecasts are
-derived, not stored truth. Access remains owner/admin-based; membership rows
-alone do not grant shared access or protect the last member.
+derived, not stored truth. Task 063 code uses current membership/admin access,
+with transactional last-member guards. Fresh schema restricts creator/member-user
+deletion, while explicit whole-meter deletion retains history/member cascades.
+The current development DB has NOT received these FK changes; app services stay
+off until a separately approved source transition. No account-delete API is added.
 
-## Verified recovery
+## Earlier recovery (Task 059)
 
-Latest recovery set, outside Git/OneDrive:
+Retained pre-upgrade recovery set, outside Git/OneDrive:
 
     %LOCALAPPDATA%/Monitor/backups/task059/20261018T171408Z-4fbf46c4c3c5/
 
@@ -88,15 +92,39 @@ frontend/backend/Mailpit stayed stopped. Fresh/reload checks passed in 058;
 68 isolated backend checks passed in 059. These are historical results, not a
 new live-browser verification.
 
+## Latest recovery and copy-only gate (Task 063)
+
+A fresh current-data snapshot and exact restore are verified at
+%LOCALAPPDATA%/Monitor/backups/task063/20261018T190432Z-f9f5d7fc8a08/.
+Its monitor.dump is 27,606 bytes; SHA-256
+396253f7be8b5ea974956b3a60f88fce7872e9b3ccd5838d51dba8aaff19558e.
+Private inventories, RECOVERY.md and reviewed SQL/schema are retained with
+user/SYSTEM-only ACLs, not encryption. Never commit or publish the private set.
+
+Unlike the earlier 059 backup, this already contains DB roles and memberships.
+Rehearse only Task 063's reviewed FK/backfill transaction for this baseline,
+not upgrade-058.sql, the earlier admin assignment or fresh seeds. Matching SQL
+is versioned under agents/work/063-shared-meter-backend/upgrade.sql and privately
+retained as reviewed-upgrade.sql (SHA-256
+88a9339a489c48df857b5580e154be4f91bc773dfeb9ca9eaf5c7aafa469bb1e).
+
+The copy rehearsal preserved every record/role/sequence and both histories;
+only the two intended FK deletion actions changed. Fresh/copy definitions match.
+Backfill repairs memberless interim meters without re-adding departed creators.
+Current-code read-only checks on the clone passed. The three owned containers
+and two volumes were removed; source inventories/metadata remained unchanged.
+Details and limits are in [Task 063 results](../../agents/work/063-shared-meter-backend/changes.md).
+This is not approval to run the transaction or start apps on the current volume.
+
 ## Remaining database/access work
 
 The [root roadmap](../../README.md) owns stable IDs and priority; the
 [backend](../backend/README.md) and [frontend](../frontend/README.md) define detail.
 
 - 69.1-69.3: recovery, fresh bootstrap and DB-only roles are complete.
-- 69.4: shared authorization and concurrent last-member safety. Repeat owner
-  membership backfill for interim meters; resolve creator-delete cascades,
-  whole-meter deletion/onboarding/display before cutover.
+- 69.4: Task 063 implements shared authorization, concurrent last-member safety
+  and restrictive user FKs. Its reviewed memberless-meter backfill/FK transition
+  still needs a separately approved live cutover after a fresh backup/rehearsal.
 - 69.5: minimal membership-aware UI/My/All/search after backend guards.
 - 69.6: fixed 1st-of-month planning, separate from run-out/30-day quantities.
 - 69.7: day-before monthly email to all meter members, not all accounts; retain

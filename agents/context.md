@@ -10,14 +10,15 @@ READMEs hold details; historical results stay in work/ and Git.
 - FastAPI uses explicit Psycopg SQL, not an ORM. React/Vite/Material UI is the
   mobile-friendly frontend. Development uses software/dev.docker-compose.yaml
   and ignored software/.env. Never print/commit secrets or private records.
-- A meter needs only a name. Users manage their own meters; DB admins may manage
-  every meter. Membership storage exists, but shared access/last-member guards
-  remain future 69.4/69.5 work.
+- A meter needs only a name. Task 063 backend code authorizes current members or
+  DB admins, including permanent deletion of a meter/history. Last-member removal
+  is rejected; leaving does not delete a meter. Live activation is separately gated.
 - Record actual remaining kWh (non-negative) and purchased kWh (positive), with
   editable occurrence times separate from audit times. Store UTC instants;
   the browser converts local input/display.
-- Open OTP signup creates a regular user only after verification. Returning login
-  preserves users.type; that constrained user/admin column is the sole authority,
+- Open OTP signup creates a regular user after verification. Authorized sharing
+  may create one first, without a session or OTP bypass. Returning login preserves
+  users.type; that constrained user/admin column is the sole authority,
   read each request. No env/email override or cookie-cached role. Preserve opaque
   HTTP-only cookies, digest-only OTP/session storage and abuse controls.
 - Fresh-only seeds provision hlabisasanele730@gmail.com as admin and fictional
@@ -28,7 +29,7 @@ READMEs hold details; historical results stay in work/ and Git.
   /meters lists profiles; /meters/<uuid> supports direct login/reload/history.
   / and /meters/ remain compatible entries; login is not a separate URL.
 - Estimates lead; record forms/history open on demand. Search is server-side by
-  name/owner email, shown above 10 unfiltered meters or for an active query.
+  name/member email, shown above 10 unfiltered meters or for an active query.
   Preserve request-version guards, form resets and unavailable/error recovery.
 
 ## Forecast boundary
@@ -63,6 +64,10 @@ Recalculate after ledger changes/Refresh; never silently adopt a research prior.
 - At Task 060 preflight, monitor-dev-database-1 was healthy/running on
   monitor-dev_postgres-data; backend/frontend/Mailpit remained stopped as agreed.
   Recheck actual state before work. Tasks 060-062 do not authorize source starts.
+- Task 063 preflight found all services running again. The user separately
+  authorized stopping only frontend/backend/Mailpit, leaving PostgreSQL running.
+  Those three stay off. Source data and FK definitions remain unchanged; code
+  activation requires the separately approved backfill/FK transition.
 - Run checks against isolated labelled DB/Mailpit resources, never source data
   or real email. The finite reminder CLI can send mail even with --help; verify
   by import/isolated checks only.
@@ -83,15 +88,35 @@ TypeScript/Vite plus mocked browser checks passed using pinned Docker deps.
 The host node_modules has missing MUI declarations and was left unchanged.
 Source services remain stopped; only isolated verification resources were used
 and cleaned. Details/recovery are in the work records. The user authorized the
-Git handoff of completed Tasks 059-062 to master; earlier no-commit notes describe
-their completion-time state. The next implementation still needs prompt approval.
+Git handoff of completed Tasks 059-062 to master (2f8af81); earlier no-commit notes
+describe completion-time state. The user subsequently approved Task 063's Git
+handoff to master and preparation of the next task. This does not approve its
+separately reviewed live transition or source-service activation.
+
+## Shared backend (Task 063)
+
+GET/POST /api/meters/{id}/members lists/shares by email; DELETE /{user_id} removes
+membership. New accounts default user; preserve existing roles. No invitations,
+global directory or auth bypass. Member/creator metadata never overrides scope.
+Parent locks plus separate access rechecks serialize member changes, meter/ledger
+writes and dispatch. Any member/admin may permanently delete the meter/history;
+last-member removal is rejected even for admins. Fresh targets restrict creator/
+member-user deletion rather than cascading shared data. There is no account-delete
+API/transfer workflow. Work-record upgrade.sql is copy-only, never startup SQL.
+Backfill only memberless interim meters, never re-add a creator who already left
+an otherwise shared meter. Legacy opt-in reminders require creator membership
+and recheck before SMTP; fan-out/schedule redesign remains 69.7. UI sharing and
+admin My membership presentation remain 69.5; old owner fields stay compatible.
+All 90 isolated backend checks passed, including concurrent/revoked writes.
+Copy-only upgrade/restore, fresh-schema equivalence and read-only current-code
+checks passed; owned verification resources were removed, evidence retained.
+Existing API payloads are unchanged; only three member operations were added.
 
 ## Remaining priorities
 
-1. Next is 69.4 backend shared-access guards, then 69.5 minimal sharing UI.
-   Repeat owner-membership backfill at cutover; first
-   settle creator-delete cascades, whole-meter deletion and concurrent last-member
-   safety. Membership rows alone do not activate sharing.
+1. Task 063 code and isolated verification are complete. Separately approve/apply
+   its safe existing-data transition before source activation. 69.4 remains
+   incomplete until that gate. Then implement 69.5 minimal sharing UI, not a redesign.
 2. 69.6 fixes planning to the 1st, separate from predicted run-out and retaining
    current rolling 30-day quantities/model. It is not active yet.
 3. 69.7 emails all meter members (not all accounts/admins) the day before the 1st.

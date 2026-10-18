@@ -20,7 +20,7 @@ from app.modules.balance_entries import (
 )
 from app.database import connect_database
 from app.modules.forecasting import ForecastResult, run_forecast_model
-from app.endpoints.meters import meter_owner_scope
+from app.endpoints.meters import meter_access_scope
 from app.modules.meters import MeterNotFoundError
 from app.modules.top_up_entries import (
     TopUpEntry,
@@ -54,13 +54,13 @@ def dashboard_show(
 ) -> DashboardResponse:
     """Return current factual history and a newly calculated forecast."""
 
-    owner_scope = meter_owner_scope(authenticated)
+    access_scope = meter_access_scope(authenticated)
     with connect_database(request.app.state.settings) as connection:
         balances = _available(
-            lambda: list_balance_entries(connection, meter_id, owner_scope)
+            lambda: list_balance_entries(connection, meter_id, access_scope)
         )
         top_ups = _available(
-            lambda: list_top_up_entries(connection, meter_id, owner_scope)
+            lambda: list_top_up_entries(connection, meter_id, access_scope)
         )
     history = sorted(
         [
@@ -107,7 +107,7 @@ def balances_index(
     with connect_database(request.app.state.settings) as connection:
         entries = _available(
             lambda: list_balance_entries(
-                connection, meter_id, meter_owner_scope(authenticated)
+                connection, meter_id, meter_access_scope(authenticated)
             )
         )
     return [_balance_response(entry) for entry in entries]
@@ -132,7 +132,7 @@ def balances_create(
                 lambda: create_balance_entry(
                     connection,
                     meter_id,
-                    meter_owner_scope(authenticated),
+                    meter_access_scope(authenticated),
                     payload.balance_kwh,
                     payload.occurred_at,
                 )
@@ -154,7 +154,7 @@ def balances_show(
     with connect_database(request.app.state.settings) as connection:
         entry = _available(
             lambda: get_balance_entry(
-                connection, meter_id, entry_id, meter_owner_scope(authenticated)
+                connection, meter_id, entry_id, meter_access_scope(authenticated)
             )
         )
     return _balance_response(entry)
@@ -177,7 +177,7 @@ def balances_update(
                     connection,
                     meter_id,
                     entry_id,
-                    meter_owner_scope(authenticated),
+                    meter_access_scope(authenticated),
                     payload.balance_kwh,
                     payload.occurred_at,
                 )
@@ -199,7 +199,7 @@ def balances_delete(
     with connect_database(request.app.state.settings) as connection:
         _available(
             lambda: delete_balance_entry(
-                connection, meter_id, entry_id, meter_owner_scope(authenticated)
+                connection, meter_id, entry_id, meter_access_scope(authenticated)
             )
         )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -216,7 +216,7 @@ def top_ups_index(
     with connect_database(request.app.state.settings) as connection:
         entries = _available(
             lambda: list_top_up_entries(
-                connection, meter_id, meter_owner_scope(authenticated)
+                connection, meter_id, meter_access_scope(authenticated)
             )
         )
     return [_top_up_response(entry) for entry in entries]
@@ -238,7 +238,7 @@ def top_ups_create(
             lambda: create_top_up_entry(
                 connection,
                 meter_id,
-                meter_owner_scope(authenticated),
+                meter_access_scope(authenticated),
                 payload.top_up_kwh,
                 payload.occurred_at,
             )
@@ -258,7 +258,7 @@ def top_ups_show(
     with connect_database(request.app.state.settings) as connection:
         entry = _available(
             lambda: get_top_up_entry(
-                connection, meter_id, entry_id, meter_owner_scope(authenticated)
+                connection, meter_id, entry_id, meter_access_scope(authenticated)
             )
         )
     return _top_up_response(entry)
@@ -280,7 +280,7 @@ def top_ups_update(
                 connection,
                 meter_id,
                 entry_id,
-                meter_owner_scope(authenticated),
+                meter_access_scope(authenticated),
                 payload.top_up_kwh,
                 payload.occurred_at,
             )
@@ -300,7 +300,7 @@ def top_ups_delete(
     with connect_database(request.app.state.settings) as connection:
         _available(
             lambda: delete_top_up_entry(
-                connection, meter_id, entry_id, meter_owner_scope(authenticated)
+                connection, meter_id, entry_id, meter_access_scope(authenticated)
             )
         )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

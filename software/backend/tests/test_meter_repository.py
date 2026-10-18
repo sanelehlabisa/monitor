@@ -17,6 +17,7 @@ from app.settings import Settings
 from psycopg import Connection
 from psycopg.errors import CheckViolation
 from pytest import raises
+from tests.support import cleanup_users
 
 
 def _create_user(connection: Connection[Any], prefix: str) -> tuple[int, str]:
@@ -70,10 +71,7 @@ def test_meter_crud_is_ordered_and_owner_scoped() -> None:
             with raises(MeterNotFoundError):
                 get_meter(connection, home.id, first_user)
         finally:
-            connection.execute(
-                "DELETE FROM monitor.users WHERE email IN (%s, %s)",
-                (first_email, second_email),
-            )
+            cleanup_users(connection, (first_email, second_email))
 
 
 def test_meter_names_are_valid_and_unique_per_owner() -> None:
@@ -101,4 +99,4 @@ def test_meter_names_are_valid_and_unique_per_owner() -> None:
                         (uuid4(), user_id, " invalid "),
                     )
         finally:
-            connection.execute("DELETE FROM monitor.users WHERE email = %s", (email,))
+            cleanup_users(connection, (email,))
