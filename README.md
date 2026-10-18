@@ -18,15 +18,19 @@ The municipal meter number is not required. A top-up record documents energy
 already purchased; Monitor does not sell electricity or execute payments.
 Tariffs, Rand amounts and cost forecasts are outside V1.
 
-Task 056 plans a database/access refocus; it does not implement it. The current
-app still uses single-owner meters, environment-configured admins and existing
-opt-in reminders. Planned sharing, DB-only roles and simpler monthly planning
-are tracked under Ticket 69 below.
+Task 056 planned the database/access refocus under Ticket 69. Meters remain
+owner-scoped, with opt-in reminders; sharing and simpler monthly planning remain
+future work. Task 059 changes administrator authority to stored `users.type`,
+without email/environment overrides. Its guarded source transition and 68 isolated
+backend checks passed; task-resource cleanup is verified.
 Task 057 verified recovery of all current data. Task 058 adds fresh-volume SQL
 bootstrap and an additive upgrade script rehearsed only on a copy. Fresh/copy-
 upgrade, persistence, both reload paths, source-preservation/cleanup and 64 backend
 checks passed using cached dependencies; no fresh image build is claimed.
-The existing database is not upgraded or seeded by this work.
+Task 058 left the existing database untouched. Task 059 then upgraded it only
+after a new verified backup/rehearsal and writer-stop approval, preserving all
+original records and assigning only the approved existing admin. No seed replay
+or account creation occurred; source app/frontend/Mailpit remain stopped.
 
 ## User value
 
@@ -97,7 +101,7 @@ monitor/
 `-- software/
     |-- backend/        # FastAPI and domain services
     |-- frontend/       # React and Material UI
-    |-- database/       # PostgreSQL schema, fresh seeds and explicit upgrade SQL
+    |-- database/       # active schema, fresh seeds and recovery guidance
     `-- ocr/            # deferred OCR research
 ```
 
@@ -174,15 +178,22 @@ retained authentication IDs appear before newer product tickets.
 Tasks 042, 050 and 056 update planning only. Each ticket/subticket still needs its
 own implementation approval; details live in the closest software README.
 
+- [x] Ticket 71: Retire Legacy Setup & Context (Task 060) — keep only active SQL
+  setup, verify recoverable retired sources and shorten current guidance.
+- [x] Ticket 72: Backend Package Layout (Task 061) — modules, schemas and endpoints;
+  preserve API/behavior and verify isolated checks after 71.
+- [x] Ticket 73: Frontend Route Layout (Task 062) — route-local screens/components
+  and shared helpers; preserve UI/behavior after 71.
 - [ ] Ticket 69: Database & Access Refocus — preserve existing functionality and
   data; reuse raw SQL, OTP, cookie sessions and the reminder runner.
   - [x] Ticket 69.1: Data Safety & Schema Review — verified full-data recovery
     (Task 057) and accepted additive nine-domain-table target (Task 058).
   - [x] Ticket 69.2: Fresh SQL Bootstrap — schema.sql/seed.sql, persistent Docker
     initialization and copy-only additive-upgrade rehearsal (Task 058).
-    Executing the existing-volume upgrade still requires separate approval.
-  - [ ] Ticket 69.3: DB-Only User/Admin Roles — keep signup open; seed the approved
-    admin and remove all admin env dependencies, without runtime email overrides.
+    Task 059 separately authorizes its guarded existing-volume transition.
+  - [x] Ticket 69.3: DB-Only User/Admin Roles — verified guarded source upgrade,
+    open signup, stored roles and no admin-env/email fallback (Task 059).
+    The one-time existing-admin assignment is not runtime email privilege.
   - [ ] Ticket 69.4: Shared-Meter Backend Access — membership, full admin scope,
     all endpoint checks and concurrent last-member protection.
   - [ ] Ticket 69.5: Minimal Sharing UI — member management and membership-aware
@@ -220,7 +231,8 @@ own implementation approval; details live in the closest software README.
 
 ### Shared execution priority
 
-1. Database/access refocus (69.3 -> 69.7), after recovery/bootstrap; never a reset.
+1. Database/access refocus (69.4 -> 69.7), after completed DB-role cutover and
+   structure cleanup (71-73); never a reset.
 2. HTML email presentation (70) after reminder semantics; complete usability (65).
 3. Offline forecast research/validation (66.1 -> 66.4); 66.5 is a separate
    adoption gate, not automatic app replacement. Keep costs deferred.

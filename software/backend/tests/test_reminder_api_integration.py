@@ -1,20 +1,24 @@
 """Live PostgreSQL authorization tests for reminder settings APIs."""
 
+from typing import Literal
 from uuid import uuid4
 
-from app.auth_api import COOKIE_NAME
+from app.endpoints.auth import COOKIE_NAME
 from app.database import connect_database
 from app.main import create_app
-from app.meters import create_meter
-from app.sessions import create_session
+from app.modules.meters import create_meter
+from app.modules.sessions import create_session
 from app.settings import Settings
 from fastapi.testclient import TestClient
 
 
-def _client_for(settings: Settings, email: str) -> tuple[TestClient, int]:
+def _client_for(
+    settings: Settings, email: str, user_type: Literal["user", "admin"] = "user"
+) -> tuple[TestClient, int]:
     with connect_database(settings) as connection:
         row = connection.execute(
-            "INSERT INTO monitor.users (email) VALUES (%s) RETURNING id", (email,)
+            "INSERT INTO monitor.users (email, type) VALUES (%s, %s) RETURNING id",
+            (email, user_type),
         ).fetchone()
         assert row
         session = create_session(connection, row[0])
@@ -30,10 +34,10 @@ def test_reminder_settings_defaults_updates_validation_and_access() -> None:
     owner_email = f"reminder-api-owner-{suffix}@example.test"
     other_email = f"reminder-api-other-{suffix}@example.test"
     admin_email = f"reminder-api-admin-{suffix}@example.test"
-    settings = Settings(environment="test", admin_emails=admin_email)
+    settings = Settings(environment="test")
     owner, owner_id = _client_for(settings, owner_email)
     other, _ = _client_for(settings, other_email)
-    admin, _ = _client_for(settings, admin_email)
+    admin, _ = _client_for(settings, admin_email, "admin")
     with connect_database(settings) as connection:
         meter = create_meter(connection, owner_id, "Home")
     url = f"/api/meters/{meter.id}/reminders"

@@ -3,7 +3,7 @@
 from email.message import EmailMessage
 from typing import Any
 
-from app.email_delivery import (
+from app.modules.email_delivery import (
     EmailDeliveryError,
     SmtpEmailSender,
     build_login_code_message,
@@ -64,7 +64,7 @@ def test_plain_smtp_sends_without_credentials(monkeypatch: MonkeyPatch) -> None:
 
     client = FakeSmtpClient()
     monkeypatch.setattr(
-        "app.email_delivery.smtplib.SMTP", lambda *args, **kwargs: client
+        "app.modules.email_delivery.smtplib.SMTP", lambda *args, **kwargs: client
     )
 
     SmtpEmailSender(Settings()).send(EmailMessage())
@@ -80,7 +80,7 @@ def test_starttls_precedes_authenticated_delivery(monkeypatch: MonkeyPatch) -> N
 
     client = FakeSmtpClient(supports_starttls=True)
     monkeypatch.setattr(
-        "app.email_delivery.smtplib.SMTP", lambda *args, **kwargs: client
+        "app.modules.email_delivery.smtplib.SMTP", lambda *args, **kwargs: client
     )
     settings = Settings(smtp_user="monitor", smtp_password="secret")
 
@@ -95,7 +95,7 @@ def test_implicit_tls_supports_authenticated_delivery(monkeypatch: MonkeyPatch) 
 
     client = FakeSmtpClient()
     monkeypatch.setattr(
-        "app.email_delivery.smtplib.SMTP_SSL", lambda *args, **kwargs: client
+        "app.modules.email_delivery.smtplib.SMTP_SSL", lambda *args, **kwargs: client
     )
     settings = Settings(smtp_secure=True, smtp_user="monitor", smtp_password="secret")
 
@@ -109,7 +109,7 @@ def test_credentials_are_rejected_without_encryption(monkeypatch: MonkeyPatch) -
 
     client = FakeSmtpClient()
     monkeypatch.setattr(
-        "app.email_delivery.smtplib.SMTP", lambda *args, **kwargs: client
+        "app.modules.email_delivery.smtplib.SMTP", lambda *args, **kwargs: client
     )
     settings = Settings(smtp_user="monitor", smtp_password="secret")
 

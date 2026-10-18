@@ -16,9 +16,11 @@ dependencies.
 
 ## Development stack
 
-Copy `.env.example` to `.env`, set the local administrator email list and change
-the development password, then run. These are the current instructions;
-planned Ticket 69.3 removes the admin email setting only when implemented:
+Copy `.env.example` to `.env` and change the development password. Administrator
+authority comes only from `users.type`, not environment settings. Task 059's
+guarded source transition passed after backup/rehearsal and approval to stop
+writers. Source app/frontend/Mailpit remain off; Task 059 does not start them.
+For a ready/new setup:
 
 ```powershell
 docker compose -f dev.docker-compose.yaml up --build
@@ -36,19 +38,14 @@ Stop the stack without deleting data:
 docker compose -f dev.docker-compose.yaml down
 ```
 
-After updating from the former Keycloak stack, remove its obsolete container:
-
-```powershell
-docker compose -f dev.docker-compose.yaml down --remove-orphans
-```
-
 PostgreSQL runs `database/schema.sql` then fresh-only `database/seed.sql` only
 when its persistent data volume is empty. Restart/recreation does not replay
 SQL, duplicate examples or overwrite roles. The API no longer executes or mounts
 numbered migrations. Existing data is preserved but not automatically upgraded;
 never use volume deletion or fresh seeds as an upgrade/partial-init repair.
-The [database README](database/README.md) documents recovery and the explicit
-`upgrade-058.sql` procedure, which requires separate approval on the current DB.
+The [database README](database/README.md) documents recovery and the retained
+reviewed upgrade copy. Task 059 safely upgraded the current DB after a fresh
+backup/rehearsal; do not rerun that one-time transition or fresh seeds.
 
 Backend and frontend sources are bind-mounted for reload; Uvicorn watches only
 `app/`, not the offline research environment. Rebuild after changing
@@ -57,46 +54,15 @@ development values; Compose reports required missing values instead of silently
 using a second set of inline defaults. The committed `.env.example` contains
 development-only examples and must not be exposed as production configuration.
 
-The API health baseline, explicit SQL schema and Material UI shell exist. Tickets
-43-46 implement email OTP delivery, digest-only sessions, the human auth API and
-the Material UI login flow with secure HTTP-only cookie transport. Tasks 015-018
-complete raw-SQL meter profiles, authorised CRUD and signed-in user/admin meter
-management. Tasks 019-022 complete raw-SQL balance/top-up persistence,
-authorised nested CRUD and the mobile manual-entry/history UI. Tasks 023-026 add
-one replaceable deterministic forecast model, an authorised derived dashboard
-API and responsive planning estimates that retain honest unavailable states.
-Tasks 027-030 complete opt-in raw-SQL reminder preferences, durable finite email
-delivery, authenticated owner/admin APIs and per-meter Material UI controls.
-Task 031 makes administrator testing clearer with separate owned and system-wide
-meter views without changing ownership or backend access policy.
-Task 032 adds server-side meter search. Task 033 widens the planning dashboard,
-separates manual records into tabs and hides reminder settings in the frontend;
-the backend reminder preferences and delivery runner remain available.
-Task 035 adds manual dashboard refresh and honest retry states after failed
-reads; retrying estimates does not repeat saved ledger writes.
-Task 037 simplifies the planning card to three headline estimates and two record
-buttons, with forms/history/settings shown only when requested. The backend
-calculation and persistence contracts are unchanged; see the frontend README.
-Task 038 adds right-aligned account navigation, linkable meter-ID pages and a
-wider details/planning layout. Two retained synthetic meters under a separate
-local demo user support admin testing through All meters; access instructions
-are in the frontend README. No startup seeding or forecast-policy change is added.
-Task 039 removes navigation branding/role badges, shortens Back, enlarges the
-account icon and standardises typography/name-owner alignment. Demo histories,
-admin access, routes and backend calculations remain unchanged.
-Task 040 enlarges the account icon to 42px, moves selected-meter renaming into
-Name/Owner key-value details and adds pencil/trash actions to each meter-list
-row. Bottom Meter settings is removed; the same authorised APIs and confirmed
-deletion are reused. No backend, forecast or persistent demo history is changed.
-Task 041 adds consistent black section headers, compact My/All tabs and white
-active-tab styling. Pencil now activates editing and changes to Save on both
-pages; creation becomes the first list row and search/clear icons sit inside
-the search field. Text/controls are smaller without forced uppercase. The list
-uses `/meters`, while root entry links and meter-ID navigation remain compatible.
-Task 043 completes the supplied Monitor logo/favicon and blue/teal theme, with
-a compact brand header and small linked Roventics footer. Typography, existing
-flows, forecasting and persisted data are unchanged; see the frontend README.
-Ticket 48 confirmed active runtime code has no obsolete device/OCR integration.
+Current features are email OTP/cookie login, name-only meter management,
+owner/admin access, server-side search and timestamped balance/purchase history.
+The open blue/teal Material UI workspace uses linkable `/meters/<uuid>` details,
+on-demand record forms and a prominent forecast summary with manual Refresh.
+One deterministic model derives estimates from each meter's own history and
+withholds unsupported forecasts. Reminder settings are hidden in the frontend;
+the opt-in owner-only backend runner remains available. Component READMEs show
+the source layout, API contracts and repeatable demo. Historical UI iterations
+remain in their numbered work records rather than current setup instructions.
 
 After changing frontend dependencies, refresh an existing named volume:
 
@@ -130,7 +96,7 @@ Runtime credentials must not be passed as build arguments or copied into images.
 
 To run, the frontend needs a reachable `backend:8000` name on its Docker network.
 The backend defaults to production mode and requires a unique
-`MONITOR_OTP_HMAC_SECRET` at runtime. Supply the database, public origin, admin
+`MONITOR_OTP_HMAC_SECRET` at runtime. Supply the database, public origin
 and SMTP settings explicitly for the deployment; development defaults are not a
 production configuration. Schema installation and upgrades are not performed by
 the image command. See the component READMEs for the runtime boundaries.
@@ -174,10 +140,14 @@ research does not automatically replace the app.
   not fetch uncached pip requirements, so no fresh image build is claimed.
   Rehearsal uses only a restored copy. Existing-volume execution needs approval,
   never a reset or seed hidden in startup. Both reload paths are retained.
-- 69.3 makes DB user/admin types the sole role authority and removes admin env
-  configuration everywhere active. Signup stays open and creates regular users.
-  Seed hlabisasanele730@gmail.com as admin only during fresh setup; later role
-  changes are manual DB edits, not overwritten on restart or by email matching.
+- 69.3 / Task 059 uses DB user/admin types as the sole role authority and removes
+  active admin environment configuration. The guarded source transition and
+  68 isolated backend checks passed; resource cleanup is verified.
+  Signup stays open and defaults to `user`; every request reads the
+  stored role through existing OTP/session user queries. Fresh setup seeds the
+  approved admin; the guarded existing-volume transition promotes that existing
+  account only once, stops if absent, and leaves every other account `user`.
+  Later role changes are manual DB edits, never overwritten by login or restart.
 - 69.4 adds shared membership and authorization across every protected meter,
   ledger, dashboard and reminder endpoint, with full global admin access and
   safe concurrent last-member protection. 69.5 adds only the necessary sharing
@@ -197,9 +167,11 @@ relevant implementation prompt. Database details are in the
 [database README](database/README.md); role/access/reminder details in the
 [backend README](backend/README.md); sharing/planning controls in the
 [frontend README](frontend/README.md). Task 058 changes bootstrap and app-only
-development reload; current-data preservation, owner access and env-admin authority
-remain. Fresh seeds include the approved admin identity and fictional examples;
-their DB types do not activate DB-based privileges until 69.3/Task 059.
+development reload, leaving the current DB untouched then. Task 059 moves
+authority to DB roles while retaining owner access and the same public API/cookie
+contract; sharing is not enabled. See backend/database guidance for manual role
+changes and the verified guarded source transition. No source login/session
+writes or real emails were needed; the original app services stay off.
 
 ### Ticket 70: Readable HTML Emails (planned)
 

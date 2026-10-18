@@ -2,13 +2,14 @@
 
 from contextlib import nullcontext
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID
 
-from app.auth_api import REQUEST_ACCEPTED_MESSAGE
-from app.email_delivery import EmailDeliveryError
+from app.endpoints.auth import REQUEST_ACCEPTED_MESSAGE
+from app.modules.email_delivery import EmailDeliveryError
 from app.main import create_app
-from app.otp import OtpRateLimitError, OtpVerificationError, User
-from app.sessions import CreatedSession
+from app.modules.otp import OtpRateLimitError, OtpVerificationError, User
+from app.modules.sessions import CreatedSession
 from app.settings import Settings
 from fastapi.testclient import TestClient
 from pytest import MonkeyPatch, mark
@@ -28,9 +29,9 @@ def test_request_response_hides_expected_outcomes(
             raise expected_error
 
     monkeypatch.setattr(
-        "app.auth_api.connect_database", lambda settings: nullcontext(object())
+        "app.endpoints.auth.connect_database", lambda settings: nullcontext(object())
     )
-    monkeypatch.setattr("app.auth_api.deliver_login_code", fake_delivery)
+    monkeypatch.setattr("app.endpoints.auth.deliver_login_code", fake_delivery)
     client = TestClient(create_app(Settings(environment="test")))
 
     response = client.post(
@@ -50,9 +51,9 @@ def test_request_does_not_hide_unexpected_server_failures(
         raise RuntimeError("unexpected failure")
 
     monkeypatch.setattr(
-        "app.auth_api.connect_database", lambda settings: nullcontext(object())
+        "app.endpoints.auth.connect_database", lambda settings: nullcontext(object())
     )
-    monkeypatch.setattr("app.auth_api.deliver_login_code", fail_unexpectedly)
+    monkeypatch.setattr("app.endpoints.auth.deliver_login_code", fail_unexpectedly)
     client = TestClient(
         create_app(Settings(environment="test")), raise_server_exceptions=False
     )
@@ -64,34 +65,48 @@ def test_request_does_not_hide_unexpected_server_failures(
     assert response.status_code == 500
 
 
-def test_verification_sets_approved_secure_cookie(monkeypatch: MonkeyPatch) -> None:
-    """Successful verification returns only the user and secure cookie."""
+@mark.parametrize(
+    "email,user_type,expected_admin",
+    [
+        ("user@example.test", "user", False),
+        ("user@example.test", "admin", True),
+        ("hlabisasanele730@gmail.com", "user", False),
+    ],
+)
+def test_verification_sets_approved_secure_cookie(
+    monkeypatch: MonkeyPatch,
+    email: str,
+    user_type: Literal["user", "admin"],
+    expected_admin: bool,
+) -> None:
+    """Stored types alone control access, despite seed email or stale admin env."""
 
-    user = User(7, "user@example.test", datetime(2026, 10, 9, tzinfo=UTC))
+    monkeypatch.setenv("MONITOR_ADMIN_EMAILS", email)  # Negative legacy-env regression.
+    user = User(7, email, datetime(2026, 10, 9, tzinfo=UTC), user_type)
     session = CreatedSession(
         UUID("00000000-0000-0000-0000-000000000001"),
         "opaque-cookie-token",
         datetime(2026, 11, 8, tzinfo=UTC),
     )
     monkeypatch.setattr(
-        "app.auth_api.connect_database", lambda settings: nullcontext(object())
+        "app.endpoints.auth.connect_database", lambda settings: nullcontext(object())
     )
-    monkeypatch.setattr("app.auth_api.verify_otp", lambda *args: user)
-    monkeypatch.setattr("app.auth_api.create_session", lambda *args: session)
+    monkeypatch.setattr("app.endpoints.auth.verify_otp", lambda *args: user)
+    monkeypatch.setattr("app.endpoints.auth.create_session", lambda *args: session)
     client = TestClient(
         create_app(Settings(environment="test")), base_url="https://testserver"
     )
 
     response = client.post(
         "/api/auth/verify-otp",
-        json={"email": "user@example.test", "code": "123456"},
+        json={"email": email, "code": "123456"},
     )
 
     cookie = response.headers["set-cookie"]
     assert response.json() == {
         "id": 7,
-        "email": "user@example.test",
-        "is_admin": False,
+        "email": email,
+        "is_admin": expected_admin,
     }
     assert "monitor_session=opaque-cookie-token" in cookie
     assert "Max-Age=2592000" in cookie
@@ -110,9 +125,9 @@ def test_verification_failure_is_generic(monkeypatch: MonkeyPatch) -> None:
         raise OtpVerificationError("specific internal reason")
 
     monkeypatch.setattr(
-        "app.auth_api.connect_database", lambda settings: nullcontext(object())
+        "app.endpoints.auth.connect_database", lambda settings: nullcontext(object())
     )
-    monkeypatch.setattr("app.auth_api.verify_otp", reject_code)
+    monkeypatch.setattr("app.endpoints.auth.verify_otp", reject_code)
     client = TestClient(create_app(Settings(environment="test")))
 
     response = client.post(

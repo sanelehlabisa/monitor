@@ -1,10 +1,8 @@
 """Integration checks against an isolated, freshly bootstrapped database."""
 
-from pathlib import Path
 from uuid import uuid4
 
 from app.database import connect_database, database_is_available
-from app.migrations import run_migrations
 from app.settings import Settings
 from psycopg.errors import (
     CheckViolation,
@@ -40,19 +38,6 @@ def test_fresh_schema_has_domain_tables_without_fake_migration_history() -> None
         "balance_entries", "top_up_entries", "reminder_settings", "reminder_deliveries",
     }
     assert history == (None, None)
-
-
-def test_legacy_runner_refuses_fresh_schema_before_creating_history(tmp_path: Path) -> None:
-    """The retired runner cannot add bookkeeping to an initialized fresh schema."""
-
-    settings = Settings()
-    with raises(RuntimeError, match="Legacy migrations are unsupported"):
-        run_migrations(settings, tmp_path)
-    with connect_database(settings) as connection:
-        assert connection.execute(
-            "SELECT to_regclass('monitor.schema_migrations'), "
-            "to_regclass('public.schema_migrations')"
-        ).fetchone() == (None, None)
 
 
 def test_fresh_seeds_have_stored_types_and_owner_memberships() -> None:

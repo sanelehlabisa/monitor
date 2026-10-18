@@ -4,9 +4,9 @@ from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
 
-from app.balance_entries import BalanceEntry
-from app.forecasting import run_forecast_model
-from app.top_up_entries import TopUpEntry
+from app.modules.balance_entries import BalanceEntry
+from app.modules.forecasting import run_forecast_model
+from app.modules.top_up_entries import TopUpEntry
 
 START = datetime(2026, 10, 1, 8, tzinfo=UTC)
 

@@ -5,12 +5,11 @@ management and manual kWh history. It restores cookie sessions through
 `/api/me`, supports email/code/resend/logout, and lets a signed-in user add,
 list, select, rename and delete nickname-only software meters.
 
-The following describes the current implementation. Ticket 69 below plans
-database roles, shared meters and a fixed monthly planning date; none is active
-yet, and Task 056 changes documentation only.
+The following describes the current implementation. Task 059 makes stored DB
+roles active; Ticket 69's shared meters and fixed planning date remain future.
 
-Regular users see and manage only their own meters. Users whose normalized email
-is configured as an administrator see every meter's owner email and the same
+Regular users see and manage only their own meters. Users whose stored type is
+`admin` see every meter's owner email and the same
 select/rename/confirmed-delete controls for all meters. Task 039 hides the nav
 role badge without changing administrator access. New
 meter creation remains intentionally name-only and always belongs to the signed-
@@ -46,6 +45,29 @@ Run checks from this directory with:
 npm test
 npm run build
 ```
+
+## Source layout (Task 062)
+
+`App.tsx` keeps session state, manual URL/history handling and coordinated
+meter/ledger requests, including the existing stale-response guards. Screens
+and their existing components are grouped without a new routing dependency:
+
+```text
+src/
+  App.tsx, main.tsx
+  routes/login/LoginPage.tsx
+  routes/meters/MetersPage.tsx, MeterDetailsPage.tsx, meterRoute.ts
+  routes/meters/components/MeterSection.tsx, MeterSearch.tsx
+  routes/meters/components/ForecastPanel.tsx, LedgerPanel.tsx
+  components/Navigation.tsx
+  lib/api.ts, dateTime.ts, theme.ts
+```
+
+API/date/route-helper tests live beside those helpers; `App.test.tsx` retains the
+existing screen assertions. Login is still the unauthenticated view at the
+requested URL, not a new `/login` route. Page keys, form resets, appearance and
+request behavior are unchanged. The old mixed screen files have no re-export
+shims; their committed originals remain recoverable from Git history.
 
 ## Docker targets
 
@@ -327,7 +349,7 @@ signed-in navigation rather than using separate brand/navigation rows.
 Browser title is Monitor; the same PNG is the favicon and
 theme-colour metadata matches the primary blue. No PWA or logo regeneration.
 
-The existing MUI theme in App.tsx owns the palette: primary blue #005aae,
+The existing MUI theme in lib/theme.ts owns the palette: primary blue #005aae,
 accessible teal #007782, a white page and light-blue interaction accents.
 Task 046 replaces the earlier cards/filled headers with open blue headings and
 blue/teal forecast values; active admin tabs have a blue underline. Top-up and

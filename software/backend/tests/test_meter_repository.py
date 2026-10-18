@@ -4,7 +4,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.database import connect_database
-from app.meters import (
+from app.modules.meters import (
     MeterNameConflictError,
     MeterNotFoundError,
     create_meter,

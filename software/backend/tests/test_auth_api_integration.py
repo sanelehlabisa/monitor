@@ -70,6 +70,9 @@ def test_new_user_can_sign_in_use_me_and_log_out() -> None:
         assert denied.status_code == 401
 
         with connect_database(settings) as connection:
+            assert connection.execute(
+                "SELECT type FROM monitor.users WHERE email = %s", (email,)
+            ).fetchone() == ("user",)
             row = connection.execute(
                 """SELECT COUNT(*), COUNT(revoked_at)
                    FROM monitor.user_sessions AS sessions

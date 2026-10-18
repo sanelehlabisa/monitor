@@ -2,7 +2,7 @@
 
 import hashlib
 
-from app.sessions import generate_session_token, session_token_digest
+from app.modules.sessions import generate_session_token, session_token_digest
 from pytest import MonkeyPatch, raises
 
 
@@ -17,7 +17,7 @@ def test_generate_session_token_requests_32_random_bytes(
         requested.append(byte_count)
         return "opaque-session-token"
 
-    monkeypatch.setattr("app.sessions.secrets.token_urlsafe", fake_token_urlsafe)
+    monkeypatch.setattr("app.modules.sessions.secrets.token_urlsafe", fake_token_urlsafe)
 
     assert generate_session_token() == "opaque-session-token"
     assert requested == [32]

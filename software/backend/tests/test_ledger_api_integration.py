@@ -1,21 +1,25 @@
 """Live PostgreSQL authorization tests for manual ledger APIs."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 from uuid import uuid4
 
-from app.auth_api import COOKIE_NAME
+from app.endpoints.auth import COOKIE_NAME
 from app.database import connect_database
 from app.main import create_app
-from app.meters import create_meter
-from app.sessions import create_session
+from app.modules.meters import create_meter
+from app.modules.sessions import create_session
 from app.settings import Settings
 from fastapi.testclient import TestClient
 
 
-def _client_for(settings: Settings, email: str) -> tuple[TestClient, int]:
+def _client_for(
+    settings: Settings, email: str, user_type: Literal["user", "admin"] = "user"
+) -> tuple[TestClient, int]:
     with connect_database(settings) as connection:
         row = connection.execute(
-            "INSERT INTO monitor.users (email) VALUES (%s) RETURNING id", (email,)
+            "INSERT INTO monitor.users (email, type) VALUES (%s, %s) RETURNING id",
+            (email, user_type),
         ).fetchone()
         assert row
         session = create_session(connection, row[0])
@@ -30,10 +34,10 @@ def test_manual_ledger_crud_validation_and_access() -> None:
     owner_email = f"ledger-owner-{uuid4().hex}@example.test"
     other_email = f"ledger-other-{uuid4().hex}@example.test"
     admin_email = f"ledger-admin-{uuid4().hex}@example.test"
-    settings = Settings(environment="test", admin_emails=admin_email)
+    settings = Settings(environment="test")
     owner, owner_id = _client_for(settings, owner_email)
     other, _ = _client_for(settings, other_email)
-    admin, _ = _client_for(settings, admin_email)
+    admin, _ = _client_for(settings, admin_email, "admin")
     with connect_database(settings) as connection:
         home = create_meter(connection, owner_id, "Home")
         garage = create_meter(connection, owner_id, "Garage")

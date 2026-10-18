@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from app.otp import code_digest, generate_code, normalize_email
+from app.modules.otp import code_digest, generate_code, normalize_email
 from pytest import MonkeyPatch, raises
 
 
@@ -17,7 +17,7 @@ def test_normalize_email_uses_one_canonical_key() -> None:
 def test_generate_code_is_zero_padded(monkeypatch: MonkeyPatch) -> None:
     """All generated values fit the approved six-digit delivery format."""
 
-    monkeypatch.setattr("app.otp.secrets.randbelow", lambda limit: 7)
+    monkeypatch.setattr("app.modules.otp.secrets.randbelow", lambda limit: 7)
 
     assert generate_code() == "000007"
 

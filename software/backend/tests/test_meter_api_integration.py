@@ -1,19 +1,24 @@
 """Live PostgreSQL authorization tests for the meter CRUD API."""
 
+from typing import Literal
 from uuid import uuid4
 
-from app.auth_api import COOKIE_NAME
+from app.endpoints.auth import COOKIE_NAME
 from app.database import connect_database
 from app.main import create_app
-from app.sessions import create_session
+from app.modules.sessions import create_session
 from app.settings import Settings
 from fastapi.testclient import TestClient
+from pytest import MonkeyPatch
 
 
-def _client_for(settings: Settings, email: str) -> tuple[TestClient, int]:
+def _client_for(
+    settings: Settings, email: str, user_type: Literal["user", "admin"] = "user"
+) -> tuple[TestClient, int]:
     with connect_database(settings) as connection:
         row = connection.execute(
-            "INSERT INTO monitor.users (email) VALUES (%s) RETURNING id", (email,)
+            "INSERT INTO monitor.users (email, type) VALUES (%s, %s) RETURNING id",
+            (email, user_type),
         ).fetchone()
         assert row
         session = create_session(connection, row[0])
@@ -28,10 +33,10 @@ def test_meter_api_enforces_owner_scope_and_admin_access() -> None:
     normal_email = f"meter-user-{uuid4().hex}@example.test"
     other_email = f"meter-other-{uuid4().hex}@example.test"
     admin_email = f"meter-admin-{uuid4().hex}@example.test"
-    settings = Settings(environment="test", admin_emails=admin_email)
+    settings = Settings(environment="test")
     normal, _ = _client_for(settings, normal_email)
     other, _ = _client_for(settings, other_email)
-    admin, _ = _client_for(settings, admin_email)
+    admin, _ = _client_for(settings, admin_email, "admin")
     try:
         existing = admin.get("/api/meters")
         assert existing.status_code == 200
@@ -86,4 +91,38 @@ def test_meter_api_enforces_owner_scope_and_admin_access() -> None:
             connection.execute(
                 "DELETE FROM monitor.users WHERE email IN (%s, %s, %s)",
                 (normal_email, other_email, admin_email),
+            )
+
+
+def test_same_cookie_observes_promotion_and_demotion(monkeypatch: MonkeyPatch) -> None:
+    """The next request reads its DB role; stale admin env grants nothing."""
+
+    email = f"role-session-{uuid4().hex}@example.test"
+    owner_email = f"role-owner-{uuid4().hex}@example.test"
+    monkeypatch.setenv("MONITOR_ADMIN_EMAILS", email)  # Negative legacy-env regression.
+    settings = Settings(environment="test")
+    client, user_id = _client_for(settings, email)
+    owner, _ = _client_for(settings, owner_email)
+    cookie = client.cookies.get(COOKIE_NAME)
+    assert cookie
+    try:
+        meter = owner.post("/api/meters", json={"name": "Foreign meter"})
+        assert meter.status_code == 201
+        url = f"/api/meters/{meter.json()['id']}"
+        for user_type, expected_admin in (
+            ("user", False), ("admin", True), ("user", False)
+        ):
+            with connect_database(settings) as connection:
+                connection.execute(
+                    "UPDATE monitor.users SET type = %s WHERE id = %s", (user_type, user_id)
+                )
+            current = client.get("/api/me")
+            assert current.status_code == 200
+            assert current.json()["is_admin"] is expected_admin
+            assert client.get(url).status_code == (200 if expected_admin else 404)
+            assert client.cookies.get(COOKIE_NAME) == cookie
+    finally:
+        with connect_database(settings) as connection:
+            connection.execute(
+                "DELETE FROM monitor.users WHERE email IN (%s, %s)", (email, owner_email)
             )

@@ -5,8 +5,8 @@ from typing import Any
 from uuid import uuid4
 
 from app.database import connect_database
-from app.meters import MeterNotFoundError, create_meter, delete_meter
-from app.reminder_settings import get_reminder_settings, upsert_reminder_settings
+from app.modules.meters import MeterNotFoundError, create_meter, delete_meter
+from app.modules.reminder_settings import get_reminder_settings, upsert_reminder_settings
 from app.settings import Settings
 from psycopg import Connection
 from psycopg.errors import CheckViolation

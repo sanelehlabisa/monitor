@@ -1,26 +1,15 @@
 """FastAPI application entry point."""
 
-from typing import Literal
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
 from app import __version__
-from app.auth_api import router as auth_router
-from app.ledger_api import router as ledger_router
-from app.meter_api import router as meter_router
-from app.reminder_api import router as reminder_router
+from app.endpoints.auth import router as auth_router
+from app.endpoints.ledger import router as ledger_router
+from app.endpoints.meters import router as meter_router
+from app.endpoints.reminders import router as reminder_router
+from app.schemas.health import HealthResponse
 from app.settings import Settings
-
-
-class HealthResponse(BaseModel):
-    """Stable process-health response returned to local tooling."""
-
-    status: Literal["ok"] = "ok"
-    service: str
-    version: str
-    environment: str
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

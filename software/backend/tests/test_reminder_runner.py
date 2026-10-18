@@ -6,16 +6,16 @@ from email.message import EmailMessage
 from typing import Any
 from uuid import uuid4
 
-from app.balance_entries import create_balance_entry
+from app.modules.balance_entries import create_balance_entry
 from app.database import connect_database
-from app.email_delivery import EmailDeliveryError
-from app.meters import Meter, create_meter
-from app.reminder_deliveries import (
+from app.modules.email_delivery import EmailDeliveryError
+from app.modules.meters import Meter, create_meter
+from app.modules.reminder_deliveries import (
     claim_reminder_delivery,
     complete_reminder_delivery,
 )
-from app.reminder_runner import run_due_reminders
-from app.reminder_settings import upsert_reminder_settings
+from app.modules.reminder_runner import run_due_reminders
+from app.modules.reminder_settings import upsert_reminder_settings
 from app.settings import Settings
 from psycopg import Connection
 

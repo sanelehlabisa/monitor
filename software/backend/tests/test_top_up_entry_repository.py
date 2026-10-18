@@ -6,9 +6,9 @@ from typing import Any
 from uuid import uuid4
 
 from app.database import connect_database
-from app.meters import MeterNotFoundError, create_meter
+from app.modules.meters import MeterNotFoundError, create_meter
 from app.settings import Settings
-from app.top_up_entries import (
+from app.modules.top_up_entries import (
     TopUpEntryNotFoundError,
     create_top_up_entry,
     delete_top_up_entry,

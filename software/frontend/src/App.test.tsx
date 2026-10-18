@@ -2,12 +2,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import App from './App';
-import { LoginPanel, MeterSearch, SignedInPanel } from './AuthPanels';
-import { ForecastPanel } from './ForecastPanel';
-import { LedgerPanel } from './LedgerPanel';
-import { MeterWorkspace } from './MeterWorkspace';
-import { Navigation } from './Navigation';
-import type { Forecast } from './api';
+import { LoginPage } from './routes/login/LoginPage';
+import { MeterSearch } from './routes/meters/components/MeterSearch';
+import { MeterSection } from './routes/meters/components/MeterSection';
+import { ForecastPanel } from './routes/meters/components/ForecastPanel';
+import { LedgerPanel } from './routes/meters/components/LedgerPanel';
+import { MetersPage } from './routes/meters/MetersPage';
+import { MeterDetailsPage } from './routes/meters/MeterDetailsPage';
+import { Navigation } from './components/Navigation';
+import type { Forecast } from './lib/api';
 
 const noAction = () => undefined;
 const yes = async () => true;
@@ -92,7 +95,7 @@ describe('Monitor authentication UI', () => {
 
   it('renders the email and code steps as one compact flow', () => {
     const emailMarkup = renderToStaticMarkup(
-      <LoginPanel
+      <LoginPage
         busy={false}
         code=""
         email=""
@@ -107,7 +110,7 @@ describe('Monitor authentication UI', () => {
       />,
     );
     const codeMarkup = renderToStaticMarkup(
-      <LoginPanel
+      <LoginPage
         busy={false}
         code="123456"
         email="user@example.test"
@@ -133,15 +136,14 @@ describe('Monitor authentication UI', () => {
 
   it('renders an honest signed-in meter empty state and name-only form', () => {
     const markup = renderToStaticMarkup(
-      <SignedInPanel
+      <MeterSection
         error=""
         user={{ id: 7, email: 'user@example.test', is_admin: false }}
       >
-        <MeterWorkspace
+        <MetersPage
           adminView="mine"
           busy={false}
           currentUserEmail="user@example.test"
-          editName=""
           error=""
           isAdmin={false}
           loading={false}
@@ -153,10 +155,9 @@ describe('Monitor authentication UI', () => {
           onNameChange={noAction}
           onRename={yes}
           onSelect={noAction}
-          selectedMeter={null}
           search=""
         />
-      </SignedInPanel>,
+      </MeterSection>,
     );
 
     expect(markup).toContain('Meters');
@@ -172,7 +173,7 @@ describe('Monitor authentication UI', () => {
 
   it('keeps header search clearable with an active filter and an empty draft', () => {
     const search = <MeterSearch busy={false} value="" active isAdmin onChange={noAction} onSubmit={noAction} onClear={noAction} />;
-    const markup = renderToStaticMarkup(<SignedInPanel error="" search={search} user={{ id: 7, email: 'admin@example.test', is_admin: true }} />);
+    const markup = renderToStaticMarkup(<MeterSection error="" search={search} user={{ id: 7, email: 'admin@example.test', is_admin: true }} />);
     expect(markup).toContain('Search meters');
     expect(markup).toContain('Name or owner email');
     expect(markup).toContain('aria-label="Search meters"');
@@ -180,7 +181,7 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('aria-label="Clear search"');
     expect(markup).toContain('ClearIcon');
     expect(markup).not.toMatch(/<button\b[^>]*disabled=""/);
-    const detail = renderToStaticMarkup(<SignedInPanel error="" meterId="meter-id" search={search} user={{ id: 7, email: 'user@example.test', is_admin: false }} />);
+    const detail = renderToStaticMarkup(<MeterSection error="" meterId="meter-id" search={search} user={{ id: 7, email: 'user@example.test', is_admin: false }} />);
     expect(detail).not.toContain('Search meters');
     const pending = renderToStaticMarkup(<MeterSearch busy value="Home" active isAdmin={false} onChange={noAction} onSubmit={noAction} onClear={noAction} />);
     expect(pending.match(/<button\b[^>]*disabled=""/g)).toHaveLength(2);
@@ -195,11 +196,10 @@ describe('Monitor authentication UI', () => {
       updated_at: '2026-10-09T10:00:00Z',
     };
     const listMarkup = renderToStaticMarkup(
-      <MeterWorkspace
+      <MetersPage
         adminView="mine"
         busy={false}
         currentUserEmail="user@example.test"
-        editName=""
         error=""
         isAdmin={false}
         loading={false}
@@ -211,32 +211,20 @@ describe('Monitor authentication UI', () => {
         onNameChange={noAction}
         onRename={yes}
         onSelect={noAction}
-        selectedMeter={null}
         search=""
       />,
     );
     const selectedMarkup = renderToStaticMarkup(
-      <MeterWorkspace
-        adminView="mine"
+      <MeterDetailsPage
         busy={false}
-        currentUserEmail="user@example.test"
         editName="Home"
         error=""
-        isAdmin={false}
-        loading={false}
-        meters={[meter]}
-        name=""
-        onCreate={noAction}
-        onDelete={noAction}
         onEditNameChange={noAction}
-        onNameChange={noAction}
         onRename={yes}
-        onSelect={noAction}
         selectedContent={
           <ForecastPanel forecast={notEnoughForecast} loading={false} />
         }
         selectedMeter={meter}
-        search=""
       />,
     );
 
@@ -278,17 +266,16 @@ describe('Monitor authentication UI', () => {
       owner_email: 'admin@example.test',
     };
     const renderAdminView = (adminView: 'mine' | 'all') => renderToStaticMarkup(
-      <SignedInPanel
+      <MeterSection
         adminView={adminView}
         onAdminViewChange={noAction}
         error=""
         user={{ id: 9, email: 'admin@example.test', is_admin: true }}
       >
-        <MeterWorkspace
+        <MetersPage
           adminView={adminView}
           busy={false}
           currentUserEmail="admin@example.test"
-          editName=""
           error=""
           isAdmin
           loading={false}
@@ -300,10 +287,9 @@ describe('Monitor authentication UI', () => {
           onNameChange={noAction}
           onRename={yes}
           onSelect={noAction}
-          selectedMeter={null}
           search=""
         />
-      </SignedInPanel>,
+      </MeterSection>,
     );
     const mineMarkup = renderAdminView('mine');
     const allMarkup = renderAdminView('all');

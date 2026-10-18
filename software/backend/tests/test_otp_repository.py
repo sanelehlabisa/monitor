@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from app.database import connect_database
-from app.otp import (
+from app.modules.otp import (
     OtpRateLimitError,
     OtpVerificationError,
     code_digest,
@@ -102,6 +102,33 @@ def test_verification_enforces_attempts_one_use_and_user_creation() -> None:
 
         assert user.email == email
         assert same_user.id == user.id
+        assert user.type == same_user.type == "user"
+    finally:
+        _remove_email(settings, email)
+
+
+def test_returning_otp_preserves_admin_and_manual_demotion() -> None:
+    """Repeated verification reads stored roles instead of changing them."""
+
+    settings = Settings()
+    email = _unique_email("returning-role")
+    start = datetime(2026, 1, 4, tzinfo=UTC)
+    try:
+        with connect_database(settings) as connection:
+            first = issue_otp(connection, email, SECRET, start)
+            user = verify_otp(connection, email, first.code, SECRET, start + timedelta(seconds=1))
+            assert user.type == "user"
+            for minute, user_type in ((1, "admin"), (2, "user")):
+                connection.execute(
+                    "UPDATE monitor.users SET type = %s WHERE id = %s", (user_type, user.id)
+                )
+                requested_at = start + timedelta(minutes=minute)
+                issued = issue_otp(connection, email, SECRET, requested_at)
+                returning = verify_otp(
+                    connection, email, issued.code, SECRET, requested_at + timedelta(seconds=1)
+                )
+                assert returning.id == user.id
+                assert returning.type == user_type
     finally:
         _remove_email(settings, email)
 

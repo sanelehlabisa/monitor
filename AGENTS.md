@@ -32,16 +32,9 @@ Preserve hardware/OCR research for later evidence-driven reconsideration. Any
 future physical integration must not open, electrically modify, bypass or
 interfere with a meter. Anomaly output is never proof of theft.
 
-## Future generated design outputs
+## Preservation
 
-These rules apply only when a later approved hardware/design ticket resumes the
-deferred work.
-
-- CAD: `hardware/mechanical/out/<part>/`; references: `out/references/<model>/`.
-- Future PCBs: `hardware/pcb/out/<board>/`; create only when a ticket needs them.
-- Retain editable sources in component trees. Group handoff files, checks,
-  at least three PNG views and a short sending/rebuild README per design.
-- Mark reference models "do not print"; preserve prototype/qualification warnings.
-- Reuse exporters, stage temporary output separately and publish after checks.
-- Before removing outputs, check dependencies and record paths/recovery.
-  Never delete unique drawings or sources as generated clutter.
+Before deleting retired files, check dependencies and verify recovery copies;
+record exact paths and checks in changes.md. Preserve live data, backups,
+research, unique design sources, refocus.md and historical work records. Never
+reset a database or start/restart source services without appropriate approval.

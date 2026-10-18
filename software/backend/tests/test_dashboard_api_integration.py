@@ -2,23 +2,27 @@
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Literal
 from uuid import uuid4
 
-from app.auth_api import COOKIE_NAME
-from app.balance_entries import create_balance_entry, update_balance_entry
+from app.endpoints.auth import COOKIE_NAME
+from app.modules.balance_entries import create_balance_entry, update_balance_entry
 from app.database import connect_database
 from app.main import create_app
-from app.meters import create_meter
-from app.sessions import create_session
+from app.modules.meters import create_meter
+from app.modules.sessions import create_session
 from app.settings import Settings
-from app.top_up_entries import create_top_up_entry
+from app.modules.top_up_entries import create_top_up_entry
 from fastapi.testclient import TestClient
 
 
-def _client_for(settings: Settings, email: str) -> tuple[TestClient, int]:
+def _client_for(
+    settings: Settings, email: str, user_type: Literal["user", "admin"] = "user"
+) -> tuple[TestClient, int]:
     with connect_database(settings) as connection:
         row = connection.execute(
-            "INSERT INTO monitor.users (email) VALUES (%s) RETURNING id", (email,)
+            "INSERT INTO monitor.users (email, type) VALUES (%s, %s) RETURNING id",
+            (email, user_type),
         ).fetchone()
         assert row
         session = create_session(connection, row[0])
@@ -34,10 +38,10 @@ def test_dashboard_states_history_corrections_and_access() -> None:
     owner_email = f"dashboard-owner-{suffix}@example.test"
     other_email = f"dashboard-other-{suffix}@example.test"
     admin_email = f"dashboard-admin-{suffix}@example.test"
-    settings = Settings(environment="test", admin_emails=admin_email)
+    settings = Settings(environment="test")
     owner, owner_id = _client_for(settings, owner_email)
     other, _ = _client_for(settings, other_email)
-    admin, _ = _client_for(settings, admin_email)
+    admin, _ = _client_for(settings, admin_email, "admin")
     with connect_database(settings) as connection:
         meter = create_meter(connection, owner_id, "Home")
     url = f"/api/meters/{meter.id}/dashboard"

@@ -7,18 +7,21 @@ import {
   Stack,
   ThemeProvider,
   Typography,
-  createTheme,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { LoginPanel, MeterSearch, SignedInPanel, type LoginStep } from './AuthPanels';
-import { ForecastPanel } from './ForecastPanel';
-import { LedgerPanel, type LedgerItem } from './LedgerPanel';
-import { MeterWorkspace, type AdminMeterView } from './MeterWorkspace';
-import { Navigation } from './Navigation';
-import { isMeterListPath, meterIdFromPath } from './meterRoute';
+import { LoginPage, type LoginStep } from './routes/login/LoginPage';
+import { MeterSearch } from './routes/meters/components/MeterSearch';
+import { MeterSection } from './routes/meters/components/MeterSection';
+import { ForecastPanel } from './routes/meters/components/ForecastPanel';
+import { LedgerPanel, type LedgerItem } from './routes/meters/components/LedgerPanel';
+import { MetersPage, type AdminMeterView } from './routes/meters/MetersPage';
+import { MeterDetailsPage } from './routes/meters/MeterDetailsPage';
+import { theme } from './lib/theme';
+import { Navigation } from './components/Navigation';
+import { isMeterListPath, meterIdFromPath } from './routes/meters/meterRoute';
 import {
   ApiError,
   createBalance,
@@ -43,7 +46,7 @@ import {
   type Meter,
   type TopUpEntry,
   type User,
-} from './api';
+} from './lib/api';
 
 function newestFirst<T extends { occurred_at: string; id: string }>(items: T[]): T[] {
   return [...items].sort(
@@ -65,50 +68,6 @@ function ledgerFailure(error: unknown, action: string): string {
   }
   return `The ${action} could not be completed. Try again.`;
 }
-
-const theme = createTheme({
-  // Deeper logo-inspired colours keep text readable on the light surfaces.
-  palette: {
-    primary: { main: '#005aae', light: '#e2f0ff', contrastText: '#ffffff' },
-    secondary: { main: '#007782', dark: '#005d7a', light: '#e7f6f5', contrastText: '#ffffff' },
-    background: { default: '#ffffff', paper: '#ffffff' },
-    text: { primary: '#16324b', secondary: '#4b6173' },
-    divider: '#cee1ed',
-  },
-  typography: {
-    fontFamily: '"Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif',
-    body1: { fontSize: '0.875rem', lineHeight: 1.5 },
-    body2: { fontSize: '0.875rem', lineHeight: 1.5 },
-    caption: { fontSize: '0.875rem', lineHeight: 1.5 },
-    subtitle1: { fontSize: '0.875rem' },
-    subtitle2: { fontSize: '0.875rem' },
-    button: { fontSize: '0.875rem' },
-    h4: { fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.4 },
-    h5: { fontSize: '1.25rem', fontWeight: 700, lineHeight: 1.4 },
-    h6: { fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.4 },
-  },
-  shape: { borderRadius: 12 },
-  components: {
-    MuiButton: {
-      defaultProps: { disableElevation: true, size: 'small' },
-      styleOverrides: {
-        root: ({ theme }) => ({ textTransform: 'none', fontWeight: 600,
-          '&.Mui-focusVisible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 3 } }),
-        sizeSmall: { fontSize: '0.875rem' },
-        sizeMedium: { fontSize: '0.875rem' },
-        sizeLarge: { fontSize: '0.875rem' },
-      },
-    },
-    MuiIconButton: {
-      styleOverrides: {
-        root: ({ theme }) => ({ '&.Mui-focusVisible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 } }),
-      },
-    },
-    MuiTextField: { defaultProps: { size: 'small' } },
-    MuiOutlinedInput: { styleOverrides: { root: { borderRadius: '10px', backgroundColor: '#ffffff' }, notchedOutline: { borderColor: '#6a8194' } } },
-    MuiTab: { styleOverrides: { root: { textTransform: 'none' } } },
-  },
-});
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -630,7 +589,7 @@ export default function App() {
                 <CircularProgress aria-label="Loading your session" color="inherit" />
               </Box>
             ) : user ? (
-              <SignedInPanel
+              <MeterSection
                 error={error}
                 meterId={meterIdFromPath(meterPath) ?? undefined}
                 adminView={adminMeterView}
@@ -646,59 +605,68 @@ export default function App() {
                   <Box sx={{ display: 'grid', minHeight: 160, placeItems: 'center' }}>
                     <CircularProgress aria-label="Loading meter" color="inherit" />
                   </Box>
-                ) : <MeterWorkspace key={selectedMeter?.id ?? 'list'}
-                  adminView={adminMeterView}
-                  busy={meterBusy || ledgerBusy}
-                  currentUserEmail={user.email}
-                  editName={editMeterName}
-                  error={meterError}
-                  isAdmin={user.is_admin}
-                  loading={metersLoading}
-                  meters={meters}
-                  name={meterName}
-                  onCreate={handleCreateMeter}
-                  onDelete={handleDeleteMeter}
-                  onEditNameChange={setEditMeterName}
-                  onNameChange={setMeterName}
-                  onRename={handleRenameMeter}
-                  onSelect={(meter) => navigateToMeter(meter.id)}
-                  selectedContent={
-                    selectedMeter ? (
-                      <Stack key={selectedMeter.id} spacing={2.5}>
-                        <ForecastPanel
-                          forecast={forecast}
-                          loading={ledgerLoading}
-                        />
-                        <LedgerPanel
-                          balances={balances}
-                          busy={ledgerBusy || meterBusy}
-                          error={ledgerError}
-                          loading={ledgerLoading}
-                          onCreateBalance={handleCreateBalance}
-                          onCreateTopUp={handleCreateTopUp}
-                          onDelete={handleDeleteEntry}
-                          onUpdate={handleUpdateEntry}
-                          topUps={topUps}
-                        />
-                        <Button
-                          color="secondary"
-                          disabled={ledgerLoading || ledgerBusy || meterBusy}
-                          onClick={() => loadDashboard(selectedMeter.id)}
-                          size="small"
-                          startIcon={<RefreshIcon />}
-                          sx={{ alignSelf: 'flex-end' }}
-                        >
-                          Refresh
-                        </Button>
-                      </Stack>
-                    ) : undefined
-                  }
-                  selectedMeter={selectedMeter}
-                  search={appliedMeterSearch}
-                />}
-              </SignedInPanel>
+                ) : selectedMeter ? (
+                  <MeterDetailsPage key={selectedMeter.id}
+                    busy={meterBusy || ledgerBusy}
+                    editName={editMeterName}
+                    error={meterError}
+                    onEditNameChange={setEditMeterName}
+                    onRename={handleRenameMeter}
+                    selectedContent={
+                      selectedMeter ? (
+                        <Stack key={selectedMeter.id} spacing={2.5}>
+                          <ForecastPanel
+                            forecast={forecast}
+                            loading={ledgerLoading}
+                          />
+                          <LedgerPanel
+                            balances={balances}
+                            busy={ledgerBusy || meterBusy}
+                            error={ledgerError}
+                            loading={ledgerLoading}
+                            onCreateBalance={handleCreateBalance}
+                            onCreateTopUp={handleCreateTopUp}
+                            onDelete={handleDeleteEntry}
+                            onUpdate={handleUpdateEntry}
+                            topUps={topUps}
+                          />
+                          <Button
+                            color="secondary"
+                            disabled={ledgerLoading || ledgerBusy || meterBusy}
+                            onClick={() => loadDashboard(selectedMeter.id)}
+                            size="small"
+                            startIcon={<RefreshIcon />}
+                            sx={{ alignSelf: 'flex-end' }}
+                          >
+                            Refresh
+                          </Button>
+                        </Stack>
+                      ) : undefined
+                    }
+                    selectedMeter={selectedMeter}
+                  />
+                ) : (
+                  <MetersPage key="list"
+                    adminView={adminMeterView}
+                    busy={meterBusy || ledgerBusy}
+                    currentUserEmail={user.email}
+                    error={meterError}
+                    isAdmin={user.is_admin}
+                    loading={metersLoading}
+                    meters={meters}
+                    name={meterName}
+                    onCreate={handleCreateMeter}
+                    onDelete={handleDeleteMeter}
+                    onEditNameChange={setEditMeterName}
+                    onNameChange={setMeterName}
+                    onRename={handleRenameMeter}
+                    onSelect={(meter) => navigateToMeter(meter.id)}
+                    search={appliedMeterSearch}
+                  />
+                )}
+              </MeterSection>
             ) : (
-              <LoginPanel
+              <LoginPage
                 busy={busy}
                 code={code}
                 email={email}

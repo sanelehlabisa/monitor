@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from app.database import connect_database
-from app.sessions import (
+from app.modules.sessions import (
     SESSION_TTL,
     SessionAuthenticationError,
     authenticate_session,
@@ -61,6 +61,7 @@ def test_multiple_sessions_authenticate_and_store_only_digests() -> None:
         assert first.token not in repr(first)
         assert first.expires_at == now + SESSION_TTL
         assert first_user.id == second_user.id == user_id
+        assert first_user.type == second_user.type == "user"
         assert rows == [
             (session_token_digest(first.token),),
             (session_token_digest(second.token),),

@@ -8,8 +8,8 @@ from urllib.request import urlopen
 from uuid import uuid4
 
 from app.database import connect_database
-from app.email_delivery import EmailDeliveryError, deliver_login_code
-from app.otp import code_digest
+from app.modules.email_delivery import EmailDeliveryError, deliver_login_code
+from app.modules.otp import code_digest
 from app.settings import Settings
 from pytest import raises
 

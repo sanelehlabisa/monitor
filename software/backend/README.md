@@ -4,6 +4,28 @@ FastAPI REST service with a reusable application factory, typed configuration
 and a process-only health endpoint. Core settings use the `MONITOR_` prefix;
 SMTP settings use the approved Job Talk-style names in `.env.example`.
 
+## Code layout
+
+```text
+app/
+  main.py          application factory; app.main:app stays the entrypoint
+  settings.py      typed configuration
+  database.py      Psycopg connection helpers
+  __init__.py      package version
+  modules/         existing domain logic, raw SQL, email and forecast calculations
+  schemas/         Pydantic requests/responses and their existing validators
+  endpoints/       auth, meters, ledger and reminders HTTP routers
+```
+
+Domain dataclasses stay with their modules; schemas are not ORM models. Packages
+have docstring-only initializers, without compatibility shims or eager exports.
+All callers still use `app.modules.forecasting.run_forecast_model`; this layout
+does not change calculations, API paths/payloads, access rules or cookies.
+Task 061 passed all 67 isolated backend checks; canonical OpenAPI is identical
+to Task 060, and independent AST checks found no function-body changes.
+
+## Database setup and checks
+
 The backend connects directly through Psycopg. PostgreSQL's empty-volume init
 runs `schema.sql` then `seed.sql`; Compose starts Uvicorn without running or
 mounting numbered migrations. Integration checks no longer apply migrations.
@@ -14,9 +36,9 @@ isolated `MONITOR_DATABASE_URL` and initialized schema, never the current DB:
 python -m pytest
 ```
 
-Existing volumes need the separately approved `upgrade-058.sql` procedure in the
-[database README](../database/README.md). The retained `app.migrations` CLI is
-historical and unsupported for schema.sql databases; do not run it against them.
+Task 059 safely upgraded the existing volume. Retired SQL and the legacy CLI
+are no longer active files; the [database README](../database/README.md) records
+verified recovery copies. Never replay fresh setup against an existing volume.
 Task 058's 64 backend checks passed against the current bind-mounted code using
 the cached backend image; installed versions matched requirements. Fresh/copy-
 upgrade, persistence, both reload paths and source-preservation/cleanup passed.
@@ -35,7 +57,7 @@ The default `production` target uses the same pinned Python/dependencies
 and app code, starts Uvicorn without `--reload` and runs as numeric UID/GID
 10001. It defaults `MONITOR_ENVIRONMENT` to `production`, so the existing settings
 validator refuses startup with the development OTP secret. Supply the unique
-secret and deployment database/origin/admin/SMTP values at runtime; no credential
+secret and deployment database/origin/SMTP values at runtime; no credential
 is built into the image. Local `.env*` files are excluded from build context.
 
 The image command does not install/upgrade SQL or create a database. Production
@@ -91,17 +113,20 @@ Secure outside local development. Logout revokes only the presented session.
 
 ## Current application access and forecasting
 
-The owner-based access, environment-configured admins and opt-in reminders below
-describe the current application contract. Task 058 adds schema types/membership
-storage for fresh setup and a copy-only upgrade rehearsal, not shared access or
-DB-role authority. Those remain separately approved 69.3/69.4 work.
+The owner-based access and opt-in reminders below remain the current application
+contract. Task 059 derives administrator authority only from `users.type`, read
+through existing OTP/session user queries on every authenticated request. Public
+`is_admin` responses and opaque cookie shapes are unchanged; no email override,
+environment fallback, cached cookie role or extra privilege query is used.
+The guarded source upgrade and 68 isolated backend checks passed; final resource
+cleanup is verified. Sharing remains 69.4 work; source app services remain off.
 
 Task 015 implements raw-SQL storage for nickname-only meter profiles. The
 repository supports owner-scoped CRUD plus explicit unrestricted lookups. Task
 016 exposes authenticated `/api/meters` list/create and `/api/meters/{id}`
 get/rename/delete routes. Regular users are always scoped to their own meters.
-Emails listed in comma-separated `MONITOR_ADMIN_EMAILS` may list and manage every
-existing meter; new meters still belong to the user who creates them.
+Users whose stored type is `admin` may list and manage every existing meter;
+new meters still belong to the user who creates them.
 Inaccessible and missing IDs share the same HTTP 404 response.
 
 Task 032 adds optional `GET /api/meters?q=keyword` filtering in the raw-SQL
@@ -125,7 +150,7 @@ Task 021 exposes nested authenticated CRUD at
 `/api/meters/{meter_id}/balances` and `/api/meters/{meter_id}/top-ups`, with
 entry IDs appended for get/update/delete. Inputs require timezone-aware,
 non-future occurrence times and the reviewed Decimal constraints. Regular users
-remain owner-scoped; configured admins may manage every meter. Foreign, missing
+remain owner-scoped; DB admins may manage every meter. Foreign, missing
 and meter-mismatched resources share a generic 404.
 
 Tasks 023-024 complete the pure forecasting domain behind one public
@@ -149,7 +174,7 @@ from 1-28, positive low-balance lead days up to 30 and a validated IANA timezone
 captured by a later browser UI. Missing rows return safe disabled defaults and
 settings cascade when their meter is deleted.
 
-Task 028 adds `python -m app.reminder_runner`, a finite command intended for an
+Task 028 adds the finite command, now `python -m app.modules.reminder_runner`, for an
 external scheduler configured during deployment. It evaluates opted-in meters
 in their saved timezone, calls only `run_forecast_model`, and sends email to the
 meter owner through the existing SMTP boundary. Monthly reminders deduplicate by
@@ -163,7 +188,7 @@ Task 029 exposes authenticated GET/PATCH
 `/api/meters/{meter_id}/reminders`. Missing preferences return disabled
 defaults, while saved values retain the monthly day, predicted-low-balance lead
 days and validated IANA timezone. Regular users remain owner-scoped and
-configured administrators may manage every meter; inaccessible and missing
+DB administrators may manage every meter; inaccessible and missing
 meters share the same generic 404. Saving settings never triggers email.
 
 Authenticated users will create and select their own nickname-only meter
@@ -194,10 +219,10 @@ Dependencies: [database Tickets 69.1/69.2](../database/README.md) establish the
 audited schema, backup/restore gate and fresh-setup seed before 69.3/69.4.
 Task 058 introduces constrained `users.type` (default `user`) and `user_meters`
 with user/meter composite PK, cascading FKs and meter-first index. Original owner
-columns/queries remain the compatibility bridge. Neither stored type nor a
-membership row changes current access; `MONITOR_ADMIN_EMAILS` still governs
-admins until 059. Fresh seed types are asserted as data, not active permissions.
-The current volume is untouched; old schema/admin mappings require separate review.
+columns/queries remain the compatibility bridge. Task 058 left runtime roles and
+the current volume unchanged; Task 059 now uses stored roles. Membership rows
+still do not grant shared access. The approved source upgrade/one-time assignment
+followed a new verified backup and isolated rehearsal before source execution.
 [Frontend Tickets 69.5/69.6](../frontend/README.md) consume the resulting access
 contract and fixed first-of-month planning date. The 30-day quantities and
 predicted run-out remain distinct from that calendar planning date; no forecast
@@ -206,7 +231,7 @@ Keep existing clients working through the schema/access transition; do not
 activate a membership-only schema or reminder contract before its dependent
 backend/UI changes are ready and checked together.
 
-### Ticket 69.3: DB-Only User Types and Admin Seed
+### Ticket 69.3: DB-Only User Types (Task 059; complete)
 
 Depends on: 69.1/69.2's agreed user schema and fresh-setup path.
 
@@ -219,8 +244,8 @@ Depends on: 69.1/69.2's agreed user schema and fresh-setup path.
 - Seed `hlabisasanele730@gmail.com` as admin only during the approved fresh
   setup. This grants no password, OTP bypass or runtime email privilege. A
   restart or repeat login must not undo a manually changed DB role.
-- Remove all admin environment settings and dependencies in that
-  implementation, including Compose/examples, settings and role checks. There
+- Remove all admin environment settings and dependencies, including
+  Compose/examples, settings and role checks. There
   is no bootstrap-admin env, env fallback or hardcoded-email runtime override.
   Later promotions/demotions are manual DB operations, not a new API/UI.
 
@@ -228,8 +253,36 @@ Acceptance: new and returning OTP users retain the correct DB type; a role
 change affects the next request using an existing session. Admins retain full
 meter access and regular users do not gain it by email/configuration. Check
 fresh seeding, preserved manual demotion and removal of admin-env references.
-Existing-volume role assignment follows 69.1's explicit data-safety decision,
-not a silently reapplied fresh seed.
+Task 059 verified a new backup/restore and exact rehearsal, then upgraded the
+current database and promoted only the existing approved admin identity. The
+other account remains `user`; no source account/OTP/session creation, seed replay
+or emails occurred. The changed service preflight was resolved by explicit
+approval to stop only frontend/backend/Mailpit; they remain off, with the same
+source DB kept running. Original records and both migration histories survived.
+All 68 backend checks passed on an isolated fresh DB/Mailpit using current code
+and cached dependency versions matching requirements. No fresh-image build is
+claimed. Admin configuration is removed from active settings/Compose/examples
+and the local admin key only; other local values were preserved. Stopped
+containers may retain old env metadata, which is never a privilege fallback.
+Source verification used SQL/private inventory; new code was checked against the
+restored clone. No source HTTP login/session test was performed. Task-owned
+containers/volumes/network were removed after identity checks; backups remain.
+
+Later role changes are privileged manual DB operations, not a new API/config.
+Confirm the database/account first and pass `email`/`new_type` as psql variables
+(`new_type` is `user` or `admin`), never concatenate them into SQL:
+
+```sql
+BEGIN;
+UPDATE monitor.users SET type = :'new_type'
+WHERE email = LOWER(BTRIM(:'email'))
+RETURNING id, type;
+```
+
+In the same session, `COMMIT` only after exactly one expected row is returned;
+otherwise `ROLLBACK` and investigate. Never insert an absent account or replay
+seeds. Promotion/demotion affects backend authorization on the next request using
+the same session cookie; login/restart does not undo the stored choice.
 
 ### Ticket 69.4: Membership Persistence and Backend Authorization
 

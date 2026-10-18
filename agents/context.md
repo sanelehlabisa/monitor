@@ -1,678 +1,121 @@
 # Repository Context
 
-Monitor is a free, software-only electricity planning application for
-prepaid households. It helps users understand how much electricity to add and
-when through manual kWh records and simple, transparent forecasts.
+Monitor is a software-only prepaid-electricity planner: email login -> named
+meters -> manual balance/top-up kWh records -> transparent estimates.
+The root [README](../README.md) owns stable roadmap IDs and priority. Component
+READMEs hold details; historical results stay in work/ and Git.
 
-## Active V1
+## Current contracts
 
-A user authenticates by email OTP, creates one or more named meter/property
-profiles, and records two kinds of events:
+- FastAPI uses explicit Psycopg SQL, not an ORM. React/Vite/Material UI is the
+  mobile-friendly frontend. Development uses software/dev.docker-compose.yaml
+  and ignored software/.env. Never print/commit secrets or private records.
+- A meter needs only a name. Users manage their own meters; DB admins may manage
+  every meter. Membership storage exists, but shared access/last-member guards
+  remain future 69.4/69.5 work.
+- Record actual remaining kWh (non-negative) and purchased kWh (positive), with
+  editable occurrence times separate from audit times. Store UTC instants;
+  the browser converts local input/display.
+- Open OTP signup creates a regular user only after verification. Returning login
+  preserves users.type; that constrained user/admin column is the sole authority,
+  read each request. No env/email override or cookie-cached role. Preserve opaque
+  HTTP-only cookies, digest-only OTP/session storage and abuse controls.
+- Fresh-only seeds provision hlabisasanele730@gmail.com as admin and fictional
+  examples, without credentials/sessions. Later role changes are manual DB
+  operations, never startup or login re-promotion.
+- The UI has an open white layout, blue/teal Monitor branding, compact system
+  typography, stacked logo/name, Back and email/red icon-labelled Sign out.
+  /meters lists profiles; /meters/<uuid> supports direct login/reload/history.
+  / and /meters/ remain compatible entries; login is not a separate URL.
+- Estimates lead; record forms/history open on demand. Search is server-side by
+  name/owner email, shown above 10 unfiltered meters or for an active query.
+  Preserve request-version guards, form resets and unavailable/error recovery.
 
-- actual remaining balance in kWh at an observed date/time; and
-- manually purchased top-up energy in kWh at a purchase date/time.
+## Forecast boundary
 
-Dates default to now but remain editable. A municipal meter identifier is not
-required. Each meter belongs to its user in V1, and every API/query must enforce
-that ownership in the current runtime. Shared membership is planned under
-69.4/69.5, not implemented by Task 056.
+All callers use one run_forecast_model function with that meter's history:
 
-V1 does not accept Rand amounts, use tariffs or execute purchases. "Top-up"
-means recording electricity already bought. Users may opt into monthly planning
-email or a predicted-low-balance email when a valid forecast exists.
-These are current defaults; planned 69.7 replaces owner-only/opt-in assumptions
-with all-member delivery as specified below. No reminder setting changed yet.
+    consumed = previous_balance + intervening_top_ups - current_balance
+    daily_usage = consumed / elapsed_days
 
-## Forecast contract
+Require at least two actual readings with positive elapsed time. Include top-ups
+and surface impossible negative consumption/inconsistent chronology. Show
+Not enough data/Inconsistent history instead of inventing numbers. Genuine
+zero use has no finite run-out date.
 
-Between two valid actual balance readings:
+The deterministic time-weighted rate produces estimated current balance,
+remaining days/run-out and additional kWh for the next 30 days:
+max(0, daily_usage * 30 - estimated_balance). This is not total monthly usage or
+Rand cost. Keep latest actual reading/time and calculation time visible.
+Recalculate after ledger changes/Refresh; never silently adopt a research prior.
 
-```text
-consumption_kwh = previous_balance_kwh
-                  + top_ups_kwh_during_period
-                  - current_balance_kwh
+## Database and runtime safety
 
-daily_usage_kwh = consumption_kwh / elapsed_days
-```
+- database/ keeps only schema.sql, seed.sql and README.md. PostgreSQL runs SQL
+  only on an empty volume. Startup never upgrades SQL or replays seeds. Agree
+  an explicit safe repair for partial initialization; never reset automatically.
+- Task 059 upgraded the existing DB after verified backup/isolated rehearsal,
+  promoting only the approved existing admin. Preserve nine domain tables and
+  BOTH monitor.schema_migrations and public.schema_migrations history tables.
+- Task 060 retires inactive SQL/runner sources, not stored history. The database
+  README records recoverable SQL/backups. Preserve pending work, backups,
+  research archives, refocus.md and historical work records.
+- At Task 060 preflight, monitor-dev-database-1 was healthy/running on
+  monitor-dev_postgres-data; backend/frontend/Mailpit remained stopped as agreed.
+  Recheck actual state before work. Tasks 060-062 do not authorize source starts.
+- Run checks against isolated labelled DB/Mailpit resources, never source data
+  or real email. The finite reminder CLI can send mail even with --help; verify
+  by import/isolated checks only.
+- Live browser login/end-to-end verification after 059 is outstanding. Isolated
+  HTTP checks are not live-user or household validation.
 
-Use deterministic calculations and show their assumptions. At least two actual
-balance readings with positive elapsed time are required before calculating a
-usage rate. Account for top-ups inside the interval. Reject or clearly surface
-impossible negative consumption, duplicate/reordered times and inconsistent
-entries. Never turn insufficient data into a confident prediction.
+## Current source layout (Tasks 060-062)
 
-Estimated current balance, remaining days, likely run-out/next-top-up date and
-a 30-day kWh recommendation must be labeled as estimates. Always show the latest
-actual reading and its observation time beside forecast output.
+060 retired old setup/stale active context. Backend logic lives under
+app/modules, Pydantic validation under schemas and routers under endpoints;
+main/settings/database and version-bearing __init__ stay at app root.
+Frontend login/meters screens live under routes, meter-only components under
+routes/meters, shared navigation under components and helpers under lib.
+Keep behavior, URLs, validation and permissions unchanged; add no dependency,
+framework/layer, compatibility shim or eager re-export architecture.
+All 67 backend and 33 frontend checks passed; OpenAPI is byte-identical and
+TypeScript/Vite plus mocked browser checks passed using pinned Docker deps.
+The host node_modules has missing MUI declarations and was left unchanged.
+Source services remain stopped; only isolated verification resources were used
+and cleaned. Details/recovery are in the work records. The user authorized the
+Git handoff of completed Tasks 059-062 to master; earlier no-commit notes describe
+their completion-time state. The next implementation still needs prompt approval.
 
-## Active technology
+## Remaining priorities
 
-- `software/backend/`: FastAPI REST service and pure forecasting/domain logic.
-- `software/database/`: fresh PostgreSQL schema.sql/seed.sql initialization,
-  explicit manually approved existing-data upgrades and raw Psycopg. No ORM.
-  The current development volume remains on its preserved pre-058 schema.
-- `software/frontend/`: React, Vite and Material UI, designed mobile-first.
-- `software/ocr/`: deferred research only, not an active dependency.
-- `hardware/`: deferred research only, not an active V1 dependency.
-
-Development runs PostgreSQL, Mailpit, backend and frontend through
-`software/dev.docker-compose.yaml`. No production/cloud infrastructure should be
-added without an approved ticket.
-
-## Authentication
-
-Tasks 005-006 are historical records of the superseded Keycloak baseline. Task
-007 removed that integration. Task 010 allows open email signup and implements
-normalized user/OTP storage plus HMAC-only challenge policy. Task 011 delivers
-those codes through an SMTP abstraction and isolated Mailpit development
-capture. Task 012 adds digest-only, fixed 30-day session storage and policy. A
-user is created only after successful verification. Task 013 exposes the human
-authentication routes and transports opaque sessions in secure HTTP-only
-cookies. Generic request responses avoid account enumeration, and neither email
-nor an OTP is an API token.
-Administrator access currently uses MONITOR_ADMIN_EMAILS. Planned 69.3 moves
-authority into the DB and removes that environment setting; it is still required
-by the current code/Compose until that implementation is approved and completed.
-
-Device UUIDs, device credentials and provisioning are not V1 requirements.
-They remain future research if automated meter capture is later justified.
-
-## Approved refocus plan (Task 056; documentation only)
-
-Next priority is Ticket 69, split into 69.1 data safety/schema review, 69.2 fresh
-SQL/Docker bootstrap, 69.3 DB-only user/admin roles, 69.4 shared-member backend
-access, 69.5 minimal sharing UI, 69.6 first-of-month planning and 69.7 shared
-email delivery. Root README owns stable IDs/order; component READMEs define
-dependencies, acceptance and decisions that need a future implementation prompt.
-
-- Preserve data first: inspect existing volumes, plan backup/restore and validate
-  recovery in isolation before an explicitly approved transition. Fresh
-  schema.sql/seed.sql initialization does not upgrade an existing volume. No
-  automatic reset, rewriting applied history or executing seeds in this task.
-- Target nine domain tables: existing eight plus user_meters membership. Keep
-  separate reminder settings/claims, hashed OTP/session security and distinct
-  occurrence/audit times. Rates remain derived per meter, not stored truth.
-- Signup stays open. New accounts default to user; DB user/admin type is the
-  planned sole authority. Seed hlabisasanele730@gmail.com as admin with full
-  system-wide access during fresh setup only. Later promotions/demotions are
-  manual DB changes; no env fallback, runtime email override or restart
-  re-promotion. Remove admin env dependencies in 69.3, not during planning.
-- Members may manage readings and membership. Protect the last member under
-  concurrent removals and account deletion; every protected endpoint must check
-  membership or global admin scope. Whole-meter deletion, creator display,
-  sharing onboarding and saved timezone/send-time policy need implementation
-  clarification. No invitation system or extra roles are assumed.
-- Fix monthly planning to the 1st; keep predicted run-out independent and
-  retain the existing rolling 30-day quantities/model. Monthly email is due
-  the day before the 1st, keyed to that target cycle across month/year changes.
-  Email every member of that meter, not all accounts; global admin access alone
-  is not membership. No per-member opt-in or weekly/monthly schedule selector.
-  Preserve low-balance eligibility; use per-recipient dedupe and stop future
-  sends on membership removal. Store UTC times and use saved timezone for local
-  calendar scheduling. Reuse the finite runner/SMTP, not another service.
-- Ticket 70 separately plans readable HTML OTP/reminder mail, plain-text fallback
-  and trusted app links with normal login/access checks, never magic tokens.
-- Reuse future 68 for local-only mobile use without login versus account
-  storage/sharing with login. Platform, transfer/sync and notifications remain
-  future decisions; today's protected backend still requires authentication.
-
-After 69, prioritise 70/usability 65, existing validation 66 and deployment 57,
-then household/external evidence 56/67; 68 stays future. Forecast integration
-still requires 66.5 approval. No implementation ticket is approved by this plan.
-
-## Work history and current direction
-
-Earlier task paragraphs describe their completion-time scope; the approved plan
-above supersedes earlier prospective priority/deferred-sharing guidance only.
-
-- Tasks 001-004 created the repository, three-service Docker stack, FastAPI
-  baseline and direct-Psycopg migration system.
-- Tasks 005-006 implemented the now-superseded Keycloak path.
-- Task 007 removed Keycloak and retained the Material UI foundation.
-- Task 008 changes active planning from camera/OCR collection to manual kWh
-  entries, forecasts and reminders. It does not implement those features.
-- Task 009 aligns the inactive Material UI shell with that product direction.
-- Task 010 adds open-signup user/OTP storage and policy without HTTP or delivery.
-- Task 011 adds SMTP OTP delivery and Mailpit capture without an HTTP surface.
-- Task 012 adds opaque multi-device session storage and policy without HTTP.
-- Task 013 completes the human auth API and HTTP-only cookie transport.
-- Task 014 adds the session-aware Material UI login flow and branded meter-list
-  empty state.
-- Task 015 adds raw-SQL nickname-only meter persistence and owner-scoped CRUD.
-- Task 016 exposes authenticated meter CRUD. Regular users are owner-scoped;
-  emails configured in `MONITOR_ADMIN_EMAILS` may manage all existing meters.
-- Task 017 connects the Material UI home to real meter list/create/select APIs
-  and keeps a newly selected meter at `Not enough data` until ledger work lands.
-- Task 018 completes Ticket 49 with rename/delete controls and an administrator
-  view that identifies owners and manages all meters. Regular-user isolation is
-  unchanged.
-- Task 019 adds raw-SQL actual balance observations with non-negative three-
-  decimal kWh, unique per-meter occurrence times and scoped correction/deletion.
-- Task 020 adds raw-SQL purchased top-up events with positive three-decimal kWh,
-  repeated occurrence times and the same scoped correction/deletion behavior.
-- Task 021 exposes nested authenticated balance/top-up CRUD, rejects future or
-  timezone-naive events and applies the established user/admin meter scope.
-- Task 022 completes the balance/top-up delivery with mobile-first Material UI
-  entry, correction, deletion, latest-actual and combined-history states.
-- Tasks 023-024 complete Ticket 52 behind one replaceable
-  `run_forecast_model` function. Its first implementation is deterministic,
-  time-weighted math with explicit unavailable states and no hidden buffer.
-- Task 025 exposes a freshly calculated, authorised meter dashboard containing
-  latest actual data, separate ledgers, combined factual history and forecasts.
-- Task 026 completes Ticket 54 with responsive Material UI estimate cards and
-  automatic dashboard refresh after every successful ledger change.
-- Task 027 adds opt-in raw-SQL reminder preferences per meter, including monthly
-  day, predicted-low-balance lead days and browser-supplied IANA timezone.
-- Task 028 adds durable reminder delivery claims and a finite runner that sends
-  owner-only monthly/low-balance email through the existing SMTP boundary.
-- Task 029 exposes authenticated owner/admin reminder preference reads and saves
-  without exposing or triggering the delivery runner.
-- Task 030 adds per-meter Material UI reminder controls with disabled defaults,
-  browser timezone capture and clear forecast limitations.
-- Task 031 separates the administrator workspace into `My meters` and `All
-  meters`, keeping admin-created profiles owned by the admin while retaining
-  full management access to every user's profile.
-- Task 032 adds owner-scoped raw-SQL meter keyword search by profile name or
-  owner email and a minimal frontend Search/Clear form that consumes it.
-- Task 033 widens and reorganizes the selected-meter UI around a prominent
-  planning summary, a meter/owner header and separate balance/top-up tabs. It
-  removes reminder configuration and requests from the frontend while leaving
-  the reminder backend, disabled defaults and existing opt-ins unchanged.
-- Task 034 verifies the live browser sign-in, meter/ledger/forecast flow, UTC/local
-  timestamps, user isolation and admin access. It enables Vite polling after
-  finding stale Docker-served modules, refreshes the existing frontend dependency
-  volume and documents a repeatable local demo. Technical checks passed; Ticket
-  56 remains open for real household usability feedback. Task 042's current
-  release order below supersedes the earlier household-before-deployment gate.
-- Task 035 completes Ticket 59 with an icon-labelled manual Refresh action and
-  one shared dashboard loader. Failed initial/manual/post-save reads withhold
-  estimates, retain available records and provide retry guidance. Reads never
-  repeat saved writes; navigation/sign-out invalidate older dashboard responses.
-  No automatic refresh, dependency, backend or forecast-model change was added.
-
-Household validation and deployment remain later steps. Task 043 delivers the
-supplied Monitor identity; the next priority remains usability Ticket 65.
-
-Task 036 is complete: production
-targets use a pinned Nginx frontend runtime and non-root Uvicorn without reload;
-development Compose explicitly selects the retained development targets. Local
-env files are excluded and production credentials remain runtime inputs. Docker
-recovered after the earlier approved restart/WSL startup timeout. Both production
-and development images built successfully; disposable checks passed for health,
-static assets, SPA fallback, API proxying/errors, secure cookie headers and
-production-secret refusal. Task containers/network were removed; no stored data
-or existing volumes were removed. The existing four development services are
-healthy. This is preparation under Ticket 57, not authorisation to deploy, change
-DNS or start the remaining deployment work. Household validation remains open.
-
-The user now wants a simpler dashboard based on their supplied example: estimated
-balance, days remaining and monthly purchase kWh first, followed by Record balance
-and Record top-up buttons. They confirmed forms/history/settings should appear
-only when needed, with the run-out date beneath days remaining and a labelled
-latest actual reading. Task 037 (Ticket 60) is approved and implemented: the
-planning card shows those three headline values, record buttons open only their
-matching forms, and history/settings/calculation details start closed. Save or
-Cancel closes the entry form; retry/error states remain visible independently of
-collapsed sections. The header is compact and Refresh is a smaller action below
-the primary content. Desktop and 320px/390px browser checks, the 22 frontend checks
-and the asset build passed. Synthetic fixtures were cleaned up. Forecast math
-is unchanged. Earlier prospective
-037-038 deployment numbering was not allocated work; the remaining deployment
-scope stays deferred under Ticket 57 and needs separate future tasks.
-
-Task 038 (Ticket 61) is complete: right-aligned account email/avatar navigation
-with a black, distinct Logout action; Back to meters in navigation; meter-ID
-URLs supporting reload, login return and browser Back/Forward; and a wider
-details/planning layout. Invalid/inaccessible links recover without exposing
-foreign records, and older dashboard responses remain guarded. A separate
-`monitor-demo@example.test` user owns retained Demo Home and Demo Shop profiles
-created through local OTP/Mailpit and existing APIs. Their synthetic histories
-produce 4 and 8 kWh/day respectively through the real model; admins can find
-both through All meters/email search. Setup rerun preserved histories without
-duplicates. Desktop/320px/390px live checks, 30 frontend checks and the production
-asset build passed. Only disposable verification users/records, captured emails
-and the temporary admin session were removed. Forecast policy, permissions,
-backend SQL and real household data are unchanged. See the frontend README for
-demo access instructions.
-
-Task 039 (Ticket 62) is complete: navigation has Back on the left and email plus
-a 28px account icon on the right, with no logo, Roventics Monitor name or Admin
-badge. The logo asset is retained. The MUI theme uses one Arial/sans-serif font
-stack with 16px body/labels/buttons and 20–22px headings/forecast values. Meter
-name/owner are vertically centred on desktop and stack left-aligned on phones.
-Desktop/320px/390px live checks, 30 frontend checks and the asset build passed.
-Both demo histories were compared before/after and remain unchanged; no ledger
-writes were performed. Routes, admin permissions, model and backend are unchanged.
-Temporary verification auth fixtures were cleaned up.
-
-Task 040 (Ticket 63) is complete: the account icon is 42px (1.5 times Task 039's
-28px). The selected-meter header now has aligned Name/Owner key-value rows,
-an editable name input and a pencil-only save action; Enter also saves. Bottom
-Meter settings is removed. Each accessible list row has separate pencil/trash
-actions: inline rename with pencil/Enter save and Escape cancellation, plus
-confirmed deletion warning about associated records. Shared existing API handlers
-preserve owner/admin scope and re-query server search after renaming. Pending
-saves retain the row and disable conflicting actions. Desktop/320px/390px live
-checks, owner/admin actions, failure recovery, 30 frontend checks and the asset
-build passed. Both demo histories are unchanged; no ledger writes or reminder
-calls occurred. Only disposable verification fixtures were removed. Backend,
-forecast model, routes, dependencies and real data are unchanged.
-
-Task 041 (Ticket 64) is complete: the signed-in card has a black, white-text
-section header with rounded top corners, titled Meters or Meter <UUID>. Compact
-admin-only My/All tabs share the list header; the active tab is white with dark
-text and joins the content. Names start read-only; pencil focuses editing and
-changes to Save. Save/Enter persists, Escape cancels and errors retain drafts
-on both pages. Name-only creation is the first list row; magnifier and clear-cross
-controls are inside search. The shared theme uses 14px body/buttons, 18px headings
-and 20px forecast values in rem, smaller fields/record buttons and no forced
-uppercase; the account icon stays 42px. The list uses /meters, legacy / and
-/meters/ entries canonicalise, and meter-ID reload/login/Back/Forward work.
-Fourteen grouped live checks, all 31 frontend checks and the asset build passed.
-Vite reports a non-blocking 534kB chunk-size warning; optimisation is not added
-to this PoC task. Both demo ledgers are unchanged; no ledger writes or reminder
-requests occurred. Disposable auth/meter/mail fixtures were cleaned up.
-Backend, SQL, ownership/admin policy and forecast math are unchanged; refocus.md
-is untouched. The user subsequently authorised the Git handoff of Tasks 037–041.
-Task 042 updates the roadmap and component requirements only. New tickets are
-65 usability, 66 synthetic forecasting validation, 67 external testing and
-68 a future installable web app. Reuse 56 for personal usage validation, 57 for
-web deployment and 58 for the supplied Monitor logo/modest Roventics credit.
-Order: 65 -> 66 -> 57 -> begin 56 and 67; real household evidence follows
-deployment rather than being its prerequisite. Task 042 originally deferred
-logo placement; Task 043's approved identity delivery below completes it. PWA 68 waits for
-web-usage evidence; React Native/mobile stores remain deferred.
-
-The current schema stores balance/top-up kWh and UTC times, not purchase costs.
-Costs, tariffs and future-price estimates stay deferred. Validation must explain
-30-day usage versus additional kWh to buy: at 15 kWh/day and 300 kWh remaining,
-usage is 450 kWh for 30 days, while the extra purchase is 150 kWh. Synthetic
-demo/screenshot records are not real-household validation evidence.
-
-While waiting for Monitor feedback, Switch 84 proceeds through compact
-low-voltage assembly, a measured temporary enclosure and at least two continuous
-weeks of internal tests; 85 replaces it after manufactured PCB arrival/bring-up.
-SPII/supplier processes stay parallel. Task 042 changed no product, database,
-infrastructure or hardware and approved none of those future implementations.
-Task 043 completes Ticket 58: unchanged supplied monitor-logo.png appears as a
-48px logo/name header above login and the workspace and as the PNG favicon.
-The page title is Monitor. Shared MUI colours are blue #005aae, readable teal
-#007782, white and pale blue #eef7fc, with dark blue-grey text. Rounded section
-headers/forecast cards are blue; active admin tabs stay white with blue text.
-Top-up/Refresh and the footer use teal. A 24px existing Roventics logo plus
-by Roventics links to https://roventics.com in a separate safe new tab.
-Fonts, 42px account icon, layout/flows, routes, permissions and forecasts are
-unchanged. All 31 frontend checks and the production asset build passed, as did
-four grouped browser checks covering 18 desktop/phone views using mocked APIs
-on a disposable built-assets preview. No real backend request or DB write
-occurred; source artwork hashes are unchanged. Temporary browser/server closed.
-The user authorised the Git handoff of completed Tasks 043–044.
-Task 044 refines the brand header:
-the 48px logo sits above Monitor in one combined centred block, with Back left
-and the 42px account control right, vertically centred against the whole block.
-They share one compact row; phones below 600px show the account icon only and
-retain the full email in its existing Sign out dropdown. Desktop email truncates
-without shifting the centred branding. Login/loading keep the stacked identity
-without navigation actions. Artwork, palette, fonts, routes, auth/permissions,
-forecast logic and data are unchanged. Tasks 043–044 were committed and pushed
-to master as eb08605; full Ticket 65 remains open.
-Task 044 passed all 32 frontend checks, the TypeScript/Vite build and four
-grouped mocked-browser checks across 16 desktop/phone views, including long
-emails, Back, Sign out and Escape/focus restoration. No real backend requests
-or DB writes occurred; the disposable browser/server closed after verification.
-
-Task 045 is complete with small visual refinements only: Segoe UI /
-system sans-serif fallbacks, unchanged 14/18/20px scale, consistent weights and
-tabular estimate digits. The blue/teal identity and combined navigation remain.
-Cards have subtle borders/shadows; details/list panels use 12px corners, inputs
-10px and forecasts 16px. Light-blue hover/focus, a pale-teal creation row and a
-blue/deep-teal forecast blend add restrained colour variation; a divider separates
-monthly purchase output. Button/icon-button keyboard focus is explicit. No
-wording, flow, backend, forecast/data, dependency or artwork changes. Task 046's
-approved open layout below supersedes those card/surface choices; full usability
-Ticket 65 is still a separate open review.
-All 32 frontend checks, the TypeScript/Vite build and four grouped mocked-browser
-checks across 20 desktop/phone views passed, including both forms, forecast
-states, keyboard focus and representative contrast checks. No real backend/DB
-request or write occurred; browser/server closed. See the Git handoff below.
-
-Task 046 implements the approved card-free direction for login and the signed-in
-workspace. A white page, slim blue headings, underlined admin tabs and flat
-details/list rows replace enclosing cards and filled headers. Forecast values
-appear directly on the page: blue balance/days, teal monthly recommendation,
-muted labels and divider lines; no coloured forecast box. Figures stack below
-600px, use two columns with monthly output beneath at 600–899px and three columns
-at 900px+. The latest actual/calculation times, two record actions, on-demand
-forms and collapsed History remain. Retains Task 045's fonts, numeric alignment,
-input corners and focus styling. No wording, handler, calculation, backend,
-data, permission, route, artwork or dependency changes. Task 047 follows below;
-full Ticket 65 remains open. See the Git handoff below.
-Task 046 passed all 32 frontend checks, the TypeScript/Vite build and four
-grouped mocked-browser checks with 39 captures across phone/tablet/desktop
-widths. Text contrast is at least 5.30:1 and input outlines 4.05:1 in representative
-checks. No real backend/DB request, write or browser error; browser/server closed.
-
-Task 047 implements conditional header search: visible only above 10 unfiltered
-meters in the selected view, or while a query/filter is active. Centred between
-Meters and My/All from 600px; its own header row on phones; absent on details.
-The applied query is separate from its draft, so clearing typed text or getting
-zero results cannot hide recovery. Full reads refresh the count; create/delete
-update it and My/All clears/reloads. Account/list generations guard late replies,
-including write follow-up reads. The existing server q search and permissions
-are unchanged; no client keyword matching or pagination. At the user's follow-up
-request, visible rows have one-based display numbers, reset per current result
-list; UUIDs/names/data are untouched. Useful 045/046 styling is preserved.
-Task 048 follows below; full Ticket 65 is still open.
-Task 047 passed all 33 frontend checks and the TypeScript/Vite build. Its
-145-line implementation records a necessary review-size exception in prompt.md
-for relocating the field plus count/query/reply guards and requested numbering.
-Five grouped mocked-browser checks and 25 phone/tablet/desktop captures passed:
-thresholds, query/clear/failed-read recovery, My/All and CRUD crossings, numbering,
-pending controls and delayed old-query/new-account reset. No real API/DB writes
-or browser errors; isolated browser/server closed. See the Git handoff below.
-
-Task 048 replaces the account icon/dropdown with a direct red Sign out button
-at the top right on all devices, beside the email with a 4px gap. Emails truncate
-on narrow screens while retaining their full text/title. The stacked 48px Monitor
-logo/name stays centred, with Back on the left. Existing logout/Back handlers and
-pending guards are unchanged; unused menu state/imports are removed. The footer's
-by Roventics text is black; its 24px company logo and safe external link remain.
-No other layout, artwork, backend, data, permission, route or dependency changes.
-All 33 frontend checks and the TypeScript/Vite build passed, plus two focused
-mocked-browser groups with 15 phone/tablet/desktop captures, including long email,
-keyboard focus, Back, pending controls and sign-out failure/retry/success.
-Red/white button contrast is 4.98:1. No real API/DB writes or browser errors;
-the isolated browser/preview are closed.
-Tasks 045–048 were committed and pushed to master as 301f50f.
-Full Ticket 65 remains open. Current priority is
-65 -> 66 -> 57 -> personal 56 and external 67; installable-app 68 remains future.
-
-Task 049 adds the existing MUI Logout icon beside the red Sign out text on all
-screens, distinct from Back. Compact icon spacing and narrower phone padding
-retain email space; additional truncation is approved. Branding, handlers,
-busy guards and all other layout/behaviour remain unchanged. All 33 frontend
-checks and the TypeScript/Vite build passed. Two mocked-browser groups with
-eight phone/tablet/desktop captures also passed,
-including long-email truncation, distinct Back, pending controls and direct
-logout. No real API/DB writes or browser errors; isolated browser/preview closed.
-Task 049 was committed and pushed to master as 737b289.
-
-Task 050 is documentation-only planning for offline per-meter forecasting.
-Ticket 66 remains the parent, with ordered subtickets 66.1 datasets, 66.2
-top-up-adjusted consumption/plots, 66.3 a small segmented candidate versus the
-current weighted average, 66.4 chronological validation/go-no-go, and 66.5
-separately approved integration after positive evidence. The existing calculation
-already uses each meter's own history; it is not trained across users.
-Datasets must distinguish hidden dense usage truth from daily/weekly/irregular
-manual observations. Do not invent hourly readings, mix meter histories, leak
-future records or silently repair inconsistent entries. Use UTC and explicit
-top-up boundaries. Evaluate consumption or a declared no-future-purchase
-balance/run-out scenario; unseen purchases must not distort comparison.
-Optional starting-rate defaults are research-only and labelled, never a live
-fallback. Preserve the current Not enough data policy, forecast contract and
-run_forecast_model entrypoint for dashboards/reminders. No replacement until
-evidence and fresh approval; a no-go retains the baseline. Existing release
-priorities remain; candidate adoption is not required if the baseline validates.
-No generator, dataset, model, dependency, live app/API/DB or sibling changes.
-Task 050 is not committed or pushed. Its initial implementation follows as Task
-051 below; the planning record itself did not authorise these future tickets.
-Full usability Ticket 65 remains open.
-
-Task 051 creates `software/backend/research/forecasting/` for isolated offline
-generation/visualisation. Small scripts generate four fictional meter profiles
-with daily/weekly/irregular observations, separate hourly truth and a manifest;
-Matplotlib renders initial balance/top-up and cumulative-consumption PNGs.
-Seeded data uses fixed UTC timestamps and stable per-meter IDs. Observed points,
-inferred segments and hidden synthetic truth are labelled separately; inconsistent
-inputs must raise rather than be repaired. Matplotlib is pinned only in research
-requirements and its ignored local environment. Generated outputs stay under
-ignored `out/`; research is excluded from backend Docker build context and its
-checks use an explicit filename outside normal backend test discovery.
-This starts 66.1/66.2 only: invalid/edge-case fixtures and complete transformation
-acceptance remain open. No forecasting candidate, backtest, live default change,
-application/API/UI/DB, real/demo data or sibling changes. Preserve the current
-forecast and integration gate. All 12 isolated research checks passed; 12 default
-PNGs were generated, decoded and representative images visually inspected.
-Seeded JSON reproducibility, conservation, UTC/boundary maths, meter isolation,
-invalid-input rejection and figure cleanup passed. Git/output/build-context
-configuration checks passed; backend pytest collection/build could not run
-because Docker was offline. No Docker restart or service/data mutation occurred.
-Tasks 050–051 are not committed or pushed. Their next work number was 052,
-implemented as the separately approved experiment below.
-Full usability Ticket 65 remains open.
-
-Task 052 established simulator.py's offline rolling 60/90-day OLS consumption
-line and 30-day forecasts under the same Ticket 66.3 ID, superseding 050's
-segmented-candidate plan. It added frozen independent training calibration,
-latest-actual balance anchoring and chronological GUI/headless error evidence.
-Its original multi-household interface, 10-second timing, 29-check verification
-and numerical comparisons are historical; see
-[Task 052 results](work/052-linear-forecast-simulator/changes.md). Task 053's
-approved simplification below supersedes that interface/generator, not the
-forecast algorithm. Earlier numbers must not describe the changed generator.
-
-Task 053 established simulator.py as the sole normal research entrypoint, retaining
-simulator_checks.py for explicit checks. One seeded household has a nominal
-10 kWh/day basis at every Low/Mid/High randomness level. The bottom slider changes
-daily usage variability and purchase-interval jitter, not average-usage classes,
-missing records or outages. Its reset keeps the same seed and clears only that
-run's scores; separately calibrated frozen training/default values are unchanged.
-Daily variation is ±10/40/80% and scheduled attempt gaps are 240 ±24/96/192
-hours. Cohort/seed-keyed usage, timing, amount and reading streams are paired
-across levels; skipped purchases and the safeguard can change actual gaps/counts.
-The current prior is calibrated before playback from five independent Mid
-training households (90 days; seeds 9173–9177), approximately 10.046 kWh/day;
-this is not the older Task 052 cohort's numerical result.
-The bounded purchase policy and separate physical truth/observations remain.
-Default playback is 0.5 seconds/day for 180 days; 365 days, CLI-only speed and
-60/90-day lookbacks remain configurable. Its original simplified GUI had exactly two
-graphs (balance and total consumption), three headline estimates (balance, days,
-additional kWh to cover the next 30 days), a small date/source label,
-Play/Pause/Reset and the randomness slider. Scenario selection, GUI speed,
-manual balance entry/deletion and the error sidebar are removed. Detailed
-baseline/error comparisons remain in headless exports for all three levels.
-Generation, OLS, causal pre-update scoring and pending 30-day horizons remain
-research-only; no forecast is available before a balance. Invalid history is
-not repaired with defaults. Retiring the three older utility files requires
-verified exact-byte archive/hashes in ignored .tmp/task053/legacy-research.zip;
-outputs, venv, work records and focused simulator checks must be preserved.
-All 20 focused checks passed, along with 180/90, 365/90 and 365/60 headless
-exports (three levels each; nine PNGs). Seed 42 annual 30-day consumption MAE
-for 90/60-day windows is 2.0451/2.3685 kWh (Low), 8.0717/9.3970 (Mid) and
-16.1019/18.7709 (High). The 90-day window wins in this independent-day-noise
-example, not as a general rule. Annual runs have 12 month-end issues, 11 matured
-30-day horizons and one pending. Native 500ms timing, mouse Play/Pause/Reset and
-all three slider positions passed; resets clear a populated run while keeping
-seed/prior fixed. Exactly two data graphs and three correct headline estimates
-were verified; the owned native window was captured and closed.
-Counterevidence matters: fixed 10 and the all-history mean have lower annual
-30-day MAE than the rolling line at all three levels. For Mid, linear/mean/fixed
-errors are 8.0717/7.8282/6.1811 kWh. The calibrated prior is worse than fixed 10
-on each level's single cold-start score (Mid absolute error 4.7409 versus 4.529).
-This UI/data simplification establishes no model/prior accuracy improvement;
-do not use it to justify adoption or general household accuracy claims.
-The three old sources were removed only after verified archival/recovery records;
-the local ZIP, environment, existing outputs and work history are retained.
-Keep full 66.1/66.2 acceptance, 66.3 review,
-66.4 validation/go-no-go and 66.5 fresh integration approval open. Matplotlib/
-NumPy remain isolated; no live app/API/DB, defaults, dependency or unavailable
-state changes. Tasks 050–053 are uncommitted; no push or sibling change is
-authorised. Task 054 below supersedes only its third-headline/startup behaviour.
-
-Task 054 changes the research GUI's third value to "Predicted monthly requirement
-(30 days)", using the existing consumption_30 = estimated rate × 30, independent
-of remaining balance. Additional top-up still uses max(0, rate × 30 - balance)
-in forecasts/exports. At 15 kWh/day, monthly requirement stays 450 kWh even when
-a purchase reduces extra needed to zero. It updates with the usage estimate;
-there is no smoothing, fixed artificial result or forced positive minimum.
-GUI launch/reset and slider reset record the known configured starting balance
-through record_balance before the first render. This is one starting reading,
-not fabricated earlier history; the source is labelled assumed default until
-recorded observations support fitting (initial monthly estimate about 301.4 kWh).
-Bare empty Simulation/forecast and headless replay remain unchanged; no known
-balance still means unavailable. Genuine zero use remains valid and invalid
-history withholds estimates. Calibration, OLS, data, 0.5-second timer, randomness,
-two graphs and live app remain unchanged. All 23 focused checks and four native
-GUI groups passed, including immediate/reset/slider defaults, no starting-record
-duplication, 15 kWh/day monthly 450 despite changing extra purchase, and zero/
-invalid states. The owned window/timer closed. A 180/90 headless rerun's eight
-JSON/CSV reports are byte-identical to Task 053, with production files unchanged.
-No accuracy benefit, app integration, dependency, commit or push is claimed or
-authorised.
-Task 055 below changes timing/replay/context and removes the check file; this
-23-check result remains historical.
-
-Task 055 is a quick user-directed change with the prompt/approval gate explicitly
-waived for this task only. Default replay is 730 fictional days with a nominal
-100ms timer interval per day (0.1 seconds plus rendering overhead). Both graphs
-shade max(START, now − lookback) through now orange to show the moving 60/90-day
-context, not a future forecast or confidence band. Two years is replay history,
-not two-year forecasting reliability; the future horizon remains 30 days.
-The model, generation/calibration algorithms, monthly requirement and additional-purchase
-equations are unchanged. The user requested deletion of simulator_checks.py;
-its exact source is retained under ignored .tmp/task055/simulator_checks.py with
-recovery hashes recorded before deletion. Historical 050–054 records/results,
-other outputs and the environment remain intact. No current research check-script
-command is provided and no test-suite rerun is claimed. The default 730/90
-headless replay passed all three levels with three decoded PNGs and a visually
-checked orange context band. Each level has 24 month-end issues, 23 matured
-horizons and one pending. An explicit 180/90 rerun's eight JSON/CSV files match
-Task 054 byte-for-byte. Native 100ms Play/Pause and context bounds on both plots
-at days 180/700 with 60/90-day lookbacks passed; the future horizon is still
-30 days. No live app/API/DB, dependency, integration, commit or push change is
-authorised. The next work number is 056; the one-task workflow
-waiver does not automatically authorise further work.
-
-The user authorised the Git handoff of completed Tasks 050–055, committed on
-master as 7e4a3ef (local; not pushed). Earlier uncommitted/no-commit notes describe
-their pre-handoff state. Task 056 subsequently updates planning only: Tickets
-69.1–69.7, separate HTML email 70 and expanded future 68. No running feature,
-SQL/config, data, service or research implementation changed. Record verification
-in its changes.md; next work number is 057 and requires normal approval.
-
-The user subsequently authorised committing/pushing Task 056 and the earlier
-local research commit to master, then preparing the next batch. Begin with
-057 / Ticket 69.1's audit/recovery gate; 69.2/69.3 depend on that evidence and
-their own approved prompts. This is not permission to reset an existing volume
-or execute the remaining refocus tickets without review.
-
-Task 057 completes 69.1's technical data-audit/recovery gate with all current
-data preserved. After initial unavailable/stopped attempts, the user explicitly
-approved starting only monitor-dev-database-1 on monitor-dev_postgres-data.
-PostgreSQL 17.11 was verified. A held read-only exported snapshot supplied a
-full-database custom-format backup and private comparison inventory; isolated
-restoration matched every record, schema/constraint/index, ownership/ACL and
-sequence. Identity advancement was tested only on the clone. There are eight
-domain tables plus BOTH monitor.schema_migrations and public.schema_migrations;
-preserve both bookkeeping tables during future work. The current database has
-2 users, 4 meters, 7 balances and 4 top-ups; auth/reminder state was preserved too.
-The source's logical state, start time and restart count were unchanged after
-the audit; the approved PostgreSQL startup naturally changes physical files.
-No source SQL writes, migrations, seeds or role changes were performed.
-
-The verified sensitive backup, private evidence and RECOVERY.md are retained
-outside OneDrive/Git in %LOCALAPPDATA%/Monitor/backups/task057/
-20261018T161738Z-452d70772a48/. Access is restricted but not encrypted; the
-database README/work record retain its hash. Only the identity-checked disposable
-monitor-task057-452d70772a48 container and its -data volume were removed.
-The source database is healthy; frontend/backend/Mailpit remain stopped.
-Logical recovery does not cover cluster roles/passwords or tablespaces and is
-not an upgrade rehearsal. Task 058 subsequently accepts the additive target
-and rehearses it on a copy only, as recorded below. No automatic reset, source
-upgrade, runtime role cutover, commit or push is authorised by this audit.
-
-Task 058 / 69.2 is approved and complete for fresh setup and copy-only upgrade
-rehearsal. PostgreSQL mounts schema.sql then seed.sql on empty volumes; the API
-no longer runs/mounts migrations. Historical SQL and the guarded legacy runner
-remain inactive references. Fresh setup has nine domain tables, constrained
-users.type default user and user_meters membership storage; current owner
-columns/indexes and every existing auth/ledger/reminder contract remain intact.
-Fresh seeds contain the approved DB-admin identity and a separate fictional
-monitor-seed@example.test owner with two meters, four balances and two top-ups.
-They provide no OTP/session bypass or enabled reminders. DB types are not runtime
-authority until separately approved 059/69.3; admin environment settings remain.
-
-upgrade-058.sql is an explicit one-time transaction, never a startup script or
-fresh-seed replay. Rehearsal retained all original-column records, auth/ledger
-state, constraints, sequence and BOTH migration histories; owner memberships
-were backfilled and every existing type defaulted to user without promotion.
-The copy has eleven physical tables; fresh setup has nine without fake history.
-Later sharing cutover must repeat owner backfill and resolve creator cascades/
-last-member safety. No shared authorization is enabled by these storage fields.
-
-All 64 backend checks passed on an isolated fresh DB/Mailpit with current code
-and cached development dependencies matching the pinned requirements. A new
-network-disabled image build missed its pip cache and failed; no fresh-image
-build success is claimed. Isolated restart/recreation preserved full records and
-a manual seed-admin demotion. Both development reloads passed; the backend
-development CMD now watches app/ only after discovering full-tree research-venv
-scanning at about 90% CPU. Production CMD and UI content are unchanged.
-Source read-only inventories matched before/after, with ID/start/restart count
-unchanged; the original app/frontend/Mailpit remain stopped and DB healthy.
-Six final task containers, three volumes and one internal network were removed
-after exact-identity checks. Backup 057 remains verified/retained; private 058
-evidence is outside Git/OneDrive under %LOCALAPPDATA%/Monitor/backups/task058/
-20261018T163729Z-150c1a57666f/. No live upgrade, role mapping, email, commit or
-push occurred. Next is 059 / DB-only roles, requiring its own approved prompt
-and an explicit current-volume transition decision before activation.
-
-The user subsequently authorised committing/pushing completed Tasks 057-058 to
-master and starting Task 059 planning. Earlier no-commit notes describe task
-completion time. Task 059 still needs its clarification/prompt approval; this
-Git handoff does not authorise applying upgrade-058.sql, changing existing DB
-roles or starting the stopped source services.
-
-After login, the active product flow is a list of the user's nickname-only
-software meter profiles. Selecting one meter provides balance and purchased-kWh
-entry actions, factual history, estimated current balance/days/run-out, and a
-30-day kWh purchase recommendation. The UI shows `Not enough data` or
-`Inconsistent history` rather than fabricating unavailable estimates.
-
-Forecasting uses one reviewed deterministic method for every meter and
-recalculates from that meter's history whenever a new point is added. All callers
-use the single replaceable model function so a later evidence-backed method does
-not require API/UI rewrites. History improves the estimate incrementally, but
-this is not reinforcement learning or ML. A new meter has no guessed usage
-baseline and must show `Not enough data` until real readings support the
-calculation.
-
-Development Compose reads its explicit values from the ignored `software/.env`.
-The committed `.env.example` contains only safe local examples; credentials and
-secrets must remain untracked. The current admin list remains in ignored .env
-until 69.3 removes it. The user-approved future seed identity is documented above;
-do not treat it as a hardcoded runtime privilege check.
-
-The root README owns stable ticket IDs and the current execution order. Ticket
-48 performs an explicit active-code/domain cleanup before authentication and
-feature tickets proceed.
+1. Next is 69.4 backend shared-access guards, then 69.5 minimal sharing UI.
+   Repeat owner-membership backfill at cutover; first
+   settle creator-delete cascades, whole-meter deletion and concurrent last-member
+   safety. Membership rows alone do not activate sharing.
+2. 69.6 fixes planning to the 1st, separate from predicted run-out and retaining
+   current rolling 30-day quantities/model. It is not active yet.
+3. 69.7 emails all meter members (not all accounts/admins) the day before the 1st.
+   Preserve low-balance eligibility, saved-local calendar/UTC storage and
+   per-recipient dedupe/removal behavior. Current reminders remain owner-only,
+   opt-in, default off, with settings hidden in UI. Reuse the finite runner/SMTP.
+4. HTML email 70 (plain fallback/trusted app links), usability 65, offline forecast
+   validation 66, deployment 57, then household/external evidence 56/67.
+   Each implementation needs its own questions, prompt and approval.
+5. Future mobile/local-only 68 may provide guest device storage and optional
+   account login; it does not weaken today's authenticated backend.
 
 ## Deferred research
 
-Hardware, firmware, camera capture, OCR, device upload, MQTT, anomaly ML and
-meter interfaces are preserved but deferred. Revisit automation only if real
-users find manual entry too inconvenient. Desktop OCR tests are never hardware
-validation, and uncertain OCR must never become a trusted balance silently.
+Tariffs/Rand/cost forecasts, payments, hardware, camera/OCR, MQTT, device ingestion
+and ML are not V1. Preserve research and non-invasive safety rules; anomalies are
+never proof of theft. Read-only Switch UI/Roventics brand inspection is allowed;
+never modify sibling repositories without separate authorization.
 
-Automated top-ups, payment integration, tariffs, Rand forecasts, SMS, push
-notifications, municipal dashboards and postpaid billing are also deferred.
-Any future payment path requires authorised providers, consent, auditability and
-explicit failure handling.
-
-Any future physical meter work must remain external and non-invasive. Never
-open, electrically modify, bypass or interfere with an installed meter.
-Anomalies are investigation signals, not proof of theft or tampering.
-
-## UI and brand references
-
-The user has authorised read-only inspection of `../switch/hardware/web/` for
-mobile interaction inspiration and `../roventics/frontend/images/` or
-`../switch/assets/branding/roventics/` for future company artwork. Monitor UI
-must remain a native React/Material UI implementation. Never modify sibling
-repositories without a separate explicit request.
-
-## Documentation rules
-
-Use the nearest README; do not create a `docs/` directory. Keep root roadmap
-summaries short and detailed requirements in component READMEs. Work records use
-sequential three-digit directories. Do not commit secrets, private bills,
-customer data, meter photographs or local database contents.
+Offline forecasting research has its own dependencies/environment under backend.
+simulator.py is the sole entrypoint: 730-day synthetic replay, nominal 0.1 sec/day,
+moving orange 60/90-day context, two plots and a randomness slider. The forecast
+horizon remains 30 days. Its calibrated prior/rolling line is NOT integrated.
+Retain 66.1/66.2 acceptance, 66.3 review, chronological 66.4 go/no-go and fresh
+66.5 approval. Current independent-noise evidence favors baselines, not adoption.
+Preserve ignored .tmp/task053/legacy-research.zip and
+.tmp/task055/simulator_checks.py: they contain unique retired research sources.

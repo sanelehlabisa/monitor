@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
-from app.balance_entries import (
+from app.modules.balance_entries import (
     BalanceEntryNotFoundError,
     BalanceTimeConflictError,
     create_balance_entry,
@@ -15,7 +15,7 @@ from app.balance_entries import (
     update_balance_entry,
 )
 from app.database import connect_database
-from app.meters import MeterNotFoundError, create_meter
+from app.modules.meters import MeterNotFoundError, create_meter
 from app.settings import Settings
 from psycopg import Connection
 from psycopg.errors import CheckViolation
