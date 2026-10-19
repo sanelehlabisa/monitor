@@ -168,8 +168,13 @@ research does not automatically replace the app.
   members, not all application users; admin access alone does not subscribe anyone.
   69.7.1 covers persisted per-recipient/cycle dispatch and retryable status;
   69.7.2 adds an asyncio lifecycle loop and backend-startup catch-up using the DB.
-  Settle backlog/initial cutoff before implementation and explicitly approve
-  source-mail activation. No user selectors, new service or dependency. Existing
+  Task 068 completes the inactive finite pass: discover only the latest missed
+  cycle, use current members (including newly shared users), and retry saved
+  new-format pending work. All 134 isolated backend checks and real Mailpit SMTP
+  checks pass; OpenAPI/pins are unchanged. Persist a fixed initial cutoff and
+  reconcile legacy delivery keys
+  before separately approved source-mail activation in 69.7.2. No user selectors,
+  new service or dependency. Existing
   low-balance behavior stays unchanged in Task 066.
 
 Keep the existing eight domain tables plus membership (nine total), including

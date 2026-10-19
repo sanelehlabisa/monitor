@@ -338,19 +338,24 @@ Depends on: 69.3/69.4's roles/memberships and 69.6's fixed planning date.
 - Use one UTC calendar/clock policy, not device or legacy saved timezones.
   Persist per-recipient/cycle pending/sent status. On backend startup and later
   passes, recover unsent work from the DB rather than skip it after month-end.
-  Settle missed-cycle discovery, initial activation cutoff/backlog and late-member
-  policy in the implementation prompt; user_meters has no joined_at. Do not
-  silently replay pre-feature history, reset sent records or fan out to nonmembers.
+  Discover only the latest missed cycle; already-saved pending jobs from all
+  cycles still retry. Use current members, including newly shared users;
+  user_meters has no joined_at. Require an explicit fixed activation cutoff and
+  exclude cycles before a meter existed. Do not silently replay pre-feature
+  history, reset sent records or fan out to nonmembers.
 - Deduplicate monthly delivery per meter, recipient and target planning cycle:
   a December 31 send for January 1 belongs to the January cycle. Check month
   lengths, leap years and year boundaries; do not key it only by send month.
 - Extend existing durable claims to recipient-level delivery for both reminder
   types. One recipient's failure/retry must not resend successful recipients;
   removal ends future eligibility, including rechecking membership before a
-  pending send. Preserve abandoned-claim recovery and SMTP-failure release,
-  without claiming exactly-once SMTP delivery across crashes. Keep failures
-  retryable in stored status. Retain a delayed job's original cycle key; do not
-  accidentally suppress the next real cycle when a retry happens on the 1st.
+  pending send. Retain failed new monthly jobs as pending and recover abandoned
+  claims after the existing 30-minute lease, without claiming exactly-once SMTP
+  delivery across crashes. Commit the whole selected fan-out before SMTP and
+  each recipient's result independently, with claim-ownership checks and consistent
+  meter-before-delivery locking. Retain a delayed job's original cycle key; use a
+  fresh forecast and label its current planning date separately from the delayed
+  notification cycle. Never suppress the next real cycle by rekeying a retry.
 - Retain predicted-low-balance reminders and their valid-forecast/lead-time
   eligibility, deduplicated per recipient and predicted local run-out date.
   Never send a low-balance forecast for unavailable/inconsistent history or
@@ -363,12 +368,30 @@ Split into separately approved small tasks:
 - 69.7.1: durable member/cycle dispatch, missing/failed job recovery and recipient
   deduplication, using isolated SMTP only. Preserve low-balance behavior unless
   its prompt explicitly changes it; do not turn on extra alerts silently.
+  [Task 068](../../agents/work/068-durable-monthly-reminders/changes.md) completes
+  this finite slice. `app.modules.monthly_reminders.run_monthly_reminders` owns
+  connection/commit boundaries and requires an aware activation cutoff; no caller
+  transaction is silently committed.
+  Reuse the existing delivery schema with target `YYYY-MM:userID` keys. Do not
+  wire it into CLI/import/request/lifespan paths or send source mail in this task.
+  Legacy rows/CLI keep their existing behavior: old plain YYYY-MM keys identify
+  send months, not necessarily target months, and cannot be silently reinterpreted.
+  All 134 isolated backend checks pass, including 25 new calendar, durability,
+  concurrency and failure-isolation cases. Real internal SMTP captured three
+  messages to two synthetic members, excluded admin-only access and sent none on
+  repeat; delayed-cycle/current-planning dates and unavailable prompts are checked.
+  OpenAPI is byte-identical to Git HEAD and pinned dependencies are unchanged.
+  No source DB queries/writes, mail or service actions occurred. New-path header
+  normalization and date-range failure isolation do not change live forecast math.
 - 69.7.2: lifecycle-owned asyncio task, sequential passes with blocking DB/SMTP
   work off the event loop, startup recovery, cross-process overlap protection,
   bounded operations and safe shutdown/draining. Reuse the finite pass and SMTP;
   no extra scheduling service/dependency or request-triggered-only mechanism.
   Source activation needs explicit approval: hot reload of main.py could otherwise
   start sending immediately into the current stack.
+  First agree/persist the fixed cutoff and reconcile legacy pending/sent records
+  without dropping pending mail or inventing cross-format deduplication. Task 068
+  alone does not complete legacy backlog recovery or authorize activation.
 
 Acceptance: isolated multi-member fan-out, non-member/admin-only exclusion,
 membership removal, recipient retries/dedup, restart/catch-up, failed/stale claims,

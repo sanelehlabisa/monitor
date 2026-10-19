@@ -157,11 +157,16 @@ The [root roadmap](../../README.md) owns stable IDs and priority; the
 - 69.1-69.3: recovery, fresh bootstrap and DB-only roles are complete.
 - 69.4: shared authorization, preserved-data FK transition and running-stack
   read-only smoke checks are complete in Tasks 063/064.
-- 69.5: minimal membership-aware UI/My/All/search after backend guards.
-- 69.6: fixed 1st-of-month planning, separate from run-out/30-day quantities.
-- 69.7: day-before monthly email to all meter members, not all accounts; retain
-  low-balance eligibility and per-recipient dedupe/removal. Saved timezone/send
-  time needs agreement; reuse the finite runner.
+- 69.5: membership-aware sharing UI/My/All/search is complete in Task 065.
+- 69.6: strictly-next UTC 1st and actual calendar-month quantities, separate from
+  predicted run-out, are complete in Task 066.
+- 69.7: 09:00 UTC on month-end to current meter members, including newly shared
+  users, not all accounts. Discover only the latest missed cycle; retry all saved
+  pending work. Task 068 completes the finite monthly pass using the existing
+  delivery schema; all 134 isolated backend checks and real Mailpit SMTP checks
+  pass, without source SQL or scheduler activation. Preserve
+  legacy rows and low-balance behavior; reconcile legacy backlog/keys and persist
+  a fixed activation cutoff before separately approved activation in 69.7.2.
 - 70: HTML email with plain fallback/trusted links after reminder rules.
 
 Keep separate reminder preferences/claims, digest-only security and occurrence

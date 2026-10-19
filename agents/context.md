@@ -163,16 +163,33 @@ Existing API payloads are unchanged; only three member operations were added.
    Task 067 was approved and removes only the visible " (UTC)" monthly-date suffix;
    UTC date formatting, calculations, rollover and API remain unchanged. All 43
    frontend checks and the TypeScript/Vite build pass. The user subsequently
-   authorized the Git handoff of completed Tasks 066–067 to master; earlier
+   authorized the Git handoff of completed Tasks 066–067 to master as 03a2e4d; earlier
    no-commit notes describe their original completion-time scope.
 3. 69.7 is automatic month-end mail at 09:00 UTC to current meter members, with
    DB-backed status and backend-startup catch-up, not skip-if-offline. Split into
    69.7.1 durable member/cycle dispatch and 69.7.2 asyncio lifecycle/startup recovery.
-   Settle backlog/activation cutoff and late-member policy in those prompts;
-   current user_meters has no join timestamp. Source-mail activation requires
-   explicit approval; do not hot-reload an active scheduler into the running stack.
-   Current reminders remain finite, owner-only, opt-in/default off and hidden in
-   UI. Preserve low-balance behavior in Task 066. Reuse raw SQL/claims/SMTP, not a
+   Task 068 completes 69.7.1's inactive finite member-based monthly pass in
+   app/modules/monthly_reminders.py. Discover only the latest missed cycle and use
+   current members, including newly shared users; admin access alone is not a
+   subscription. Retry all saved new-format pending cycles. Require an explicit
+   aware activation cutoff; exclude cycles before meter creation. Keep failed
+   claims pending with the existing 30-minute lease. Commit the full fan-out before
+   SMTP and each recipient independently, with parent/claim/membership rechecks.
+   All 134 isolated backend checks and real Mailpit SMTP checks pass (three messages,
+   two members, no duplicate send). OpenAPI is byte-identical and pins unchanged.
+   Source IDs/images/start times/restarts/volumes are unchanged; all four services
+   were healthy in the post-verification sample, not continuously throughout.
+   No source SQL, mail or service action occurred. Details are in work/068.
+   The user subsequently authorized the Git handoff of completed Task 068 to
+   master; earlier no-commit notes describe its completion-time scope only.
+   Current user_meters has no join timestamp. Preserve legacy rows/CLI without
+   reinterpreting old send-month keys as new target-month/recipient keys. Legacy
+   pending/sent reconciliation and fixed cutoff persistence gate 69.7.2 activation;
+   this finite slice does not complete legacy backlog recovery.
+   Source-mail activation requires explicit approval; do not hot-reload an active
+   scheduler into the running stack. The existing CLI remains finite, creator-only,
+   opt-in/default off and hidden in UI; the new helper is not wired into it,
+   requests or app lifecycle. Low-balance behavior stays unchanged. Reuse raw SQL/claims/SMTP, not a
    new service. A later retry must not overwrite its original delivery-cycle key.
 4. HTML email 70 (plain fallback/trusted app links), usability 65, offline forecast
    validation 66, deployment 57, then household/external evidence 56/67.

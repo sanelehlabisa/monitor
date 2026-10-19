@@ -24,8 +24,8 @@ fresh backup/rehearsal, preserving all data. The user subsequently started the
 full stack; read-only UI/API/schema checks passed and all four services were left
 running. The earlier health timeout did not require a code/configuration change.
 Task 065 adds collapsed email sharing and membership-based My/All/search.
-Task 066 adds actual calendar-month planning; automatic shared-member reminders
-remain separate work.
+Task 066 adds actual calendar-month planning. Task 068 adds a separately callable
+durable monthly delivery pass; automatic scheduling/activation remain separate work.
 Task 059 changes administrator authority to stored `users.type`,
 without email/environment overrides. Its guarded source transition and 68 isolated
 backend checks passed; task-resource cleanup is verified.
@@ -217,10 +217,13 @@ own implementation approval; details live in the closest software README.
     Task 066 implements this slice; usage-rate learning remains unchanged.
   - [ ] Ticket 69.7: Automatic Shared-Member Reminders — 09:00 UTC on month-end,
     durable per-recipient status and startup catch-up, without user settings.
-    - [ ] 69.7.1: Durable dispatch — member recipients, cycle keys, pending/sent
-      recovery and isolated SMTP checks; agree backlog/initial cutoff first.
+    - [x] 69.7.1: Durable dispatch — Task 068 implements the finite member/cycle
+      pass, latest-missed discovery and saved pending recovery. All 134 isolated
+      backend checks and real Mailpit SMTP checks pass. No scheduler/source-mail
+      activation; legacy backlog reconciliation remains the next activation gate.
     - [ ] 69.7.2: Async backend scheduler — lifecycle-owned sequential passes,
       startup recovery, safe shutdown/concurrency and explicitly approved activation.
+      Persist a fixed activation cutoff and reconcile legacy delivery keys/backlog first.
 - [ ] Ticket 70: Readable HTML Emails — OTP/reminder HTML with plain-text fallback
   and safe app links; reuse SMTP after 69.7's recipient/message contract.
 - [ ] Ticket 65: Monitor Usability Review — first-user onboarding, clear actual
