@@ -57,8 +57,9 @@ def build_monthly_reminder_message(
 
     if forecast.status == "available":
         planning = (
-            "Monitor currently recommends recording a top-up of approximately "
-            f"{forecast.recommended_top_up_30_days_kwh} kWh for the next 30 days."
+            "Monitor currently recommends approximately "
+            f"{forecast.recommended_monthly_top_up_kwh} additional kWh for the "
+            f"{forecast.planning_days}-day calendar month, based on the current estimated balance."
         )
     else:
         planning = (
@@ -70,6 +71,7 @@ def build_monthly_reminder_message(
         sender,
         f"Monthly electricity reminder for {candidate.meter_name}",
         f"This is your monthly electricity check-in for {candidate.meter_name}.\n\n"
+        f"Planning date: {forecast.planning_at:%Y-%m-%d} UTC.\n\n"
         f"{planning}\n\nEstimates are planning guidance, not a purchase or guarantee.\n",
     )
 

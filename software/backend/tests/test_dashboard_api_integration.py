@@ -77,6 +77,14 @@ def test_dashboard_states_history_corrections_and_access() -> None:
         available = owner.get(url).json()
         assert available["forecast"]["status"] == "available"
         assert available["forecast"]["daily_usage_kwh"] == "5.000000"
+        forecast = available["forecast"]
+        planning_at = datetime.fromisoformat(forecast["planning_at"])
+        assert planning_at.day == 1 and planning_at.hour == planning_at.minute == planning_at.second == 0
+        assert forecast["planning_days"] in (28, 29, 30, 31)
+        assert "recommended_top_up_30_days_kwh" not in forecast
+        expected_extra = max(Decimal("0"), Decimal(forecast["daily_usage_kwh"]) * forecast["planning_days"]
+            - Decimal(forecast["estimated_balance_kwh"])).quantize(Decimal("0.001"))
+        assert Decimal(forecast["recommended_monthly_top_up_kwh"]) == expected_extra
         assert available["latest_actual_balance"]["id"] == str(second.id)
         assert [item["kind"] for item in available["history"]] == [
             "balance",

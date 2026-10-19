@@ -278,13 +278,15 @@ describe('authentication API client', () => {
       forecast: {
         status: 'not_enough_data',
         as_of: '2026-10-09T12:00:00Z',
+        planning_at: '2026-11-01T00:00:00Z',
+        planning_days: 30,
         latest_actual_balance_kwh: null,
         latest_actual_at: null,
         daily_usage_kwh: null,
         estimated_balance_kwh: null,
         remaining_days: null,
         run_out_at: null,
-        recommended_top_up_30_days_kwh: null,
+        recommended_monthly_top_up_kwh: null,
         intervals_used: 0,
       },
     };

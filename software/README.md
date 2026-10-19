@@ -65,7 +65,9 @@ server-side search and timestamped balance/purchase history.
 The open blue/teal Material UI workspace uses linkable `/meters/<uuid>` details,
 on-demand record forms and a prominent forecast summary with manual Refresh.
 One deterministic model derives estimates from each meter's own history and
-withholds unsupported forecasts. Reminder settings are hidden in the frontend;
+withholds unsupported forecasts. Task 066 plans the strictly-next UTC 1st using
+the full target month's actual days and current balance, with read-only rollover
+refresh. Reminder settings are hidden in the frontend;
 the opt-in owner-only backend runner remains available. Component READMEs show
 the source layout, API contracts and repeatable demo. Historical UI iterations
 remain in their numbered work records rather than current setup instructions.
@@ -159,12 +161,16 @@ research does not automatically replace the app.
   safe concurrent last-member protection. Task 065 implements 69.5's collapsed
   sharing controls and server-scoped My/All/search, not a UI redesign. Remove/Leave
   changes membership only; Retry after a saved change never repeats the write.
-- 69.6 fixes the monthly planning date to the 1st without replacing the model,
-  changing 30-day quantities or hiding an earlier predicted run-out.
-- 69.7 sends the monthly reminder the day before the 1st to all meter members,
-  not all application users; global admin access alone does not subscribe them.
-  Retain low-balance eligibility, UTC storage/local dates and per-recipient
-  deduplication. No per-member opt-in, weekly selector or new scheduling service.
+- 69.6 / Task 066 supersedes the former fixed-30-day plan: use the strictly
+  next UTC 1st, its full calendar-month duration and current-balance subtraction.
+  Keep usage learning/run-out unchanged; do not project balance to that future date.
+- 69.7 sends automatic monthly mail at 09:00 UTC on the last calendar day to meter
+  members, not all application users; admin access alone does not subscribe anyone.
+  69.7.1 covers persisted per-recipient/cycle dispatch and retryable status;
+  69.7.2 adds an asyncio lifecycle loop and backend-startup catch-up using the DB.
+  Settle backlog/initial cutoff before implementation and explicitly approve
+  source-mail activation. No user selectors, new service or dependency. Existing
+  low-balance behavior stays unchanged in Task 066.
 
 Keep the existing eight domain tables plus membership (nine total), including
 separate reminder settings/delivery claims, hashed OTP/session state and real

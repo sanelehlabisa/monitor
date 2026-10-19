@@ -5,6 +5,7 @@ import {
   localDateTimeDisplay,
   localDateTimeInputValue,
   utcDateTimeValue,
+  utcDateDisplay,
 } from './dateTime';
 
 describe('browser-local date and time helpers', () => {
@@ -30,5 +31,12 @@ describe('browser-local date and time helpers', () => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
 
     expect(localDateTimeInputValue(date)).toBe(local.toISOString().slice(0, 16));
+  });
+
+  it('formats the planning date in UTC rather than shifting it west of midnight', () => {
+    for (const value of ['2027-01-01T00:00:00Z', '2028-02-01T00:00:00+00:00']) {
+      expect(utcDateDisplay(value)).toBe(new Date(value).toLocaleDateString(undefined, { timeZone: 'UTC' }));
+      expect(utcDateDisplay(value)).not.toBe(new Date(value).toLocaleDateString(undefined, { timeZone: 'America/Los_Angeles' }));
+    }
   });
 });

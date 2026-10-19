@@ -104,6 +104,7 @@ export default function App() {
   const dashboardVersion = useRef(0);
   const meterListVersion = useRef(0);
   const reloadOnReturn = useRef(false);
+  const rolloverRefresh = useRef('');
   const meterCount = unfilteredMeters.length;
 
   function listInView(query = '', view = adminMeterView) {
@@ -186,6 +187,40 @@ export default function App() {
       if (!isMeterListPath(meterPath)) setMeterError('That meter is unavailable. Return to the meter list.');
     }
   }, [user, meterPath]);
+
+  useEffect(() => {
+    if (!user || !selectedMeter || !forecast || busy || meterBusy || ledgerBusy || sharingBusy || ledgerLoading || ledgerError) return;
+    const deadline = Date.parse(forecast.planning_at);
+    if (!Number.isFinite(deadline)) return;
+    const version = dashboardVersion.current;
+    const meterId = selectedMeter.id;
+    const key = `${user.id}:${meterId}:${version}:${deadline}`;
+    let active = true;
+    let timer: number | undefined;
+    function refreshIfDue() {
+      if (!active || version !== dashboardVersion.current || rolloverRefresh.current === key) return;
+      window.clearTimeout(timer);
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        // One automatic read per expired cycle; failures keep the manual Retry path.
+        rolloverRefresh.current = key;
+        void loadDashboard(meterId, false, version);
+      } else {
+        // Cap long waits to avoid the browser's maximum timeout delay; no API polling.
+        timer = window.setTimeout(refreshIfDue, Math.min(remaining, 86_400_000));
+      }
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshIfDue(); };
+    refreshIfDue();
+    window.addEventListener('focus', refreshIfDue);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', refreshIfDue);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [user?.id, selectedMeter?.id, forecast?.planning_at, busy, meterBusy, ledgerBusy, sharingBusy, ledgerLoading, ledgerError]);
 
   function clearMeterWorkspace() {
     dashboardVersion.current += 1;

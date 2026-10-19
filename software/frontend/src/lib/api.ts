@@ -38,13 +38,15 @@ export type TopUpEntry = {
 export type Forecast = {
   status: 'available' | 'not_enough_data' | 'inconsistent_history';
   as_of: string;
+  planning_at: string;
+  planning_days: number;
   latest_actual_balance_kwh: string | null;
   latest_actual_at: string | null;
   daily_usage_kwh: string | null;
   estimated_balance_kwh: string | null;
   remaining_days: string | null;
   run_out_at: string | null;
-  recommended_top_up_30_days_kwh: string | null;
+  recommended_monthly_top_up_kwh: string | null;
   intervals_used: number;
 };
 

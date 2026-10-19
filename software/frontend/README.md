@@ -11,7 +11,7 @@ After the initial health timeout/diagnostic, the user started the full stack.
 Read-only checks passed for served UI/deep links, transformed main/App modules,
 branding assets and signed-out API denial through the frontend proxy. Services
 remain running; live browser/login/write verification is still outstanding.
-Task 065 adds minimal sharing and membership-aware My; planning 69.6 is future.
+Task 065 adds minimal sharing and membership-aware My; Task 066 adds calendar-month planning.
 
 Regular users receive their accessible meter memberships from the backend.
 Users whose stored type is `admin` can see every meter's creator email and the same
@@ -203,7 +203,7 @@ below a divider. Existing navigation, handlers, record order and math are unchan
 The primary entry actions must take only a few seconds on a phone. Do not require
 a municipal meter number, tariff, Rand amount, image or device setup. Show the
 last actual reading time beside estimated balance, daily usage, remaining days,
-likely next-top-up date and 30-day recommended kWh.
+predicted run-out, next monthly top-up date and actual-month recommended kWh.
 
 Use "Not enough data" when the backend cannot support a forecast. Make correction
 and deletion behavior explicit; never hide inconsistent history behind a smooth
@@ -224,10 +224,11 @@ types. Each tab under the collapsed History section shows its own newest-first
 factual history; the entry forms are shown only after choosing a record action.
 
 Task 037 simplifies the selected meter dashboard around one planning summary:
-estimated balance and days remaining, a smaller top-up-by date below remaining
-days, and a monthly purchase recommendation. The recommendation is the additional
-kWh needed for the next 30 days after accounting for estimated balance, not a
-Rand cost or a different forecast model. Latest actual balance/observation time
+estimated balance and days remaining, a smaller predicted run-out date below
+remaining days, and a monthly purchase recommendation. Task 066 shows the next
+monthly top-up date separately in UTC and uses that full calendar month's days
+minus current estimated balance, not a future-balance projection, Rand cost or
+different learned model. Latest actual balance/observation time
 and the estimate timestamp remain visible; daily usage/interval assumptions sit
 inside collapsed Calculation details. Two large icon buttons reveal only the
 matching entry form. The header is compact and retains the meter name/owner.
@@ -235,7 +236,10 @@ matching entry form. The header is compact and retains the meter name/owner.
 The dashboard reloads after every ledger change. Task 035 adds an icon-labelled
 Refresh action, which Task 037 moves below the primary content. It
 uses the same dashboard loader as meter opening and successful ledger changes;
-there is no automatic polling. Refresh is disabled while loading or saving.
+there is no automatic API polling. Task 066 checks the calendar locally with
+bounded timers and focus/visibility events, fetching once when the UTC planning
+cycle expires. It defers conflicting work and preserves manual error recovery.
+Refresh is disabled while loading or saving.
 Failed reads hide estimates and show `Estimates unavailable` with retry guidance,
 not a permanent spinner. Already-loaded records remain available after failure.
 If a write succeeded, its form clears/closes and the message confirms it was saved:
@@ -299,11 +303,13 @@ use the same local clock time for all three records.
 | Balance records | Yesterday | 80 |
 
 The interval used 40 kWh over ten days: `(100 + 20 - 80) / 10 = 4 kWh/day`.
-The planning card should show approximately 76 kWh now, 19 days remaining,
-a run-out/top-up-by date 19 days from now and 44 kWh needed for the next 30 days.
+The summary should show approximately 76 kWh now, 19 days remaining and a
+predicted run-out 19 days from now, separate from the next monthly UTC 1st.
+Additional purchase is max(0, 4 * target_month_days - 76): 44 kWh for a 30-day
+target month, or 48 kWh for 31 days (36/40 kWh for February's 28/29 days).
 The latest actual reading stays 80 kWh at yesterday's observation time. Small
-differences are expected as time passes; the 44 kWh recommendation accounts for
-the estimated 76 kWh already available.
+differences are expected as time passes; the recommendation subtracts the
+estimated kWh currently available, without depleting it to the future 1st.
 
 1. Edit yesterday's balance to 70 kWh. The usage rate should refresh to 5 kWh/day
    without reopening the meter. Restore it to 80 afterward.
@@ -340,7 +346,7 @@ valid actual readings without displaying invented numbers.
 
 Make actual reading/time clearly distinct from the estimated current balance,
 days/run-out and additional energy to buy. Explain that monthly usage is not the
-same as additional purchase: 15 kWh/day means 450 kWh for 30 days; with 300 kWh
+same as additional purchase: 15 kWh/day means 450 kWh for a 30-day target month; with 300 kWh
 already available, the current recommendation is 150 kWh extra.
 
 Acceptance: a concise issue/fix review and first-time desktop/phone walkthrough
@@ -428,25 +434,44 @@ groups cover sharing, scoped search/counts, last-member/failed-read recovery,
 conflicting controls and delayed replies after meter/account changes; six
 1200/390/320px captures have no overflow. No real API writes or mail were used.
 
-### Ticket 69.6: Fixed monthly planning date (planned)
+### Ticket 69.6: Calendar-month planning (Task 066)
 
-Reuse the dashboard and backend date contract after the relevant 69.1–69.5
-dependencies. Present the 1st as the fixed monthly planning date, clearly separate
-from the forecasted run-out date; it must not imply the meter will last until then.
-Keep quantities on the existing 30-day basis: usage is daily rate × 30, while
-additional purchase is max(0, that usage − estimated balance). Do not convert
-these to calendar-month quantities, replace the model or invent missing estimates.
+The latest user clarification supersedes the former unchanged-30-day plan.
+Task 066 uses the strictly-next UTC 1st: once that day starts, target the next
+month's 1st. Show this calendar date separately from Predicted run-out, never as
+a promise the meter will last until then. Preserve the existing open layout.
 
-The [backend plan](../backend/README.md) owns 69.7 day-before monthly emails to
-every meter member, retaining low-balance eligibility. Do not add per-member
-opt-ins or weekly/monthly schedule selectors. Saved timezone and send time remain
-implementation decisions; the current browser-local display/UTC persistence and
-absence of frontend reminder controls remain unchanged until approved work lands.
+Use backend rate × actual target-month days minus CURRENT estimated balance,
+floored at zero. Compute duration from the target 1st to the following 1st using
+UTC datetimes, not a fixed 30. Example: 15 kWh/day, 300 kWh available and a 28-day
+February gives 120 kWh extra. Do not project/deplete balance to February 1 or
+introduce another learned model. Preserve honest unavailable and zero-use states.
 
-Acceptance: distinguish fixed planning and predicted run-out dates on desktop/
-phone, including unavailable/zero-use states and month/year boundaries. Verify
-30-day amounts remain unchanged and agree with the API; email scheduling stays
-in the finite backend runner, not the browser.
+The API uses recommended_monthly_top_up_kwh, planning_at and planning_days,
+with no old 30_days field. Display its date in UTC so a browser cannot shift the 1st to
+the previous day; factual ledger/run-out display keeps its existing local format.
+Task 067 removes only the visible " (UTC)" suffix from this date label; the UTC
+calendar formatter and all calculation/rollover rules stay unchanged.
+Its 43 frontend checks and TypeScript/Vite build pass, including the UTC-versus-
+western-date helper checks and the suffix-absence assertion.
+Recalculate after existing Refresh/ledger actions; an open view performs a
+guarded read-only refresh at month rollover or after resuming an outdated view.
+
+The [backend plan](../backend/README.md) owns 69.7 automatic monthly mail to each
+meter's members at 09:00 UTC on month-end, persisted per-recipient status and
+backend-startup catch-up. No user selectors/settings are added. Task 066 changes
+existing message wording only; it does not activate or implement the scheduler.
+
+Acceptance: desktop/phone target-date/amount wording, first-day advancement,
+28/29/30/31-day and year/UTC boundaries, unavailable/zero-use states, unchanged
+rate/run-out, API/email agreement and stale-response-safe read-only rollover.
+Failed automatic reads use existing manual Refresh recovery; no ledger write is
+replayed. The clock check cancels on navigation/account changes and suppresses
+duplicate timer/focus/visibility requests for an expired workspace/cycle.
+All 43 frontend checks, TypeScript/Vite build and 11 mocked-browser groups pass.
+Four desktop/390/320px captures cover calendar/unavailable layouts; western
+timezone, month rollover/resume, read-only recovery and stale responses are
+verified without real API requests. Task-owned verification resources are cleaned.
 
 ### Ticket 68: Future installation and guest/local-only use
 

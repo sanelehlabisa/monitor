@@ -18,3 +18,8 @@ export function localDateTimeDisplay(value: string): string {
 export function localDateDisplay(value: string): string {
   return new Date(value).toLocaleDateString();
 }
+
+/** Keep the planning month's UTC 1st from shifting to a browser's previous day. */
+export function utcDateDisplay(value: string): string {
+  return new Date(value).toLocaleDateString(undefined, { timeZone: 'UTC' });
+}

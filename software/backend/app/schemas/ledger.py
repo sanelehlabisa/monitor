@@ -71,13 +71,15 @@ class ForecastResponse(BaseModel):
 
     status: Literal["available", "not_enough_data", "inconsistent_history"]
     as_of: datetime
+    planning_at: datetime
+    planning_days: int
     latest_actual_balance_kwh: Decimal | None
     latest_actual_at: datetime | None
     daily_usage_kwh: Decimal | None
     estimated_balance_kwh: Decimal | None
     remaining_days: Decimal | None
     run_out_at: datetime | None
-    recommended_top_up_30_days_kwh: Decimal | None
+    recommended_monthly_top_up_kwh: Decimal | None
     intervals_used: int
 
 

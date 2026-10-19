@@ -168,8 +168,14 @@ At least two actual balances are required. Adjacent intervals include top-ups
 and yield one time-weighted daily rate; inconsistent history is unavailable.
 Zero observed use has no finite run-out date. Dashboard output is derived,
 not stored, and includes actual records and latest actual reading/time.
-The additional 30-day purchase is `max(0, rate * 30 - estimated_balance)`, not
-total monthly consumption. Forecast math and unavailable states are unchanged.
+Task 066's additional monthly purchase is
+`max(0, rate * planning_days - current estimated_balance)`, not total usage or a
+projection of balance at the future 1st. The target is the strictly-next UTC
+month-start (even on the 1st); days come from its full datetime interval to the
+following month-start. Rate/current-balance/run-out and unavailable states stay.
+The response now uses `recommended_monthly_top_up_kwh` instead of the removed
+`recommended_top_up_30_days_kwh`. `planning_at` and `planning_days` are known even
+without enough history; unsupported energy/rate estimates remain null.
 
 Reminder GET/PATCH retains existing disabled-by-default settings, day 1-28,
 lead time up to 30 days and saved IANA timezone. Saving never sends mail.
@@ -209,9 +215,9 @@ preserved. Read-only checks on the later user-started stack passed; it stays run
 The earlier approved source upgrade/one-time assignment
 followed a new verified backup and isolated rehearsal before source execution.
 [Frontend Tickets 69.5/69.6](../frontend/README.md) consume the resulting access
-contract and fixed first-of-month planning date. The 30-day quantities and
-predicted run-out remain distinct from that calendar planning date; no forecast
-math or Ticket 66 adoption gate changes.
+contract. Task 066 implements actual-calendar-month purchase planning
+instead of fixed 30 days, using current balance without projecting it to the 1st.
+Keep daily-rate/run-out logic and the research Ticket 66 adoption gate unchanged.
 Keep existing clients working through the schema/access transition; do not
 activate a membership-only schema or reminder contract before its dependent
 backend/UI changes are ready and checked together.
@@ -300,19 +306,41 @@ creation, sequential/concurrent last-member guards and account deletion without
 accidental shared-data loss. Reuse existing APIs/error conventions where useful;
 69.5 owns the minimal MUI integration.
 
-### Ticket 69.7: Day-Before Planning Email to Meter Members
+### Ticket 69.6: Calendar-Month Planning (Task 066)
+
+Reuse run_forecast_model, its current balance and Decimal/time helpers. Always
+choose the strictly-next UTC month-start, including when now falls on the 1st.
+Calculate its duration to the following UTC month-start; recommend
+max(0, daily_rate * period_days - CURRENT estimated balance). No balance depletion
+to the future 1st, new model, calendar-month training or fabricated estimates.
+Example: 15 kWh/day with 300 kWh left gives 120 kWh extra for 28-day February.
+
+The coordinated dataclass/schema/frontend/message contract uses
+recommended_monthly_top_up_kwh, planning_at and planning_days; the old 30-day
+key is removed rather than silently changed or retained as a duplicate alias.
+Preserve learned-rate/current-balance/run-out calculations and invalid/zero states.
+No SQL, live-mail, scheduler or source-service action is included in Task 066.
+Prompt: [Task 066](../../agents/work/066-calendar-month-planning/prompt.md).
+All 109 isolated checks pass. OpenAPI differs only by the approved recommendation
+rename and required planning metadata; dependency pins are unchanged. No live
+fixture/mail or schema action occurred; exact task-owned test resources are removed.
+
+### Ticket 69.7: Automatic Month-End Email to Meter Members
 
 Depends on: 69.3/69.4's roles/memberships and 69.6's fixed planning date.
 
-- Send the monthly planning email the day before the 1st, to every current
+- Send the monthly planning email at 09:00 UTC on the last calendar day, to every current
   member of that meter initially, with no per-member opt-in or schedule
   selector. This replaces the current owner-only, default-disabled monthly
   opt-in contract, not merely its recipient query. This is not every registered
   account. Global admin access alone does not make an admin a recipient; an
   admin receives only as a member.
-- Choose the saved meter timezone, send time and scheduler/catch-up policy in
-  the implementation prompt. Use that one explicit timezone for scheduling,
-  not whichever member device happens to call the API. Keep UTC storage.
+- Use one UTC calendar/clock policy, not device or legacy saved timezones.
+  Persist per-recipient/cycle pending/sent status. On backend startup and later
+  passes, recover unsent work from the DB rather than skip it after month-end.
+  Settle missed-cycle discovery, initial activation cutoff/backlog and late-member
+  policy in the implementation prompt; user_meters has no joined_at. Do not
+  silently replay pre-feature history, reset sent records or fan out to nonmembers.
 - Deduplicate monthly delivery per meter, recipient and target planning cycle:
   a December 31 send for January 1 belongs to the January cycle. Check month
   lengths, leap years and year boundaries; do not key it only by send month.
@@ -320,7 +348,9 @@ Depends on: 69.3/69.4's roles/memberships and 69.6's fixed planning date.
   types. One recipient's failure/retry must not resend successful recipients;
   removal ends future eligibility, including rechecking membership before a
   pending send. Preserve abandoned-claim recovery and SMTP-failure release,
-  without claiming exactly-once SMTP delivery across crashes.
+  without claiming exactly-once SMTP delivery across crashes. Keep failures
+  retryable in stored status. Retain a delayed job's original cycle key; do not
+  accidentally suppress the next real cycle when a retry happens on the 1st.
 - Retain predicted-low-balance reminders and their valid-forecast/lead-time
   eligibility, deduplicated per recipient and predicted local run-out date.
   Never send a low-balance forecast for unavailable/inconsistent history or
@@ -328,11 +358,23 @@ Depends on: 69.3/69.4's roles/memberships and 69.6's fixed planning date.
   reading. Keep estimate labels and the warning to verify the physical meter;
   Monitor never buys electricity or guarantees a forecast.
 
-Acceptance: use isolated SMTP capture to check multi-member fan-out, non-member
-and admin-only exclusion, membership removal, recipient-specific retry/dedup,
-overlapping runner claims, timezone/month/year boundaries and unavailable/zero/
-valid low-balance cases. Reuse the finite runner and SMTP; no new service or
-forecast implementation. Explain automatic member delivery in 69.5/69.6.
+Split into separately approved small tasks:
+
+- 69.7.1: durable member/cycle dispatch, missing/failed job recovery and recipient
+  deduplication, using isolated SMTP only. Preserve low-balance behavior unless
+  its prompt explicitly changes it; do not turn on extra alerts silently.
+- 69.7.2: lifecycle-owned asyncio task, sequential passes with blocking DB/SMTP
+  work off the event loop, startup recovery, cross-process overlap protection,
+  bounded operations and safe shutdown/draining. Reuse the finite pass and SMTP;
+  no extra scheduling service/dependency or request-triggered-only mechanism.
+  Source activation needs explicit approval: hot reload of main.py could otherwise
+  start sending immediately into the current stack.
+
+Acceptance: isolated multi-member fan-out, non-member/admin-only exclusion,
+membership removal, recipient retries/dedup, restart/catch-up, failed/stale claims,
+month/year boundaries and unchanged forecast eligibility. No real mail, source
+SQL or service actions before separate approval. Explain automation in the UI
+without adding settings. HTML presentation remains Ticket 70.
 
 ## Planned Ticket 70: Readable HTML Email and App Links
 

@@ -12,19 +12,22 @@ import { MetersPage } from './routes/meters/MetersPage';
 import { MeterDetailsPage } from './routes/meters/MeterDetailsPage';
 import { Navigation } from './components/Navigation';
 import type { Forecast } from './lib/api';
+import { utcDateDisplay } from './lib/dateTime';
 
 const noAction = () => undefined;
 const yes = async () => true;
 const notEnoughForecast: Forecast = {
   status: 'not_enough_data',
   as_of: '2026-10-09T12:00:00Z',
+  planning_at: '2026-11-01T00:00:00Z',
+  planning_days: 30,
   latest_actual_balance_kwh: null,
   latest_actual_at: null,
   daily_usage_kwh: null,
   estimated_balance_kwh: null,
   remaining_days: null,
   run_out_at: null,
-  recommended_top_up_30_days_kwh: null,
+  recommended_monthly_top_up_kwh: null,
   intervals_used: 0,
 };
 describe('Monitor authentication UI', () => {
@@ -402,13 +405,15 @@ describe('Monitor authentication UI', () => {
     const forecast: Forecast = {
       status: 'available',
       as_of: '2026-10-09T12:00:00Z',
+      planning_at: '2026-11-01T00:00:00Z',
+      planning_days: 30,
       latest_actual_balance_kwh: '42.125',
       latest_actual_at: '2026-10-09T10:00:00Z',
       daily_usage_kwh: '5.000000',
       estimated_balance_kwh: '41.708',
       remaining_days: '8.34',
       run_out_at: '2026-10-17T20:09:36Z',
-      recommended_top_up_30_days_kwh: '108.292',
+      recommended_monthly_top_up_kwh: '108.292',
       intervals_used: 2,
     };
 
@@ -422,7 +427,10 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('41.708 kWh');
     expect(markup).toContain('5.000000 kWh/day');
     expect(markup).toContain('8.34 days');
-    expect(markup).toContain('Top up by');
+    expect(markup).toContain('Predicted run-out');
+    expect(markup).toContain('Next monthly top-up:');
+    expect(markup).toContain(utcDateDisplay(forecast.planning_at));
+    expect(markup).not.toContain('(UTC)');
     expect(markup).toContain('108.292 kWh');
     expect(markup).toContain('Monthly purchase recommendation');
     expect(markup).toContain('font-variant-numeric:tabular-nums');
@@ -432,7 +440,8 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('border-top:1px solid');
     expect(markup).not.toContain('linear-gradient(');
     expect(markup).not.toContain('rgba(255, 255, 255, 0.75)');
-    expect(markup).toContain('Additional kWh for the next 30 days');
+    expect(markup).toContain('30-day planning month');
+    expect(markup).toContain('current balance');
     expect(markup).toContain('Calculation details');
     expect(markup).toContain('Calculated');
     expect(markup).not.toMatch(/<details[^>]*\sopen(?:[\s=>])/);
@@ -451,6 +460,43 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('withheld estimates');
     expect(markup).not.toContain('Planning estimate');
   });
+
+  it.each([
+    ['2027-02-01T00:00:00Z', 28, '120.000'],
+    ['2028-02-01T00:00:00Z', 29, '135.000'],
+    ['2026-11-01T00:00:00Z', 30, '150.000'],
+    ['2027-01-01T00:00:00Z', 31, '165.000'],
+  ] as const)('shows the backend calendar period and amount for %s', (planningAt, days, amount) => {
+    const asOf = new Date(Date.parse(planningAt) - 86_400_000).toISOString();
+    const forecast: Forecast = {
+      ...notEnoughForecast, status: 'available', as_of: asOf,
+      planning_at: planningAt, planning_days: days,
+      latest_actual_at: asOf, latest_actual_balance_kwh: '300.000',
+      estimated_balance_kwh: '300.000', daily_usage_kwh: '15.000000',
+      remaining_days: '20.00', run_out_at: new Date(Date.parse(asOf) + 20 * 86_400_000).toISOString(),
+      recommended_monthly_top_up_kwh: amount,
+    };
+    const markup = renderToStaticMarkup(<ForecastPanel forecast={forecast} loading={false} />);
+    expect(markup).toContain(utcDateDisplay(planningAt));
+    expect(markup).toContain(`${days}-day planning month`);
+    expect(markup).toContain(`${amount} kWh`);
+    expect(markup).toContain('300.000 kWh');
+    expect(markup).toContain('20.00 days');
+    expect(markup).toContain('Predicted run-out');
+    expect(markup).toContain('current balance');
+    expect(markup).not.toContain('next 30 days');
+  });
+
+  it.each(['not_enough_data', 'inconsistent_history'] as const)(
+    'keeps the planning date without inventing an amount for %s', (status) => {
+      const markup = renderToStaticMarkup(<ForecastPanel forecast={{ ...notEnoughForecast, status }} loading={false} />);
+      expect(markup).toContain('Next monthly top-up:');
+      expect(markup).toContain(utcDateDisplay(notEnoughForecast.planning_at));
+      expect(markup).not.toContain('Monthly purchase recommendation');
+      expect(markup).not.toContain('Predicted run-out');
+      expect(markup).not.toContain(' kWh');
+    },
+  );
 
   it('shows a retry state rather than loading forever without a forecast', () => {
     const markup = renderToStaticMarkup(
@@ -484,7 +530,7 @@ describe('Monitor authentication UI', () => {
           latest_actual_at: '2026-10-09T10:00:00Z',
           daily_usage_kwh: '0.000000',
           estimated_balance_kwh: '10.000',
-          recommended_top_up_30_days_kwh: '0.000',
+          recommended_monthly_top_up_kwh: '0.000',
           intervals_used: 1,
         }}
         loading={false}
@@ -494,6 +540,7 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('No finite run-out');
     expect(markup).toContain('No run-out at observed use');
     expect(markup).toContain('0.000 kWh');
+    expect(markup).toContain('Next monthly top-up:');
   });
 
 });

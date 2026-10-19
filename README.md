@@ -23,8 +23,9 @@ member-based backend code. Task 064 safely applied its live DB transition after
 fresh backup/rehearsal, preserving all data. The user subsequently started the
 full stack; read-only UI/API/schema checks passed and all four services were left
 running. The earlier health timeout did not require a code/configuration change.
-Task 065 adds collapsed email sharing and membership-based My/All/search;
-reminder redesign and monthly planning remain separate work.
+Task 065 adds collapsed email sharing and membership-based My/All/search.
+Task 066 adds actual calendar-month planning; automatic shared-member reminders
+remain separate work.
 Task 059 changes administrator authority to stored `users.type`,
 without email/environment overrides. Its guarded source transition and 68 isolated
 backend checks passed; task-resource cleanup is verified.
@@ -44,8 +45,8 @@ The dashboard should clearly distinguish actual entries from estimates and show:
 
 - latest actual balance and its observation time;
 - estimated current balance and daily use in kWh;
-- estimated remaining days and likely run-out/next-top-up date;
-- recommended top-up energy for the next 30 days; and
+- estimated remaining days and predicted run-out date;
+- next monthly top-up date (UTC 1st) and energy for that actual calendar month; and
 - simple balance and top-up history.
 
 Until enough valid history exists, the application must show **Not enough data**
@@ -72,6 +73,11 @@ balance readings are required before deriving a consumption rate.
 V1 uses deterministic calculations, not machine learning. Formula selection,
 averaging windows, a conservative buffer and correction behavior belong in the
 approved forecasting ticket and must be covered by examples and tests.
+
+Monthly planning uses the strictly-next UTC 1st, advancing again once that day
+starts. Additional kWh is max(0, rate * target_month_days - current estimated
+balance), using the full target month's datetime duration, not a fixed 30 days
+or a future-balance projection. Earlier predicted run-out remains separate.
 
 ## Technology
 
@@ -206,10 +212,15 @@ own implementation approval; details live in the closest software README.
     The user-started stack passed read-only UI/API/schema smoke checks and remains running.
   - [x] Ticket 69.5: Minimal Sharing UI — collapsed member management and
     server-scoped My/All/search, retaining existing record-management flows (Task 065).
-  - [ ] Ticket 69.6: Monthly Planning Date — fixed 1st, separate from predicted
-    run-out; retain current 30-day quantities and model.
-  - [ ] Ticket 69.7: Shared-Member Reminders — monthly email the day before the
-    1st, all meter members, per-recipient dedupe and retained low-balance rules.
+  - [x] Ticket 69.6: Calendar-Month Planning — strictly next UTC 1st, actual target
+    month duration and current-balance subtraction; separate predicted run-out.
+    Task 066 implements this slice; usage-rate learning remains unchanged.
+  - [ ] Ticket 69.7: Automatic Shared-Member Reminders — 09:00 UTC on month-end,
+    durable per-recipient status and startup catch-up, without user settings.
+    - [ ] 69.7.1: Durable dispatch — member recipients, cycle keys, pending/sent
+      recovery and isolated SMTP checks; agree backlog/initial cutoff first.
+    - [ ] 69.7.2: Async backend scheduler — lifecycle-owned sequential passes,
+      startup recovery, safe shutdown/concurrency and explicitly approved activation.
 - [ ] Ticket 70: Readable HTML Emails — OTP/reminder HTML with plain-text fallback
   and safe app links; reuse SMTP after 69.7's recipient/message contract.
 - [ ] Ticket 65: Monitor Usability Review — first-user onboarding, clear actual
@@ -239,8 +250,8 @@ own implementation approval; details live in the closest software README.
 
 ### Shared execution priority
 
-1. Finish database/access refocus (69.6 -> 69.7), after completed roles, shared
-   access/UI (69.3-69.5) and structure cleanup (71-73); never a reset.
+1. Finish automatic shared-member reminders (69.7.1 -> 69.7.2), after completed
+   roles/access/planning (69.3-69.6) and structure cleanup (71-73); never a reset.
 2. HTML email presentation (70) after reminder semantics; complete usability (65).
 3. Offline forecast research/validation (66.1 -> 66.4); 66.5 is a separate
    adoption gate, not automatic app replacement. Keep costs deferred.

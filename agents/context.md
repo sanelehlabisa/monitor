@@ -51,11 +51,21 @@ and surface impossible negative consumption/inconsistent chronology. Show
 Not enough data/Inconsistent history instead of inventing numbers. Genuine
 zero use has no finite run-out date.
 
-The deterministic time-weighted rate produces estimated current balance,
-remaining days/run-out and additional kWh for the next 30 days:
-max(0, daily_usage * 30 - estimated_balance). This is not total monthly usage or
-Rand cost. Keep latest actual reading/time and calculation time visible.
-Recalculate after ledger changes/Refresh; never silently adopt a research prior.
+The deterministic time-weighted rate produces estimated current balance and
+remaining days/run-out. Task 066 uses the strictly-next UTC 1st and its full
+calendar-month datetime duration: max(0, daily_usage * planning_days - CURRENT
+estimated_balance). This is not total usage, Rand cost or a future-balance
+projection. On the 1st advance again; rate/current-balance/run-out math stays.
+The API replaces the old 30_days key with recommended_monthly_top_up_kwh and adds
+planning_at (target UTC month-start, not calculation time) and planning_days.
+Calendar metadata is known even when kWh estimates are unavailable. Preserve
+latest actual reading/time and calculation time; never adopt a research prior.
+
+UI calendar dates remain UTC; factual ledger/run-out timestamps stay browser-local.
+Recalculate after ledger changes/Refresh, at UTC rollover and on resuming an
+outdated view. Local bounded timers do not poll the API. Version/busy/error guards
+and one automatic attempt per expired workspace/cycle protect writes/navigation;
+read failures keep manual Refresh recovery. No reminder scheduler is activated.
 
 ## Database and runtime safety
 
@@ -142,14 +152,28 @@ Existing API payloads are unchanged; only three member operations were added.
    mocked-browser groups pass. Running-source metadata/static smoke also passes;
    services retain IDs/images/start times and are running/healthy. Verification
    details are in work/065. The user subsequently authorized its Git handoff to
-   master on 19 October 2026; prior no-commit notes describe completion-time scope.
+   master on 19 October 2026 as 1e638c3; prior no-commit notes describe completion-time scope.
    Live OTP/write/browser validation remains separate from anonymous smoke.
-2. 69.6 fixes planning to the 1st, separate from predicted run-out and retaining
-   current rolling 30-day quantities/model. It is not active yet.
-3. 69.7 emails all meter members (not all accounts/admins) the day before the 1st.
-   Preserve low-balance eligibility, saved-local calendar/UTC storage and
-   per-recipient dedupe/removal behavior. Current reminders remain owner-only,
-   opt-in, default off, with settings hidden in UI. Reuse the finite runner/SMTP.
+2. Task 066 completes 69.6: exact target-month math, current balance, strictly-next
+   UTC 1st and separate run-out. All 109 isolated backend/43 frontend checks,
+   TypeScript/Vite build and 11 mocked-browser groups pass, with no live data or
+   mail. OpenAPI changes only the agreed recommendation key and two metadata
+   fields. Results are in work/066-calendar-month-planning/changes.md.
+   It is not research Ticket 66 or a new learned model.
+   Task 067 was approved and removes only the visible " (UTC)" monthly-date suffix;
+   UTC date formatting, calculations, rollover and API remain unchanged. All 43
+   frontend checks and the TypeScript/Vite build pass. The user subsequently
+   authorized the Git handoff of completed Tasks 066–067 to master; earlier
+   no-commit notes describe their original completion-time scope.
+3. 69.7 is automatic month-end mail at 09:00 UTC to current meter members, with
+   DB-backed status and backend-startup catch-up, not skip-if-offline. Split into
+   69.7.1 durable member/cycle dispatch and 69.7.2 asyncio lifecycle/startup recovery.
+   Settle backlog/activation cutoff and late-member policy in those prompts;
+   current user_meters has no join timestamp. Source-mail activation requires
+   explicit approval; do not hot-reload an active scheduler into the running stack.
+   Current reminders remain finite, owner-only, opt-in/default off and hidden in
+   UI. Preserve low-balance behavior in Task 066. Reuse raw SQL/claims/SMTP, not a
+   new service. A later retry must not overwrite its original delivery-cycle key.
 4. HTML email 70 (plain fallback/trusted app links), usability 65, offline forecast
    validation 66, deployment 57, then household/external evidence 56/67.
    Each implementation needs its own questions, prompt and approval.

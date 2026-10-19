@@ -68,7 +68,7 @@ def test_forecast_accepts_zero_usage() -> None:
     assert result.estimated_balance_kwh == Decimal("10.000")
     assert result.remaining_days is None
     assert result.run_out_at is None
-    assert result.recommended_top_up_30_days_kwh == Decimal("0.000")
+    assert result.recommended_monthly_top_up_kwh == Decimal("0.000")
 
 
 def test_forecast_surfaces_negative_consumption() -> None:
@@ -106,7 +106,7 @@ def test_forecast_projects_balance_run_out_and_recommendation() -> None:
     assert result.estimated_balance_kwh == Decimal("35.000")
     assert result.remaining_days == Decimal("7.00")
     assert result.run_out_at == START + timedelta(days=11)
-    assert result.recommended_top_up_30_days_kwh == Decimal("115.000")
+    assert result.recommended_monthly_top_up_kwh == Decimal("115.000")
 
 
 def test_forecast_clamps_an_exhausted_balance() -> None:
@@ -121,7 +121,7 @@ def test_forecast_clamps_an_exhausted_balance() -> None:
     assert result.estimated_balance_kwh == Decimal("0.000")
     assert result.remaining_days == Decimal("0.00")
     assert result.run_out_at == START + timedelta(days=3)
-    assert result.recommended_top_up_30_days_kwh == Decimal("150.000")
+    assert result.recommended_monthly_top_up_kwh == Decimal("150.000")
 
 
 def test_forecast_requires_an_aware_as_of_after_latest_actual() -> None:

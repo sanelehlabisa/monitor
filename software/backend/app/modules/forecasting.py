@@ -25,13 +25,15 @@ class ForecastResult:
 
     status: ForecastStatus
     as_of: datetime
+    planning_at: datetime
+    planning_days: int
     latest_actual_balance_kwh: Decimal | None
     latest_actual_at: datetime | None
     daily_usage_kwh: Decimal | None
     estimated_balance_kwh: Decimal | None
     remaining_days: Decimal | None
     run_out_at: datetime | None
-    recommended_top_up_30_days_kwh: Decimal | None
+    recommended_monthly_top_up_kwh: Decimal | None
     intervals_used: int
 
 
@@ -52,18 +54,30 @@ def _unavailable_result(
 ) -> ForecastResult:
     """Build a forecast state that intentionally contains no estimates."""
 
+    planning_at, planning_days = _planning_period(as_of)
     return ForecastResult(
         status=status,
         as_of=as_of,
+        planning_at=planning_at,
+        planning_days=planning_days,
         latest_actual_balance_kwh=latest.balance_kwh if latest else None,
         latest_actual_at=latest.occurred_at if latest else None,
         daily_usage_kwh=None,
         estimated_balance_kwh=None,
         remaining_days=None,
         run_out_at=None,
-        recommended_top_up_30_days_kwh=None,
+        recommended_monthly_top_up_kwh=None,
         intervals_used=0,
     )
+
+
+def _planning_period(as_of: datetime) -> tuple[datetime, int]:
+    """Return the strictly-next UTC month start and its full datetime duration."""
+
+    month_start = as_of.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    planning_at = (month_start + timedelta(days=32)).replace(day=1)
+    following_start = (planning_at + timedelta(days=32)).replace(day=1)
+    return planning_at, (following_start - planning_at).days
 
 
 def run_forecast_model(
@@ -125,6 +139,7 @@ def run_forecast_model(
         ENERGY_QUANTUM,
         rounding=ROUND_HALF_UP,
     )
+    planning_at, planning_days = _planning_period(as_of)
     if daily_usage == 0:
         remaining_days = None
         run_out_at = None
@@ -140,18 +155,20 @@ def run_forecast_model(
         )
         recommendation = max(
             Decimal("0"),
-            daily_usage * Decimal("30") - estimated_balance,
+            daily_usage * planning_days - estimated_balance,
         ).quantize(ENERGY_QUANTUM, rounding=ROUND_HALF_UP)
 
     return ForecastResult(
         status="available",
         as_of=as_of,
+        planning_at=planning_at,
+        planning_days=planning_days,
         latest_actual_balance_kwh=latest.balance_kwh,
         latest_actual_at=latest.occurred_at,
         daily_usage_kwh=daily_usage,
         estimated_balance_kwh=estimated_balance,
         remaining_days=remaining_days,
         run_out_at=run_out_at,
-        recommended_top_up_30_days_kwh=recommendation,
+        recommended_monthly_top_up_kwh=recommendation,
         intervals_used=len(ordered_balances) - 1,
     )

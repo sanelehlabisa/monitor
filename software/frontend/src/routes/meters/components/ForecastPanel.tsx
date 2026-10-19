@@ -1,7 +1,7 @@
 import { Alert, Box, CircularProgress, Stack, Typography } from '@mui/material';
 
 import type { Forecast } from '../../../lib/api';
-import { localDateDisplay, localDateTimeDisplay } from '../../../lib/dateTime';
+import { localDateDisplay, localDateTimeDisplay, utcDateDisplay } from '../../../lib/dateTime';
 
 type ForecastPanelProps = {
   forecast: Forecast | null;
@@ -59,6 +59,9 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
 
   return (
     <Stack spacing={2}>
+      <Typography variant="body2">
+        Next monthly top-up: {utcDateDisplay(forecast.planning_at)}
+      </Typography>
       {forecast.status === 'not_enough_data' && (
         <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.main', pl: 2, py: 1 }}>
           <Typography sx={{ fontWeight: 800 }}>Not enough data</Typography>
@@ -114,17 +117,18 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
               note={
                 forecast.run_out_at === null
                   ? 'No run-out at observed use'
-                  : `Top up by ${localDateDisplay(forecast.run_out_at)}`
+                  : `Predicted run-out ${localDateDisplay(forecast.run_out_at)}`
               }
             />
             <Box sx={{ gridColumn: { sm: '1 / -1', md: 'auto' }, borderTop: '1px solid', borderColor: 'divider', borderTopWidth: { md: 0 }, pt: { xs: 2, md: 0 } }}>
               <EstimateMetric
                 label="Monthly purchase recommendation"
-                value={`${forecast.recommended_top_up_30_days_kwh} kWh`}
+                value={`${forecast.recommended_monthly_top_up_kwh} kWh`}
                 colour="secondary.main"
               />
               <Typography color="text.secondary" variant="body2">
-                Additional kWh for the next 30 days, based on historical usage.
+                Additional kWh for the {forecast.planning_days}-day planning month,
+                based on historical usage and current balance.
               </Typography>
             </Box>
           </Box>
