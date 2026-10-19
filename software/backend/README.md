@@ -148,9 +148,14 @@ member operations and their response schema, with existing payloads unchanged.
 - Optional `GET /api/meters?q=keyword` performs scoped case-insensitive literal
   substring search over name/member emails in SQL, without duplicate meters.
   Blank keywords retain the accessible list. No ranking/pagination is implied.
+- Task 065 adds optional `mine=true` to that same endpoint: current memberships
+  for admins too, combined with `q`. Omitted/false preserves the existing default
+  (all for admins, current memberships for regular users). It reuses membership
+  SQL; no additional payload, role, schema or forecast change is introduced.
+  All 92 isolated backend checks pass; OpenAPI differs only by this query option.
 - Creator fields (`user_id`/`owner_email`) and creator-name uniqueness remain
-  compatibility metadata, never permission overrides. The frontend sharing/My
-  presentation remains Ticket 69.5 work; no new UI is included here.
+  compatibility metadata, never permission overrides. Task 065 labels these
+  Created by and provides on-demand sharing with membership-based My in the UI.
 
 Nested balance/top-up CRUD and dashboard/reminder settings all use the same
 member/admin access. Balance kWh is non-negative; purchases positive; both allow

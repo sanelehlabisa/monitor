@@ -60,7 +60,8 @@ using a second set of inline defaults. The committed `.env.example` contains
 development-only examples and must not be exposed as production configuration.
 
 Current features are email OTP/cookie login, name-only meter management,
-member/admin backend access, server-side search and timestamped balance/purchase history.
+member/admin access, on-demand email sharing, membership-based My/All views,
+server-side search and timestamped balance/purchase history.
 The open blue/teal Material UI workspace uses linkable `/meters/<uuid>` details,
 on-demand record forms and a prominent forecast summary with manual Refresh.
 One deterministic model derives estimates from each meter's own history and
@@ -155,8 +156,9 @@ research does not automatically replace the app.
   Later role changes are manual DB edits, never overwritten by login or restart.
 - 69.4 adds shared membership and authorization across every protected meter,
   ledger, dashboard and reminder endpoint, with full global admin access and
-  safe concurrent last-member protection. 69.5 adds only the necessary sharing
-  controls and membership-aware My/All/search integration, not a UI redesign.
+  safe concurrent last-member protection. Task 065 implements 69.5's collapsed
+  sharing controls and server-scoped My/All/search, not a UI redesign. Remove/Leave
+  changes membership only; Retry after a saved change never repeats the write.
 - 69.6 fixes the monthly planning date to the 1st without replacing the model,
   changing 30-day quantities or hiding an earlier predicted run-out.
 - 69.7 sends the monthly reminder the day before the 1st to all meter members,

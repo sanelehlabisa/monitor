@@ -17,6 +17,7 @@ import { MeterSearch } from './routes/meters/components/MeterSearch';
 import { MeterSection } from './routes/meters/components/MeterSection';
 import { ForecastPanel } from './routes/meters/components/ForecastPanel';
 import { LedgerPanel, type LedgerItem } from './routes/meters/components/LedgerPanel';
+import { SharingPanel } from './routes/meters/components/SharingPanel';
 import { MetersPage, type AdminMeterView } from './routes/meters/MetersPage';
 import { MeterDetailsPage } from './routes/meters/MeterDetailsPage';
 import { theme } from './lib/theme';
@@ -94,6 +95,7 @@ export default function App() {
   const [topUps, setTopUps] = useState<TopUpEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [ledgerBusy, setLedgerBusy] = useState(false);
+  const [sharingBusy, setSharingBusy] = useState(false);
   const [ledgerError, setLedgerError] = useState('');
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [meterPath, setMeterPath] = useState(() =>
@@ -101,7 +103,12 @@ export default function App() {
   );
   const dashboardVersion = useRef(0);
   const meterListVersion = useRef(0);
-  const meterCount = unfilteredMeters.filter((meter) => !user?.is_admin || adminMeterView === 'all' || meter.owner_email.trim().toLowerCase() === user.email.trim().toLowerCase()).length;
+  const reloadOnReturn = useRef(false);
+  const meterCount = unfilteredMeters.length;
+
+  function listInView(query = '', view = adminMeterView) {
+    return listMeters(query, !user?.is_admin || view === 'mine');
+  }
 
   function setFullMeterList(items: Meter[]) {
     setMeters(items);
@@ -110,7 +117,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    const onPopState = () => setMeterPath(window.location.pathname);
+    const onPopState = () => { dashboardVersion.current += 1; setMeterPath(window.location.pathname); };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
@@ -133,8 +140,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    meterListVersion.current += 1;
+    const version = ++meterListVersion.current;
     if (!user) {
+      reloadOnReturn.current = false;
       setFullMeterList([]);
       setMetersLoading(false);
       clearMeterWorkspace();
@@ -144,15 +152,15 @@ export default function App() {
     let active = true;
     setMetersLoading(true);
     setMeterError('');
-    listMeters()
+    listInView()
       .then((items) => {
-        if (active) setFullMeterList(items);
+        if (active && version === meterListVersion.current) setFullMeterList(items);
       })
       .catch(() => {
-        if (active) setMeterError('Your meters could not be loaded. Try again.');
+        if (active && version === meterListVersion.current) setMeterError('Your meters could not be loaded. Try again.');
       })
       .finally(() => {
-        if (active) setMetersLoading(false);
+        if (active && version === meterListVersion.current) setMetersLoading(false);
       });
     return () => {
       active = false;
@@ -171,6 +179,10 @@ export default function App() {
       void loadMeter(meterId);
     } else {
       clearMeterWorkspace();
+      if (isMeterListPath(meterPath) && reloadOnReturn.current) {
+        reloadOnReturn.current = false;
+        void reloadMeterList(appliedMeterSearch);
+      }
       if (!isMeterListPath(meterPath)) setMeterError('That meter is unavailable. Return to the meter list.');
     }
   }, [user, meterPath]);
@@ -194,7 +206,10 @@ export default function App() {
       void loadMeter(meterId);
       return;
     }
-    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+    if (window.location.pathname !== path) {
+      dashboardVersion.current += 1;
+      window.history.pushState(null, '', path);
+    }
     setMeterPath(path);
   }
 
@@ -275,7 +290,7 @@ export default function App() {
       if (meterSearch.trim() || meterFilterActive) {
         setMeterSearch('');
         try {
-          const items = await listMeters();
+          const items = await listInView();
           if (listVersion === meterListVersion.current) setFullMeterList(items);
         } catch {
           if (listVersion !== meterListVersion.current) return;
@@ -303,36 +318,52 @@ export default function App() {
 
   async function handleSearchMeters(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    await reloadMeterList(meterSearch);
+  }
+
+  async function reloadMeterList(query = appliedMeterSearch, view = adminMeterView, reportError = true, workspace?: number) {
     const version = ++meterListVersion.current;
+    const current = () => version === meterListVersion.current && (workspace === undefined || workspace === dashboardVersion.current);
     setMetersLoading(true);
-    setMeterError('');
+    if (reportError) setMeterError('');
     try {
-      const items = await listMeters(meterSearch);
-      if (version !== meterListVersion.current) return;
-      if (meterSearch.trim()) { setMeters(items); setAppliedMeterSearch(meterSearch.trim()); }
+      const [items, fullList] = await Promise.all([
+        listInView(query, view),
+        workspace !== undefined && query.trim() ? listInView('', view) : Promise.resolve(null),
+      ]);
+      if (!current()) return false;
+      if (fullList) setUnfilteredMeters(fullList);
+      if (query.trim()) { setMeters(items); setAppliedMeterSearch(query.trim()); }
       else setFullMeterList(items);
+      return true;
     } catch {
-      if (version !== meterListVersion.current) return;
-      setMeterError('Meters could not be searched. Try again.');
+      if (reportError && current()) setMeterError('Meters could not be loaded. Retry to refresh the list.');
+      return false;
     } finally {
+      // Release only this list request's busy flag, without changing a newer view's data/errors.
       if (version === meterListVersion.current) setMetersLoading(false);
     }
   }
 
-  async function handleClearMeterSearch() {
-    const version = ++meterListVersion.current;
+  async function handleClearMeterSearch(view = adminMeterView) {
     setMeterSearch('');
-    setMetersLoading(true);
-    setMeterError('');
-    try {
-      const items = await listMeters();
-      if (version === meterListVersion.current) setFullMeterList(items);
-    } catch {
-      if (version !== meterListVersion.current) return;
-      setMeterError('Meters could not be loaded. Try again.');
-    } finally {
-      if (version === meterListVersion.current) setMetersLoading(false);
+    await reloadMeterList('', view);
+  }
+
+  async function handleSharingChanged(left: boolean, meterId: string, workspace: number) {
+    if (workspace !== dashboardVersion.current) return;
+    if (left) {
+      if (!user?.is_admin || adminMeterView === 'mine') {
+        setMeters((items) => items.filter((meter) => meter.id !== meterId));
+        setUnfilteredMeters((items) => items.filter((meter) => meter.id !== meterId));
+      }
+      reloadOnReturn.current = true;
+      clearMeterWorkspace();
+      navigateToMeter(null);
+      return;
     }
+    const refreshed = await reloadMeterList(appliedMeterSearch, adminMeterView, false, workspace);
+    if (!refreshed && workspace === dashboardVersion.current) throw new Error('Meter list refresh failed');
   }
 
   async function loadMeter(meterId: string) {
@@ -511,7 +542,7 @@ export default function App() {
   }
 
   async function handleRenameMeter(meter: Meter, name: string) {
-    if (meterBusy || ledgerBusy) return false;
+    if (meterBusy || ledgerBusy || sharingBusy) return false;
     const listVersion = meterListVersion.current;
     const version = dashboardVersion.current;
     setMeterBusy(true);
@@ -531,7 +562,7 @@ export default function App() {
       );
       if (meterSearch.trim() || meterFilterActive) {
         try {
-          const items = await listMeters(appliedMeterSearch);
+          const items = await listInView(appliedMeterSearch);
           if (listVersion === meterListVersion.current) setMeters(items);
         } catch {
           if (listVersion !== meterListVersion.current) return true;
@@ -543,7 +574,7 @@ export default function App() {
       if (listVersion !== meterListVersion.current) return false;
       setMeterError(
         requestError instanceof ApiError && requestError.status === 409
-          ? 'That owner already has a meter with this name.'
+          ? 'Meter name is already in use.'
           : 'The meter could not be renamed. Try again.',
       );
       return false;
@@ -553,7 +584,7 @@ export default function App() {
   }
 
   async function handleDeleteMeter(meter: Meter) {
-    if (meterBusy || ledgerBusy || !window.confirm(`Delete ${meter.name}? This also deletes its balance and top-up records.`)) return;
+    if (meterBusy || ledgerBusy || sharingBusy || !window.confirm(`Delete ${meter.name}? This also deletes its balance and top-up records.`)) return;
     const listVersion = meterListVersion.current;
     setMeterBusy(true);
     setMeterError('');
@@ -576,6 +607,7 @@ export default function App() {
     }
   }
 
+  const workspace = dashboardVersion.current;
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -594,10 +626,10 @@ export default function App() {
                 meterId={meterIdFromPath(meterPath) ?? undefined}
                 adminView={adminMeterView}
                 busy={meterBusy || metersLoading || ledgerBusy}
-                onAdminViewChange={(view) => { setAdminMeterView(view); void handleClearMeterSearch(); }}
+                onAdminViewChange={(view) => { setAdminMeterView(view); setFullMeterList([]); void handleClearMeterSearch(view); }}
                 search={(meterCount > 10 || meterFilterActive || meterSearch.trim()) && (
-                  <MeterSearch busy={meterBusy || metersLoading || ledgerBusy} value={meterSearch} active={meterFilterActive} isAdmin={user.is_admin}
-                    onChange={setMeterSearch} onSubmit={handleSearchMeters} onClear={handleClearMeterSearch} />
+                  <MeterSearch busy={meterBusy || metersLoading || ledgerBusy} value={meterSearch} active={meterFilterActive}
+                    onChange={setMeterSearch} onSubmit={handleSearchMeters} onClear={() => void handleClearMeterSearch()} />
                 )}
                 user={user}
               >
@@ -607,7 +639,7 @@ export default function App() {
                   </Box>
                 ) : selectedMeter ? (
                   <MeterDetailsPage key={selectedMeter.id}
-                    busy={meterBusy || ledgerBusy}
+                    busy={meterBusy || ledgerBusy || sharingBusy}
                     editName={editMeterName}
                     error={meterError}
                     onEditNameChange={setEditMeterName}
@@ -621,7 +653,7 @@ export default function App() {
                           />
                           <LedgerPanel
                             balances={balances}
-                            busy={ledgerBusy || meterBusy}
+                            busy={ledgerBusy || meterBusy || sharingBusy}
                             error={ledgerError}
                             loading={ledgerLoading}
                             onCreateBalance={handleCreateBalance}
@@ -630,9 +662,14 @@ export default function App() {
                             onUpdate={handleUpdateEntry}
                             topUps={topUps}
                           />
+                          <SharingPanel key={`${user.id}:${selectedMeter.id}`} meterId={selectedMeter.id} user={user}
+                            busy={ledgerBusy || meterBusy || ledgerLoading}
+                            onPendingChange={setSharingBusy}
+                            onChanged={(left) => handleSharingChanged(left, selectedMeter.id, workspace)}
+                            onUnavailable={() => { if (workspace === dashboardVersion.current) void loadMeter(selectedMeter.id); }} />
                           <Button
                             color="secondary"
-                            disabled={ledgerLoading || ledgerBusy || meterBusy}
+                            disabled={ledgerLoading || ledgerBusy || meterBusy || sharingBusy}
                             onClick={() => loadDashboard(selectedMeter.id)}
                             size="small"
                             startIcon={<RefreshIcon />}
@@ -649,7 +686,6 @@ export default function App() {
                   <MetersPage key="list"
                     adminView={adminMeterView}
                     busy={meterBusy || ledgerBusy}
-                    currentUserEmail={user.email}
                     error={meterError}
                     isAdmin={user.is_admin}
                     loading={metersLoading}
@@ -660,6 +696,7 @@ export default function App() {
                     onEditNameChange={setEditMeterName}
                     onNameChange={setMeterName}
                     onRename={handleRenameMeter}
+                    onRetry={() => void reloadMeterList()}
                     onSelect={(meter) => navigateToMeter(meter.id)}
                     search={appliedMeterSearch}
                   />

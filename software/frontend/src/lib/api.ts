@@ -12,6 +12,11 @@ export type Meter = {
   updated_at: string;
 };
 
+export type Member = {
+  user_id: number;
+  email: string;
+};
+
 export type BalanceEntry = {
   id: string;
   meter_id: string;
@@ -106,11 +111,24 @@ export async function logout(): Promise<void> {
   await apiRequest('/api/auth/logout', { method: 'POST' });
 }
 
-export function listMeters(query = ''): Promise<Meter[]> {
+export function listMeters(query = '', mine = false): Promise<Meter[]> {
   const keyword = query.trim();
-  return apiRequest(
-    keyword ? `/api/meters?q=${encodeURIComponent(keyword)}` : '/api/meters',
-  );
+  const parameters = [keyword ? `q=${encodeURIComponent(keyword)}` : '', mine ? 'mine=true' : ''].filter(Boolean);
+  return apiRequest(`/api/meters${parameters.length ? `?${parameters.join('&')}` : ''}`);
+}
+
+export function listMembers(meterId: string): Promise<Member[]> {
+  return apiRequest(`/api/meters/${meterId}/members`);
+}
+
+export function shareMember(meterId: string, email: string): Promise<Member> {
+  return apiRequest(`/api/meters/${meterId}/members`, {
+    method: 'POST', body: JSON.stringify({ email }),
+  });
+}
+
+export async function removeMember(meterId: string, userId: number): Promise<void> {
+  await apiRequest(`/api/meters/${meterId}/members/${userId}`, { method: 'DELETE' });
 }
 
 export function createMeter(name: string): Promise<Meter> {

@@ -23,7 +23,6 @@ export type AdminMeterView = 'mine' | 'all';
 type MetersPageProps = {
   meters: Meter[];
   isAdmin: boolean;
-  currentUserEmail: string;
   adminView: AdminMeterView;
   loading: boolean;
   busy: boolean;
@@ -36,12 +35,12 @@ type MetersPageProps = {
   onRename: (meter: Meter, name: string) => Promise<boolean>;
   onDelete: (meter: Meter) => void;
   onSelect: (meter: Meter) => void;
+  onRetry?: () => void;
 };
 
 export function MetersPage({
   meters,
   isAdmin,
-  currentUserEmail,
   adminView,
   loading,
   busy,
@@ -54,6 +53,7 @@ export function MetersPage({
   onRename,
   onDelete,
   onSelect,
+  onRetry,
 }: MetersPageProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [rowName, setRowName] = useState('');
@@ -66,17 +66,9 @@ export function MetersPage({
     event.preventDefault();
     if (editingId === meter.id && await onRename(meter, value)) setEditingId(null);
   }
-  const visibleMeters =
-    isAdmin && adminView === 'mine'
-      ? meters.filter(
-          (meter) =>
-            meter.owner_email.trim().toLowerCase() ===
-            currentUserEmail.trim().toLowerCase(),
-        )
-      : meters;
   const emptyTitle = isAdmin
     ? adminView === 'mine'
-      ? 'No meters owned by this admin account yet'
+      ? 'No meters linked to this account yet'
       : 'No meters in the system yet'
     : 'No meters yet';
 
@@ -88,12 +80,12 @@ export function MetersPage({
             onChange={(event) => onNameChange(event.target.value)} slotProps={{ htmlInput: { maxLength: 80 } }} />
           <Tooltip title="Add meter"><span><IconButton aria-label="Add meter" disabled={busy || loading || !name.trim()} type="submit"><AddIcon /></IconButton></span></Tooltip>
         </Box>
-      {error && <Alert severity="error">{error}</Alert>}
+      {error && <Alert severity="error" action={onRetry && <Button disabled={busy || loading} onClick={onRetry} size="small">Retry</Button>}>{error}</Alert>}
       {loading ? (
         <Box sx={{ display: 'grid', minHeight: 140, placeItems: 'center' }}>
           <CircularProgress aria-label="Loading meters" color="inherit" size={28} />
         </Box>
-      ) : visibleMeters.length === 0 ? (
+      ) : meters.length === 0 ? (
         <Box
           sx={{
             bgcolor: 'background.default',
@@ -114,7 +106,7 @@ export function MetersPage({
         </Box>
       ) : (
         <Stack component="ol" spacing={1} sx={{ m: 0, p: 0, listStyle: 'none' }}>
-          {visibleMeters.map((meter, index) => (
+          {meters.map((meter, index) => (
             <Stack component="li" direction="row" key={meter.id} spacing={0.5}
               sx={{ alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider', py: 1, px: 0.5,
                 '&:hover, &:focus-within': { bgcolor: 'primary.light' } }}>
@@ -148,7 +140,7 @@ export function MetersPage({
                 </Typography>
                 {isAdmin && adminView === 'all' && (
                   <Typography color="text.secondary" component="span" variant="caption" sx={{ overflowWrap: 'anywhere' }}>
-                    {meter.owner_email}
+                    Created by: {meter.owner_email}
                   </Typography>
                 )}
               </span>

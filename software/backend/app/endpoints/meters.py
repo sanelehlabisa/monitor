@@ -37,11 +37,13 @@ def meters_index(
     request: Request,
     q: Annotated[str | None, Query(max_length=254)] = None,
     authenticated: AuthenticatedUser = Depends(require_authenticated_user),
+    mine: bool = False,
 ) -> list[MeterResponse]:
     """List accessible meters, optionally filtered by one keyword."""
 
+    scope = authenticated.user.id if mine else meter_access_scope(authenticated)
     with connect_database(request.app.state.settings) as connection:
-        meters = list_meters(connection, meter_access_scope(authenticated), q)
+        meters = list_meters(connection, scope, q)
     return [_response(meter) for meter in meters]
 
 

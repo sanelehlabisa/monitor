@@ -7,6 +7,7 @@ import { MeterSearch } from './routes/meters/components/MeterSearch';
 import { MeterSection } from './routes/meters/components/MeterSection';
 import { ForecastPanel } from './routes/meters/components/ForecastPanel';
 import { LedgerPanel } from './routes/meters/components/LedgerPanel';
+import { SharingPanel } from './routes/meters/components/SharingPanel';
 import { MetersPage } from './routes/meters/MetersPage';
 import { MeterDetailsPage } from './routes/meters/MeterDetailsPage';
 import { Navigation } from './components/Navigation';
@@ -143,7 +144,6 @@ describe('Monitor authentication UI', () => {
         <MetersPage
           adminView="mine"
           busy={false}
-          currentUserEmail="user@example.test"
           error=""
           isAdmin={false}
           loading={false}
@@ -172,10 +172,10 @@ describe('Monitor authentication UI', () => {
   });
 
   it('keeps header search clearable with an active filter and an empty draft', () => {
-    const search = <MeterSearch busy={false} value="" active isAdmin onChange={noAction} onSubmit={noAction} onClear={noAction} />;
+    const search = <MeterSearch busy={false} value="" active onChange={noAction} onSubmit={noAction} onClear={noAction} />;
     const markup = renderToStaticMarkup(<MeterSection error="" search={search} user={{ id: 7, email: 'admin@example.test', is_admin: true }} />);
     expect(markup).toContain('Search meters');
-    expect(markup).toContain('Name or owner email');
+    expect(markup).toContain('Name or member email');
     expect(markup).toContain('aria-label="Search meters"');
     expect(markup).toContain('SearchIcon');
     expect(markup).toContain('aria-label="Clear search"');
@@ -183,7 +183,7 @@ describe('Monitor authentication UI', () => {
     expect(markup).not.toMatch(/<button\b[^>]*disabled=""/);
     const detail = renderToStaticMarkup(<MeterSection error="" meterId="meter-id" search={search} user={{ id: 7, email: 'user@example.test', is_admin: false }} />);
     expect(detail).not.toContain('Search meters');
-    const pending = renderToStaticMarkup(<MeterSearch busy value="Home" active isAdmin={false} onChange={noAction} onSubmit={noAction} onClear={noAction} />);
+    const pending = renderToStaticMarkup(<MeterSearch busy value="Home" active onChange={noAction} onSubmit={noAction} onClear={noAction} />);
     expect(pending.match(/<button\b[^>]*disabled=""/g)).toHaveLength(2);
   });
 
@@ -199,7 +199,6 @@ describe('Monitor authentication UI', () => {
       <MetersPage
         adminView="mine"
         busy={false}
-        currentUserEmail="user@example.test"
         error=""
         isAdmin={false}
         loading={false}
@@ -239,7 +238,7 @@ describe('Monitor authentication UI', () => {
     expect(selectedMarkup).not.toContain('Back to meters');
     expect(selectedMarkup).toContain('Meter details');
     expect(selectedMarkup).toContain('Name:');
-    expect(selectedMarkup).toContain('Owner:');
+    expect(selectedMarkup).toContain('Created by:');
     expect(selectedMarkup).toContain('user@example.test');
     expect(selectedMarkup).toContain('value="Home"');
     expect(selectedMarkup).toContain('Not enough data');
@@ -251,7 +250,7 @@ describe('Monitor authentication UI', () => {
     expect(selectedMarkup).not.toContain('Meter settings');
   });
 
-  it('separates admin-owned meters from the owner-labelled system view', () => {
+  it('renders server-scoped My memberships without filtering by creator email', () => {
     const otherMeter = {
       id: '00000000-0000-0000-0000-000000000002',
       name: 'Shop',
@@ -265,6 +264,11 @@ describe('Monitor authentication UI', () => {
       name: 'Admin home',
       owner_email: 'admin@example.test',
     };
+    const sharedMeter = {
+      ...otherMeter,
+      id: '00000000-0000-0000-0000-000000000004',
+      name: 'Shared home',
+    };
     const renderAdminView = (adminView: 'mine' | 'all') => renderToStaticMarkup(
       <MeterSection
         adminView={adminView}
@@ -275,11 +279,10 @@ describe('Monitor authentication UI', () => {
         <MetersPage
           adminView={adminView}
           busy={false}
-          currentUserEmail="admin@example.test"
           error=""
           isAdmin
           loading={false}
-          meters={[ownMeter, otherMeter]}
+          meters={adminView === 'mine' ? [ownMeter, sharedMeter] : [ownMeter, sharedMeter, otherMeter]}
           name=""
           onCreate={noAction}
           onDelete={noAction}
@@ -299,11 +302,13 @@ describe('Monitor authentication UI', () => {
     expect(mineMarkup).toContain('My meters');
     expect(mineMarkup).toContain('All meters');
     expect(mineMarkup).toContain('Admin home');
+    expect(mineMarkup).toContain('Shared home');
     expect(mineMarkup).not.toContain('Shop');
     expect(allMarkup).toContain('Admin home');
     expect(allMarkup).toContain('Shop');
     expect(allMarkup).toContain('admin@example.test');
     expect(allMarkup).toContain('owner@example.test');
+    expect(allMarkup).toContain('Created by');
     expect(mineMarkup).not.toContain('aria-label="Delete Shop"');
     expect(allMarkup).toContain('aria-label="Rename Shop"');
     expect(allMarkup).toContain('aria-label="Delete Shop"');
@@ -358,6 +363,20 @@ describe('Monitor authentication UI', () => {
     expect(markup).not.toContain('20.500 kWh');
     expect(markup).toContain('Edit');
     expect(markup).toContain('Delete');
+  });
+
+  it('keeps sharing collapsed without invented member rows or invitation controls', () => {
+    const markup = renderToStaticMarkup(
+      <SharingPanel meterId="00000000-0000-0000-0000-000000000001"
+        user={{ id: 7, email: 'member@example.test', is_admin: false }}
+        busy={false} onChanged={async () => undefined} onUnavailable={noAction} onPendingChange={noAction} />,
+    );
+    expect(markup).toContain('Sharing');
+    expect(markup).toContain('<details');
+    expect(markup).not.toMatch(/<details[^>]*\sopen(?:[\s=>])/);
+    expect(markup).not.toContain('Member email');
+    expect(markup).not.toContain('Leave meter');
+    expect(markup).not.toContain('Invite');
   });
 
   it('renders an honest empty ledger without estimates', () => {

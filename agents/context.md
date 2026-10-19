@@ -32,6 +32,12 @@ READMEs hold details; historical results stay in work/ and Git.
 - Estimates lead; record forms/history open on demand. Search is server-side by
   name/member email, shown above 10 unfiltered meters or for an active query.
   Preserve request-version guards, form resets and unavailable/error recovery.
+- Task 065 adds collapsed Sharing below History: email Add and confirmed
+  Remove/Leave. My uses GET /api/meters?mine=true for current memberships,
+  including shared-in admins; All retains global admin scope. Search/reloads/counts
+  follow that scope. Creator fields are labelled Created by, never access rules.
+  Saved sharing changes use read-only Retry; self-leave clears/navigates to the
+  list immediately, with separate list-retry recovery. Ignore stale async replies.
 
 ## Forecast boundary
 
@@ -119,7 +125,8 @@ Task 064, never by startup SQL; it must not be replayed against the current DB.
 Backfill only memberless interim meters, never re-add a creator who already left
 an otherwise shared meter. Legacy opt-in reminders require creator membership
 and recheck before SMTP; fan-out/schedule redesign remains 69.7. UI sharing and
-admin My membership presentation remain 69.5; old owner fields stay compatible.
+admin My membership presentation are implemented by Task 065; old owner fields
+stay compatible. The optional mine query does not widen regular-user scope.
 All 90 isolated backend checks passed, including concurrent/revoked writes.
 Copy-only upgrade/restore, fresh-schema equivalence and read-only current-code
 checks passed; owned verification resources were removed, evidence retained.
@@ -128,8 +135,14 @@ Existing API payloads are unchanged; only three member operations were added.
 ## Remaining priorities
 
 1. Ticket 69.4 is complete through Tasks 063/064: backend checks, preserved-data
-   cutover and running-stack read-only smoke passed. Next is 69.5 minimal sharing
-   UI, not a redesign; it still needs its own questions/prompt/approval.
+   cutover and running-stack read-only smoke passed. Task 065 implements 69.5's
+   approved collapsed Sharing and membership-scoped My/All/search. It does not
+   change SQL schema, forecasting, auth, reminders or source service state.
+   All 92 isolated backend/36 frontend checks, production asset build and 12
+   mocked-browser groups pass. Running-source metadata/static smoke also passes;
+   services retain IDs/images/start times and are running/healthy. Verification
+   details are in work/065. The user subsequently authorized its Git handoff to
+   master on 19 October 2026; prior no-commit notes describe completion-time scope.
    Live OTP/write/browser validation remains separate from anonymous smoke.
 2. 69.6 fixes planning to the 1st, separate from predicted run-out and retaining
    current rolling 30-day quantities/model. It is not active yet.

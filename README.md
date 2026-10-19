@@ -23,7 +23,8 @@ member-based backend code. Task 064 safely applied its live DB transition after
 fresh backup/rehearsal, preserving all data. The user subsequently started the
 full stack; read-only UI/API/schema checks passed and all four services were left
 running. The earlier health timeout did not require a code/configuration change.
-Sharing UI, reminder redesign and monthly planning remain separate work.
+Task 065 adds collapsed email sharing and membership-based My/All/search;
+reminder redesign and monthly planning remain separate work.
 Task 059 changes administrator authority to stored `users.type`,
 without email/environment overrides. Its guarded source transition and 68 isolated
 backend checks passed; task-resource cleanup is verified.
@@ -203,8 +204,8 @@ own implementation approval; details live in the closest software README.
     all endpoint checks and concurrent last-member protection.
     Tasks 063/064 implement and verify the backend and preserved-data DB cutover.
     The user-started stack passed read-only UI/API/schema smoke checks and remains running.
-  - [ ] Ticket 69.5: Minimal Sharing UI — member management and membership-aware
-    My/All views/search, retaining existing record-management flows.
+  - [x] Ticket 69.5: Minimal Sharing UI — collapsed member management and
+    server-scoped My/All/search, retaining existing record-management flows (Task 065).
   - [ ] Ticket 69.6: Monthly Planning Date — fixed 1st, separate from predicted
     run-out; retain current 30-day quantities and model.
   - [ ] Ticket 69.7: Shared-Member Reminders — monthly email the day before the
@@ -238,8 +239,8 @@ own implementation approval; details live in the closest software README.
 
 ### Shared execution priority
 
-1. Database/access refocus (69.4 -> 69.7), after completed DB-role cutover and
-   structure cleanup (71-73); never a reset.
+1. Finish database/access refocus (69.6 -> 69.7), after completed roles, shared
+   access/UI (69.3-69.5) and structure cleanup (71-73); never a reset.
 2. HTML email presentation (70) after reminder semantics; complete usability (65).
 3. Offline forecast research/validation (66.1 -> 66.4); 66.5 is a separate
    adoption gate, not automatic app replacement. Keep costs deferred.

@@ -12,10 +12,13 @@ import {
   getMeter,
   listBalances,
   listMeters,
+  listMembers,
   listTopUps,
   logout,
   requestOtp,
   renameMeter,
+  removeMember,
+  shareMember,
   updateBalance,
   updateTopUp,
   verifyOtp,
@@ -165,6 +168,41 @@ describe('authentication API client', () => {
       '/api/meters?q=owner%2Bshop%40example.test',
       expect.objectContaining({ credentials: 'include' }),
     );
+  });
+
+  it('combines membership scope with server-side search without changing default URLs', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response('[]', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await listMeters('', true);
+    await listMeters(' member+home@example.test ', true);
+    await listMeters('', false);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/api/meters?mine=true',
+      '/api/meters?q=member%2Bhome%40example.test&mine=true',
+      '/api/meters',
+    ]);
+  });
+
+  it('uses typed cookie member endpoints and preserves membership failures', async () => {
+    const meterId = '00000000-0000-0000-0000-000000000001';
+    const member = { user_id: 9, email: 'member@example.test' };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify([member]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(member), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 409 }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await listMembers(meterId)).toEqual([member]);
+    expect(await shareMember(meterId, member.email)).toEqual(member);
+    await removeMember(meterId, member.user_id);
+    await expect(removeMember(meterId, member.user_id)).rejects.toMatchObject({ status: 409 });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, `/api/meters/${meterId}/members`, expect.objectContaining({ credentials: 'include' }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/meters/${meterId}/members`, expect.objectContaining({
+      method: 'POST', credentials: 'include', body: JSON.stringify({ email: member.email }),
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, `/api/meters/${meterId}/members/${member.user_id}`, expect.objectContaining({
+      method: 'DELETE', credentials: 'include',
+    }));
   });
 
   it('uses nested cookie APIs for both manual ledger resources', async () => {

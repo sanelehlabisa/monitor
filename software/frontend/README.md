@@ -11,31 +11,31 @@ After the initial health timeout/diagnostic, the user started the full stack.
 Read-only checks passed for served UI/deep links, transformed main/App modules,
 branding assets and signed-out API denial through the frontend proxy. Services
 remain running; live browser/login/write verification is still outstanding.
-Sharing controls and membership-aware admin My remain 69.5 work; planning 69.6 is future.
+Task 065 adds minimal sharing and membership-aware My; planning 69.6 is future.
 
-Regular users receive their accessible meter memberships from the backend; no
-sharing controls are added by Task 063. Users whose stored type is
-`admin` see every meter's owner email and the same
+Regular users receive their accessible meter memberships from the backend.
+Users whose stored type is `admin` can see every meter's creator email and the same
 select/rename/confirmed-delete controls for all meters. Task 039 hides the nav
 role badge without changing administrator access. New
 meter creation remains intentionally name-only and always belongs to the signed-
 in user.
 
-Administrators default to the `My` tab so they can quickly create and test
-profiles owned by their admin account. `All` shows every system profile
-with creator/legacy owner labels and the same management controls. Switching views changes
-only presentation; it does not change membership or backend access policy.
+Administrators default to `My`: meters they currently belong to, including shared-in
+meters but excluding those they left. `All` shows every system meter with Created by
+labels and the same controls. Both views are server-scoped; switching views does
+not change membership or backend authority.
 
 Task 047 shows Search/Clear only when the selected view has more than 10
 unfiltered meters, or a query/filter is active. It sits between Meters and
 My/All on tablet/desktop and on its own header row below 600px; never on details.
 Erasing a draft does not discard the applied filter or disable its Clear action.
 Zero/one-result searches keep the field visible; a successful full reload clears
-filtering. My/All reloads the existing complete list, and create/delete keep the
+filtering. My/All requests the selected server scope, and create/delete keep the
 unfiltered count current. Account changes reset counts/query and ignore old replies.
 
-Search still calls `GET /api/meters?q=...`: regular users search accessible
-profiles; the Task 063 backend matches names/current member emails. There is no duplicate
+Search calls `GET /api/meters?q=...&mine=true` for My; admin All omits `mine`.
+Regular users remain limited to current memberships regardless of that flag.
+The backend matches names/current member emails. There is no duplicate
 client-side keyword matching or pagination. Visible meter rows are numbered
 1, 2, 3... in their current order, restarting for each search/view; these are
 display ordinals, not persisted meter identifiers. Create remains unnumbered.
@@ -65,6 +65,7 @@ src/
   routes/meters/MetersPage.tsx, MeterDetailsPage.tsx, meterRoute.ts
   routes/meters/components/MeterSection.tsx, MeterSearch.tsx
   routes/meters/components/ForecastPanel.tsx, LedgerPanel.tsx
+  routes/meters/components/SharingPanel.tsx
   components/Navigation.tsx
   lib/api.ts, dateTime.ts, theme.ts
 ```
@@ -115,7 +116,8 @@ compatible entry links and canonicalise after sign-in. Back and logout return to
 can be retried, and leaving a meter invalidates older dashboard responses.
 
 The signed-in container is wider. Task 040 places compact Name/Owner key-value
-rows above the full-width three-estimate planning summary. Task 041 starts Name
+rows above the full-width three-estimate planning summary (Task 065 relabels Owner
+as Created by, historical metadata only). Task 041 starts Name
 read-only: pencil enables/focuses editing, then becomes Save. Save/Enter persists;
 Escape cancels; success returns to read-only and errors retain the draft. Owner
 is always read-only. The same edit/save behaviour applies to list rows.
@@ -387,7 +389,7 @@ keyboard focus, pending controls, logout failure/retry and success, and the
 black company credit. The red button's white text measures 4.98:1 contrast.
 These are UI checks, not a new backend authentication or household validation.
 
-### Ticket 69.5: Minimal shared-meter UI/API integration (planned)
+### Ticket 69.5: Minimal shared-meter UI/API integration (Task 065)
 
 Depends on the database/setup, DB-role and membership/authorization work in
 69.1–69.4; see the [database plan](../database/README.md) and
@@ -396,7 +398,7 @@ sessions, existing meter/ledger APIs and the compact MUI workspace.
 
 Every meter member may manage its balance/top-up records and membership;
 global admins retain full access even without membership. Represent membership,
-not ownership, in the future list/details UI: My means meters the signed-in user
+not ownership, in the list/details UI: My means meters the signed-in user
 belongs to, and admin All includes every meter. Server-side keyword search must
 support meter names and member emails within authorized scope, not only the old
 owner email; Task 063 implements this query. The frontend consumes its results.
@@ -405,12 +407,26 @@ Surface backend membership/save failures and last-member-removal rejection
 without losing drafts or bypassing authorization. Any member/admin may permanently
 delete a meter/history. Sharing accepts email, creates missing regular accounts
 and links IDs; no invitation or OTP bypass. Keep creator metadata clearly labelled
-in the future UI rather than treating it as ownership authority.
+as Created by rather than treating it as ownership authority.
+
+Sharing starts collapsed below History. Expansion loads members on demand;
+email Add provisions/links through the existing backend. Remove and Leave require
+confirmation and remove membership only. Permanent meter Delete remains separate.
+Failed writes retain the email draft; after a saved change, failed member/list
+refresh disables further writes and offers a read-only Retry. Self-leave immediately
+clears the workspace and returns to the scoped list, including for admins (who
+retain All access). A failed return-list read has its own GET-only Retry.
+Meter/account/view generations ignore late sharing replies; successful changes
+refresh active server search and its unfiltered scope count.
 
 Acceptance: desktop/phone flows for two members, a non-member and a global admin;
 membership/list changes, scoped email search, last-member rejection and recovery.
-Keep existing ledger, navigation and stale-response guards; no sharing UI is
-implemented by this plan.
+Keep existing ledger, navigation and stale-response guards. Task 065 verification
+uses isolated/mocked data only; it is not live-user or household validation.
+All 36 frontend checks and the TypeScript/Vite build pass. Twelve mocked-browser
+groups cover sharing, scoped search/counts, last-member/failed-read recovery,
+conflicting controls and delayed replies after meter/account changes; six
+1200/390/320px captures have no overflow. No real API writes or mail were used.
 
 ### Ticket 69.6: Fixed monthly planning date (planned)
 

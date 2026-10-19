@@ -54,7 +54,7 @@ export function MeterDetailsPage({ selectedMeter, selectedContent, busy, error,
           onClick={editingId === selectedMeter.id ? undefined : (event) => { event.preventDefault(); startEditing(selectedMeter); }}
           disabled={busy || (editingId === selectedMeter.id && (!editName.trim() || editName === selectedMeter.name))}>
           {editingId === selectedMeter.id ? <SaveOutlinedIcon /> : <EditOutlinedIcon />}</IconButton>
-        <Typography sx={{ fontWeight: 700 }}>Owner:</Typography>
+        <Typography sx={{ fontWeight: 700 }}>Created by:</Typography>
         <Typography sx={{ gridColumn: '2 / 4', overflowWrap: 'anywhere' }}>{selectedMeter.owner_email}</Typography>
       </Box>
       {error && <Alert severity="error">{error}</Alert>}
