@@ -36,6 +36,9 @@ isolated `MONITOR_DATABASE_URL` and initialized schema, never the current DB:
 python -m pytest
 ```
 
+Keep MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT blank for ordinary isolated checks;
+lifecycle tests explicitly enable only their disposable DB/Mailpit environment.
+
 Task 059 safely upgraded the existing volume. Retired SQL and the legacy CLI
 are no longer active files; the [database README](../database/README.md) records
 verified recovery copies. Never replay fresh setup against an existing volume.
@@ -179,12 +182,18 @@ without enough history; unsupported energy/rate estimates remain null.
 
 Reminder GET/PATCH retains existing disabled-by-default settings, day 1-28,
 lead time up to 30 days and saved IANA timezone. Saving never sends mail.
-The finite `python -m app.modules.reminder_runner` remains opt-in/creator-only
-until 69.7, and sends only while that creator is still a member. It skips stale
+The finite `python -m app.modules.reminder_runner` remains a manual-only,
+opt-in/creator-only legacy path, and sends only while that creator is still a member. It skips stale
 removed/deleted candidates and rechecks before SMTP under the meter lock.
 Monthly/low-balance eligibility, dedupe/retry rules and SMTP boundary remain;
 SMTP is not transactional and crash retries are not exactly-once delivery.
 Never invoke the CLI, even with --help, as an application smoke check.
+
+Task 069's app-owned scheduler instead calls the guarded monthly member pass.
+It uses the optional saved MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT timestamp, not
+legacy per-meter preferences. Blank disables; explicit aware ISO datetime enables
+and normalizes to UTC; invalid/naive/numeric values reject. Preserve an existing
+installation's cutoff across restarts. No new DB table, schema startup or user setting.
 
 Fresh/upgrade targets restrict deletion of users still referenced as creator or
 member, preventing accidental shared-data cascades. Explicit meter deletion
@@ -346,8 +355,8 @@ Depends on: 69.3/69.4's roles/memberships and 69.6's fixed planning date.
 - Deduplicate monthly delivery per meter, recipient and target planning cycle:
   a December 31 send for January 1 belongs to the January cycle. Check month
   lengths, leap years and year boundaries; do not key it only by send month.
-- Extend existing durable claims to recipient-level delivery for both reminder
-  types. One recipient's failure/retry must not resend successful recipients;
+- Extend existing durable claims to recipient-level monthly delivery.
+  One recipient's failure/retry must not resend successful recipients;
   removal ends future eligibility, including rechecking membership before a
   pending send. Retain failed new monthly jobs as pending and recover abandoned
   claims after the existing 30-minute lease, without claiming exactly-once SMTP
@@ -356,11 +365,11 @@ Depends on: 69.3/69.4's roles/memberships and 69.6's fixed planning date.
   meter-before-delivery locking. Retain a delayed job's original cycle key; use a
   fresh forecast and label its current planning date separately from the delayed
   notification cycle. Never suppress the next real cycle by rekeying a retry.
-- Retain predicted-low-balance reminders and their valid-forecast/lead-time
-  eligibility, deduplicated per recipient and predicted local run-out date.
-  Never send a low-balance forecast for unavailable/inconsistent history or
-  invent one from defaults. A monthly email may instead request a fresh actual
-  reading. Keep estimate labels and the warning to verify the physical meter;
+- The user confirmed monthly planning only for completion of Ticket 69. Defer
+  shared/automatic low-balance warnings; preserve existing creator-only opt-in
+  code, eligibility and history without scheduling it. Do not turn on extra alerts
+  or claim their fan-out is complete. A monthly email may request a fresh actual
+  reading when forecasts are unavailable. Keep estimate labels and warnings;
   Monitor never buys electricity or guarantees a forecast.
 
 Split into separately approved small tasks:
@@ -372,8 +381,9 @@ Split into separately approved small tasks:
   this finite slice. `app.modules.monthly_reminders.run_monthly_reminders` owns
   connection/commit boundaries and requires an aware activation cutoff; no caller
   transaction is silently committed.
-  Reuse the existing delivery schema with target `YYYY-MM:userID` keys. Do not
-  wire it into CLI/import/request/lifespan paths or send source mail in this task.
+  Reuse the existing delivery schema with target `YYYY-MM:userID` keys. Task 068
+  did not wire automatic calls; Task 069 subsequently connects only app lifecycle,
+  not the legacy CLI, imports or requests.
   Legacy rows/CLI keep their existing behavior: old plain YYYY-MM keys identify
   send months, not necessarily target months, and cannot be silently reinterpreted.
   All 134 isolated backend checks pass, including 25 new calendar, durability,
@@ -383,7 +393,8 @@ Split into separately approved small tasks:
   OpenAPI is byte-identical to Git HEAD and pinned dependencies are unchanged.
   No source DB queries/writes, mail or service actions occurred. New-path header
   normalization and date-range failure isolation do not change live forecast math.
-- 69.7.2: lifecycle-owned asyncio task, sequential passes with blocking DB/SMTP
+- 69.7.2 (Task 069; complete for monthly-only/local Mailpit): lifecycle-owned
+  asyncio task, sequential passes with blocking DB/SMTP
   work off the event loop, startup recovery, cross-process overlap protection,
   bounded operations and safe shutdown/draining. Reuse the finite pass and SMTP;
   no extra scheduling service/dependency or request-triggered-only mechanism.
@@ -392,6 +403,22 @@ Split into separately approved small tasks:
   First agree/persist the fixed cutoff and reconcile legacy pending/sent records
   without dropping pending mail or inventing cross-format deduplication. Task 068
   alone does not complete legacy backlog recovery or authorize activation.
+  [Task 069](../../agents/work/069-automatic-monthly-reminders/changes.md) implements
+  the optional saved cutoff in ignored `.env`/Compose, immediate startup recovery
+  and sequential 60-second off-event-loop passes. Stop checks roll back incomplete
+  discovery and drain actual workers instead of treating thread cancellation as
+  a stopped send. Reminder-owned DB connect/statement limits are 5 seconds; lock
+  limit 2 seconds. SMTP retains 10 seconds per operation, not total-send time.
+  Backend shutdown grace is 120 seconds. Unknown monthly keys block each automatic
+  pass before claims; no jobs/history are remapped or silently dropped.
+  All 157 backend/43 frontend checks and production asset build pass; API and pins
+  are unchanged. Isolated real SMTP/app lifespans verify pending recovery, no restart
+  duplicates, disabled mode, responsive requests and clean shutdown.
+  Approved local gates found zero saved deliveries and pinned internal Mailpit
+  with no relay/auth. One backend-only recreation activated the saved cutoff;
+  database/frontend/Mailpit and volumes stayed unchanged. Health/proxy checks pass,
+  with zero source delivery rows and no forced/external mail, backup or schema work.
+  Production/external SMTP activation remains separately approved Ticket 57 work.
 
 Acceptance: isolated multi-member fan-out, non-member/admin-only exclusion,
 membership removal, recipient retries/dedup, restart/catch-up, failed/stale claims,

@@ -462,6 +462,12 @@ meter's members at 09:00 UTC on month-end, persisted per-recipient status and
 backend-startup catch-up. No user selectors/settings are added. Task 066 changes
 existing message wording only; it does not activate or implement the scheduler.
 
+Task 069 adds only a small monthly-schedule policy note inside collapsed Sharing.
+No reminder controls, handlers or dashboard layout change. The user confirmed
+monthly-only automation; shared low-balance warnings remain deferred. All 43
+frontend checks and TypeScript/Vite build pass. Local emails go to Mailpit only;
+production/external delivery remains separately approved deployment work.
+
 Acceptance: desktop/phone target-date/amount wording, first-day advancement,
 28/29/30/31-day and year/UTC boundaries, unavailable/zero-use states, unchanged
 rate/run-out, API/email agreement and stale-response-safe read-only rollover.

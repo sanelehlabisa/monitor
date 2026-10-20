@@ -24,8 +24,9 @@ fresh backup/rehearsal, preserving all data. The user subsequently started the
 full stack; read-only UI/API/schema checks passed and all four services were left
 running. The earlier health timeout did not require a code/configuration change.
 Task 065 adds collapsed email sharing and membership-based My/All/search.
-Task 066 adds actual calendar-month planning. Task 068 adds a separately callable
-durable monthly delivery pass; automatic scheduling/activation remain separate work.
+Task 066 adds actual calendar-month planning. Tasks 068/069 complete durable
+monthly member delivery and the app-owned scheduler, activated locally with
+Mailpit only. Production/external email activation remains deployment work.
 Task 059 changes administrator authority to stored `users.type`,
 without email/environment overrides. Its guarded source transition and 68 isolated
 backend checks passed; task-resource cleanup is verified.
@@ -85,7 +86,8 @@ or a future-balance projection. Earlier predicted run-out remains separate.
 - Identity: passwordless email OTP with secure HTTP-only cookie sessions.
 - Web: React, Vite and Material UI with a mobile-first layout.
 - Development: Docker Compose under `software/dev.docker-compose.yaml`.
-- Reminders: opt-in monthly and predicted-low-balance email through a finite runner.
+- Reminders: app-owned monthly planning email to meter members when configured;
+  legacy opt-in low-balance code is retained but not automatically scheduled.
 
 The active data path is manual entry -> REST API -> PostgreSQL -> calculation ->
 dashboard. No new service or AI dependency is needed.
@@ -196,7 +198,7 @@ own implementation approval; details live in the closest software README.
   preserve API/behavior and verify isolated checks after 71.
 - [x] Ticket 73: Frontend Route Layout (Task 062) — route-local screens/components
   and shared helpers; preserve UI/behavior after 71.
-- [ ] Ticket 69: Database & Access Refocus — preserve existing functionality and
+- [x] Ticket 69: Database & Access Refocus — preserve existing functionality and
   data; reuse raw SQL, OTP, cookie sessions and the reminder runner.
   - [x] Ticket 69.1: Data Safety & Schema Review — verified full-data recovery
     (Task 057) and accepted additive nine-domain-table target (Task 058).
@@ -215,15 +217,20 @@ own implementation approval; details live in the closest software README.
   - [x] Ticket 69.6: Calendar-Month Planning — strictly next UTC 1st, actual target
     month duration and current-balance subtraction; separate predicted run-out.
     Task 066 implements this slice; usage-rate learning remains unchanged.
-  - [ ] Ticket 69.7: Automatic Shared-Member Reminders — 09:00 UTC on month-end,
+  - [x] Ticket 69.7: Automatic Shared-Member Reminders — 09:00 UTC on month-end,
     durable per-recipient status and startup catch-up, without user settings.
+    The user confirmed monthly planning only; shared low-balance automation is
+    deferred, with legacy opt-in code preserved but not scheduled.
     - [x] 69.7.1: Durable dispatch — Task 068 implements the finite member/cycle
       pass, latest-missed discovery and saved pending recovery. All 134 isolated
-      backend checks and real Mailpit SMTP checks pass. No scheduler/source-mail
-      activation; legacy backlog reconciliation remains the next activation gate.
-    - [ ] 69.7.2: Async backend scheduler — lifecycle-owned sequential passes,
+      backend checks and real Mailpit SMTP checks pass. Task 068 did not activate
+      the scheduler; Task 069 subsequently passed the local activation gates.
+    - [x] 69.7.2: Async backend scheduler — lifecycle-owned sequential passes,
       startup recovery, safe shutdown/concurrency and explicitly approved activation.
       Persist a fixed activation cutoff and reconcile legacy delivery keys/backlog first.
+      Task 069 passed 157 backend/43 frontend checks, build and isolated real SMTP
+      lifecycle checks. Empty legacy inventory and internal-Mailpit gates passed;
+      one backend recreation activated local automation. Other services/data stay.
 - [ ] Ticket 70: Readable HTML Emails — OTP/reminder HTML with plain-text fallback
   and safe app links; reuse SMTP after 69.7's recipient/message contract.
 - [ ] Ticket 65: Monitor Usability Review — first-user onboarding, clear actual
@@ -253,13 +260,15 @@ own implementation approval; details live in the closest software README.
 
 ### Shared execution priority
 
-1. Finish automatic shared-member reminders (69.7.1 -> 69.7.2), after completed
-   roles/access/planning (69.3-69.6) and structure cleanup (71-73); never a reset.
-2. HTML email presentation (70) after reminder semantics; complete usability (65).
-3. Offline forecast research/validation (66.1 -> 66.4); 66.5 is a separate
-   adoption gate, not automatic app replacement. Keep costs deferred.
-4. Monitor deployment (57).
-5. Begin personal (56) and external (67) testing; mobile/local-only 68 stays later.
+1. Ticket 69 is complete for monthly-only/local Mailpit automation. Next, perform
+   the compact real-user phone/browser walkthrough and fix concrete issues (65).
+2. Prepare minimal Monitor deployment (57) using the existing model/images;
+   production/external mail and VPS changes need their own approval.
+3. HTML email presentation (70) and offline forecast validation (66.1 -> 66.4)
+   remain separate. Candidate adoption 66.5 is not a pilot-deployment requirement;
+   retain the baseline if the candidate is not justified. Keep costs deferred.
+4. Begin personal (56) and external (67) testing after deployment.
+5. Future mobile/local-only 68 stays later.
 6. While waiting for users, return to Switch's compact prototype (Switch 84).
 7. Measure, design and locally print its temporary enclosure (Switch 84).
 8. Complete at least two continuous weeks of internal testing (Switch 84).

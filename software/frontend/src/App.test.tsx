@@ -375,6 +375,7 @@ describe('Monitor authentication UI', () => {
         busy={false} onChanged={async () => undefined} onUnavailable={noAction} onPendingChange={noAction} />,
     );
     expect(markup).toContain('Sharing');
+    expect(markup).toContain('Monthly planning reminders: last day of the month, 09:00 UTC, for all members.');
     expect(markup).toContain('<details');
     expect(markup).not.toMatch(/<details[^>]*\sopen(?:[\s=>])/);
     expect(markup).not.toContain('Member email');

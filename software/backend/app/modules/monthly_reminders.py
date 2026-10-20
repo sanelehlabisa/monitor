@@ -1,5 +1,6 @@
-"""Finite member-based monthly delivery; deliberately not wired to a scheduler."""
+"""Finite member-based monthly delivery, shared by the guarded app scheduler."""
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 import re
@@ -7,6 +8,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from psycopg import Connection
+from psycopg.conninfo import make_conninfo
 
 from app.database import connect_database
 from app.modules.balance_entries import list_balance_entries
@@ -25,6 +27,28 @@ from app.settings import Settings
 
 MONTHLY_KEY = re.compile(r"([0-9]{4}-(?:0[1-9]|1[0-2])):([1-9][0-9]{0,18})")
 MONTH_END_LEAD = timedelta(hours=15)  # 09:00 UTC on the day before the target 1st.
+
+
+class LegacyMonthlyDeliveriesError(Exception):
+    """Automatic delivery is blocked until incompatible monthly rows are reviewed."""
+
+
+class _ReminderPassStopped(Exception):
+    """Unwind incomplete discovery atomically, or stop before the next SMTP send."""
+
+
+def _check_stop(should_stop: Callable[[], bool] | None) -> None:
+    if should_stop is not None and should_stop():
+        raise _ReminderPassStopped()
+
+
+def ensure_monthly_delivery_compatibility(connection: Connection[Any]) -> None:
+    """Reject unknown/legacy monthly keys without remapping or altering history."""
+    keys = connection.execute(
+        "SELECT DISTINCT dedupe_key FROM monitor.reminder_deliveries WHERE reminder_type = 'monthly'"
+    ).fetchall()
+    if any(_parse_key(key) is None for (key,) in keys):
+        raise LegacyMonthlyDeliveriesError("Monthly delivery keys require reconciliation")
 
 
 def _latest_cycle(now: datetime) -> datetime:
@@ -49,7 +73,8 @@ def _parse_key(key: str) -> tuple[datetime, int] | None:
 
 
 def _discover_jobs(
-    connection: Connection[Any], cycle: datetime, activation_at: datetime, now: datetime
+    connection: Connection[Any], cycle: datetime, activation_at: datetime, now: datetime,
+    should_stop: Callable[[], bool] | None = None,
 ) -> tuple[set[UUID], int]:
     """Commit the entire eligible member fan-out before any SMTP attempt."""
     scheduled_at = cycle - MONTH_END_LEAD
@@ -63,6 +88,7 @@ def _discover_jobs(
     scanned = 0
     with connection.transaction():
         for (meter_id,) in meter_ids:
+            _check_stop(should_stop)
             try:
                 lock_meter_access(connection, meter_id, None)
             except MeterNotFoundError:
@@ -74,6 +100,7 @@ def _discover_jobs(
                 (meter_id,),
             ).fetchall()
             for (user_id,) in members:
+                _check_stop(should_stop)
                 claim_id = claim_reminder_delivery(
                     connection, meter_id, "monthly", f"{cycle:%Y-%m}:{user_id}", now
                 )
@@ -92,6 +119,7 @@ def _deliver_job(
     settings: Settings,
     sender: EmailSender,
     now: datetime,
+    should_stop: Callable[[], bool] | None = None,
 ) -> Literal["sent", "failed", "skipped"]:
     """Serialize one recipient with revocation/reclaim and commit independently."""
     try:
@@ -130,6 +158,7 @@ def _deliver_job(
                         + message.get_content()
                     )
                 get_meter(connection, meter_id, user_id)
+                _check_stop(should_stop)
                 sender.send(message)
             except (EmailDeliveryError, ValueError, OverflowError):
                 # Failed SMTP or unrepresentable estimates must not starve other jobs.
@@ -148,8 +177,11 @@ def run_monthly_reminders(
     activation_at: datetime,
     sender: EmailSender | None = None,
     now: datetime | None = None,
+    should_stop: Callable[[], bool] | None = None,
+    bounded_io: bool = False,
+    check_legacy: bool = False,
 ) -> ReminderRunResult:
-    """Run once on an owned connection; never enable scheduling or legacy retries."""
+    """Run once with independent commits and optional automatic-worker safeguards."""
     calculation_time = now if now is not None else datetime.now(UTC)
     for instant in (activation_at, calculation_time):
         if instant.tzinfo is None or instant.utcoffset() is None:
@@ -158,12 +190,26 @@ def run_monthly_reminders(
     calculation_time = calculation_time.astimezone(UTC)
     email_sender = sender if sender is not None else SmtpEmailSender(settings)
     counts = {"sent": 0, "failed": 0, "skipped": 0}
-    with connect_database(settings) as connection:
+    connection_settings = settings
+    if bounded_io:
+        connection_settings = settings.model_copy(update={
+            "database_url": make_conninfo(settings.database_url, connect_timeout=5),
+        })
+    with connect_database(connection_settings) as connection:
         # Own the connection: SELECTs must not leave an implicit outer transaction.
         connection.autocommit = True
-        owned, scanned = _discover_jobs(
-            connection, _latest_cycle(calculation_time), activation_at, calculation_time
-        )
+        if bounded_io:
+            connection.execute("SET statement_timeout = 5000")
+            connection.execute("SET lock_timeout = 2000")
+        if check_legacy:
+            ensure_monthly_delivery_compatibility(connection)
+        try:
+            _check_stop(should_stop)
+            owned, scanned = _discover_jobs(
+                connection, _latest_cycle(calculation_time), activation_at, calculation_time, should_stop
+            )
+        except _ReminderPassStopped:
+            return ReminderRunResult(0, 0, 0, 0)
         jobs = connection.execute(
             """SELECT id, meter_id, dedupe_key, claimed_at
                FROM monitor.reminder_deliveries
@@ -177,9 +223,13 @@ def run_monthly_reminders(
             if parsed is None or parsed[0] - MONTH_END_LEAD > calculation_time:
                 continue
             cycle, user_id = parsed
-            outcome = _deliver_job(
-                connection, job_id, meter_id, observed_claim, cycle, user_id,
-                settings, email_sender, calculation_time,
-            )
+            try:
+                _check_stop(should_stop)
+                outcome = _deliver_job(
+                    connection, job_id, meter_id, observed_claim, cycle, user_id,
+                    settings, email_sender, calculation_time, should_stop,
+                )
+            except _ReminderPassStopped:
+                break
             counts[outcome] += 1
     return ReminderRunResult(scanned, counts["sent"], counts["skipped"], counts["failed"])

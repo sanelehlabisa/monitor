@@ -30,6 +30,7 @@ services:
       retries: 10
 
   backend:
+    stop_grace_period: 120s
     build:
       context: ./backend
       target: development
@@ -39,6 +40,7 @@ services:
       MONITOR_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
       MONITOR_CORS_ORIGIN: http://localhost:${FRONTEND_PORT}
       MONITOR_OTP_HMAC_SECRET: ${MONITOR_OTP_HMAC_SECRET:?Set MONITOR_OTP_HMAC_SECRET in software/.env}
+      MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT: ${MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT:-}
       SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in software/.env}
       SMTP_PORT: ${SMTP_PORT:?Set SMTP_PORT in software/.env}
       SMTP_SECURE: ${SMTP_SECURE:?Set SMTP_SECURE in software/.env}

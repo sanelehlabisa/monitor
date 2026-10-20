@@ -8,6 +8,7 @@ from app.endpoints.auth import router as auth_router
 from app.endpoints.ledger import router as ledger_router
 from app.endpoints.meters import router as meter_router
 from app.endpoints.reminders import router as reminder_router
+from app.modules.reminder_scheduler import monthly_reminder_lifespan
 from app.schemas.health import HealthResponse
 from app.settings import Settings
 
@@ -16,7 +17,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """Create a configured Monitor API application."""
 
     application_settings = settings or Settings()
-    application = FastAPI(title="Monitor API", version=__version__)
+    application = FastAPI(
+        title="Monitor API", version=__version__,
+        lifespan=lambda app: monthly_reminder_lifespan(app, application_settings),
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[application_settings.cors_origin],

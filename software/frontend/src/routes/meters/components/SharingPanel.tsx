@@ -105,6 +105,7 @@ export function SharingPanel({ meterId, user, busy, onPendingChange, onChanged, 
       if (expanded && !pending) void reload(needsRefresh);
     }} sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
       <Typography component="summary" sx={{ cursor: 'pointer', fontWeight: 700 }}>Sharing</Typography>
+      <Typography color="text.secondary" variant="body2" sx={{ pt: 1.5 }}>Monthly planning reminders: last day of the month, 09:00 UTC, for all members.</Typography>
       {open && <Stack spacing={1.5} sx={{ pt: 1.5 }}>
         <Typography color="text.secondary" variant="body2">Members can manage this meter. Sign-in still uses an email code.</Typography>
         {error && <Alert severity="error" action={(!loaded || needsRefresh) && (

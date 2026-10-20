@@ -65,7 +65,8 @@ UI calendar dates remain UTC; factual ledger/run-out timestamps stay browser-loc
 Recalculate after ledger changes/Refresh, at UTC rollover and on resuming an
 outdated view. Local bounded timers do not poll the API. Version/busy/error guards
 and one automatic attempt per expired workspace/cycle protect writes/navigation;
-read failures keep manual Refresh recovery. No reminder scheduler is activated.
+read failures keep manual Refresh recovery. Task 069 activates the monthly
+scheduler locally with internal Mailpit; production/external mail remains separate.
 
 ## Database and runtime safety
 
@@ -165,34 +166,34 @@ Existing API payloads are unchanged; only three member operations were added.
    frontend checks and the TypeScript/Vite build pass. The user subsequently
    authorized the Git handoff of completed Tasks 066–067 to master as 03a2e4d; earlier
    no-commit notes describe their original completion-time scope.
-3. 69.7 is automatic month-end mail at 09:00 UTC to current meter members, with
-   DB-backed status and backend-startup catch-up, not skip-if-offline. Split into
-   69.7.1 durable member/cycle dispatch and 69.7.2 asyncio lifecycle/startup recovery.
-   Task 068 completes 69.7.1's inactive finite member-based monthly pass in
-   app/modules/monthly_reminders.py. Discover only the latest missed cycle and use
-   current members, including newly shared users; admin access alone is not a
-   subscription. Retry all saved new-format pending cycles. Require an explicit
-   aware activation cutoff; exclude cycles before meter creation. Keep failed
-   claims pending with the existing 30-minute lease. Commit the full fan-out before
-   SMTP and each recipient independently, with parent/claim/membership rechecks.
-   All 134 isolated backend checks and real Mailpit SMTP checks pass (three messages,
-   two members, no duplicate send). OpenAPI is byte-identical and pins unchanged.
-   Source IDs/images/start times/restarts/volumes are unchanged; all four services
-   were healthy in the post-verification sample, not continuously throughout.
-   No source SQL, mail or service action occurred. Details are in work/068.
-   The user subsequently authorized the Git handoff of completed Task 068 to
-   master; earlier no-commit notes describe its completion-time scope only.
-   Current user_meters has no join timestamp. Preserve legacy rows/CLI without
-   reinterpreting old send-month keys as new target-month/recipient keys. Legacy
-   pending/sent reconciliation and fixed cutoff persistence gate 69.7.2 activation;
-   this finite slice does not complete legacy backlog recovery.
-   Source-mail activation requires explicit approval; do not hot-reload an active
-   scheduler into the running stack. The existing CLI remains finite, creator-only,
-   opt-in/default off and hidden in UI; the new helper is not wired into it,
-   requests or app lifecycle. Low-balance behavior stays unchanged. Reuse raw SQL/claims/SMTP, not a
-   new service. A later retry must not overwrite its original delivery-cycle key.
-4. HTML email 70 (plain fallback/trusted app links), usability 65, offline forecast
-   validation 66, deployment 57, then household/external evidence 56/67.
+3. Ticket 69 is complete for accepted monthly-only/local Mailpit scope. Task 068
+   (published as f74b650) supplies the finite durable pass; Task 069 adds the app
+   lifecycle loop, startup recovery and sequential off-event-loop 60-second passes.
+   Use current members (including newly shared users), not admin access alone.
+   Discover only the latest missed eligible cycle; retry all saved new-format
+   pending cycles. Preserve original target-month/user keys, full fan-out before
+   SMTP, independent recipient commits, the 30-minute lease and parent/claim/member
+   rechecks. Unknown legacy/malformed monthly keys block automatic writes; never
+   remap old send-month keys, drop pending jobs or reset sent history silently.
+   MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT is an optional saved aware UTC cutoff:
+   blank disables; invalid/naive/numeric values reject. Do not regenerate on
+   restart. Cooperative worker drain, reminder-only DB bounds and 120-second
+   backend shutdown grace preserve API behavior. Sharing adds only a collapsed
+   schedule note. Legacy creator-only opt-in low-balance/CLI code stays manual;
+   shared/automatic low-balance alerts are explicitly deferred and not scheduled.
+   All 157 backend/43 frontend checks, build and isolated real SMTP lifecycle/
+   restart checks pass; API/pins are unchanged. Approved READ ONLY source audit
+   found zero deliveries; pinned internal Mailpit/no relay gates passed. One
+   backend recreation retained image/mounts/other env and activated cutoff
+   2026-10-19T21:19:54.201423Z in ignored software/.env. Other three services retain
+   IDs/start times/volumes; health 200 and frontend signed-out proxy 401 pass.
+   First eligible send: 31 October 2026, 09:00 UTC (target 1 November). No source
+   delivery records/forced mail, external SMTP, backup or schema work. Owned test
+   resources are cleaned; details/evidence are in work/069. Production/external
+   activation needs separate approval. Preserve recovery/research/history artifacts.
+4. Next: compact real-user phone/browser walkthrough/usability 65, then minimal
+   deployment 57. HTML email 70 and offline forecast validation 66 stay separate;
+   a new candidate model is not required for the pilot. Then collect evidence 56/67.
    Each implementation needs its own questions, prompt and approval.
 5. Future mobile/local-only 68 may provide guest device storage and optional
    account login; it does not weaken today's authenticated backend.

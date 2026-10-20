@@ -167,6 +167,13 @@ The [root roadmap](../../README.md) owns stable IDs and priority; the
   pass, without source SQL or scheduler activation. Preserve
   legacy rows and low-balance behavior; reconcile legacy backlog/keys and persist
   a fixed activation cutoff before separately approved activation in 69.7.2.
+  User confirmed monthly-only automation; shared low-balance alerts are deferred.
+  Task 069 completed its aggregate READ ONLY inventory: zero saved delivery rows,
+  so no reconciliation/write/backup was needed. Its saved optional UTC cutoff in
+  ignored `.env` enabled only local Mailpit automation after one backend recreation;
+  PostgreSQL/volume stayed running/unchanged. No schema, ledger, role or auth writes.
+  Unknown monthly keys still block automatic passes before claims; no jobs are
+  silently deleted/remapped. Production/external mail is separate deployment work.
 - 70: HTML email with plain fallback/trusted links after reminder rules.
 
 Keep separate reminder preferences/claims, digest-only security and occurrence

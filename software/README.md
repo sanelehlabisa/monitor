@@ -67,8 +67,10 @@ on-demand record forms and a prominent forecast summary with manual Refresh.
 One deterministic model derives estimates from each meter's own history and
 withholds unsupported forecasts. Task 066 plans the strictly-next UTC 1st using
 the full target month's actual days and current balance, with read-only rollover
-refresh. Reminder settings are hidden in the frontend;
-the opt-in owner-only backend runner remains available. Component READMEs show
+refresh. Reminder controls stay hidden. Task 069's optional saved activation
+cutoff enables monthly member emails through the app lifecycle; local activation
+uses internal Mailpit only. The legacy opt-in creator-only CLI remains available
+but is not scheduled. Component READMEs show
 the source layout, API contracts and repeatable demo. Historical UI iterations
 remain in their numbered work records rather than current setup instructions.
 
@@ -132,8 +134,10 @@ out of scope until their roadmap status changes through an approved task.
 ## Planned validation and release
 
 Tasks 042, 050 and 056 record requirements only; they implement none of these
-tickets. Refocus 69 is now first, followed by email presentation 70/usability 65,
-forecast validation 66 and deployment 57, then personal 56/external 67 testing.
+tickets. Refocus 69 is complete for monthly-only/local Mailpit use. Next are a
+compact real-user usability check 65 and minimal deployment 57; HTML presentation
+70 and offline forecast research 66 are separate, not a mandatory model rewrite.
+Personal 56/external 67 testing follows deployment.
 The root README owns IDs and cross-product priority. Ticket 66's candidate
 research does not automatically replace the app.
 
@@ -174,8 +178,17 @@ research does not automatically replace the app.
   checks pass; OpenAPI/pins are unchanged. Persist a fixed initial cutoff and
   reconcile legacy delivery keys
   before separately approved source-mail activation in 69.7.2. No user selectors,
-  new service or dependency. Existing
-  low-balance behavior stays unchanged in Task 066.
+  new service or dependency. The user confirmed monthly-only automation: shared
+  low-balance delivery stays deferred; the legacy opt-in path is not scheduled.
+  Task 069 completes the lifecycle loop and saved optional UTC activation cutoff;
+  all 157 backend/43 frontend checks, build and isolated SMTP lifecycle checks pass.
+  An empty legacy audit and internal-Mailpit checks preceded one backend-only
+  recreation. Other services/volumes remain unchanged; no backup/schema work.
+  MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT is blank/off in examples. Set it once to
+  an explicit aware UTC instant to enable an installation; retain that cutoff on
+  restarts. Invalid/naive/numeric values reject. Current local cutoff is saved in
+  ignored `.env`; the first eligible send is 31 October 2026 at 09:00 UTC, into
+  Mailpit. Production/external SMTP activation remains Ticket 57 work.
 
 Keep the existing eight domain tables plus membership (nine total), including
 separate reminder settings/delivery claims, hashed OTP/session state and real
