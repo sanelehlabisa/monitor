@@ -13,7 +13,9 @@ READMEs hold details; historical results stay in work/ and Git.
 - A meter needs only a name. Task 063 backend code authorizes current members or
   DB admins, including permanent deletion of a meter/history. Last-member removal
   is rejected; leaving does not delete a meter. Task 064 applied the live FK
-  transition; the user-started full stack passed read-only smoke checks and remains running.
+  transition; the user-started full stack passed read-only smoke checks then.
+  Task 071 later found all four source containers already stopped and preserved
+  that state; never infer permission to start them from historical checks.
 - Record actual remaining kWh (non-negative) and purchased kWh (positive), with
   editable occurrence times separate from audit times. Store UTC instants;
   the browser converts local input/display.
@@ -191,11 +193,49 @@ Existing API payloads are unchanged; only three member operations were added.
    delivery records/forced mail, external SMTP, backup or schema work. Owned test
    resources are cleaned; details/evidence are in work/069. Production/external
    activation needs separate approval. Preserve recovery/research/history artifacts.
-4. Next: compact real-user phone/browser walkthrough/usability 65, then minimal
-   deployment 57. HTML email 70 and offline forecast validation 66 stay separate;
+4. Task 070 / Ticket 57.1 production preparation for monitor.roventics.com is
+   complete: own production Compose/volume, schema-only fresh setup and shared-edge
+   instructions. Task 072 consolidates its example into the single .env.example.
+   Reuse Job Talk's VPS Nginx/host Certbot:
+   frontend internal 80, shared edge public 80/443; only frontend joins
+   roventics_proxy. Backend has private scoped proxy trust and SMTP egress.
+   Production monthly automation is forced off; the dev cutoff cannot carry over.
+   Both production targets build with cached dependency layers. Isolated local
+   HTTPS/OTP/secure cookies/meter/ledger/forecast/logout, changed-IP two-hop DNS
+   recovery and DB restart/recreation checks pass. Owned resources are cleaned;
+   running-app identities/volumes, .env and frozen public inputs are unchanged.
+   No external mail, source SQL/service actions, public certificate or new backup.
+   Local self-signed TLS/anonymous Mailpit are not real-provider/VPS acceptance.
+   Ticket 57.2 retains separately approved live
+   deployment/acceptance; actual VPS/DNS/certificate state is unverified. Task 069
+   was subsequently published to master as 0d029ae; completion-time no-Git notes
+   are historical. Preserve compact real-user phone/browser walkthrough 65.
+   HTML email 70 and offline forecast validation 66 stay separate;
    a new candidate model is not required for the pilot. Then collect evidence 56/67.
    Each implementation needs its own questions, prompt and approval.
-5. Future mobile/local-only 68 may provide guest device storage and optional
+5. Task 071's initial local assessment is historical in work/071: core browser,
+   sharing/admin and bounded API auth/access checks passed; it identified minimal
+   deployment gaps addressed by Task 072. The stopped CSRF/framing probe was not
+   retried and no exploit is claimed. Full OS/native scanning, physical/household
+   validation and actual VPS/TLS/provider acceptance remain outside local proof.
+6. Task 072 implements approved minimal pilot hardening in 64 config lines:
+   one ignored software/.env plus one .env.example, Nginx 1.30.6, browser-origin
+   write checks/anti-framing headers and public-edge OTP budgets (10/minute/IP,
+   burst 5; 60/minute aggregate, burst 10; 429). Headerless clients still require
+   backend auth; no new service/dependency/env policy knobs or backend changes.
+   Both Compose modes, production builds, nginx -t, 16 benign policy cases,
+   response headers and bounded per-client/aggregate limits pass. Real UI login,
+   meter/ledger/forecast/reload and Sign out/reload401 pass at desktop/390px.
+   The untracked production example has verified ignored recovery in
+   .tmp/task072/retired/.env.production.example; historical helpers stay intact.
+   Source env/services/data are untouched and remain stopped as found. Next is
+   separately approved VPS setup with actual shared-edge patch-status inspection
+   and real TLS/SMTP acceptance, not extra infrastructure or a model rewrite.
+   Final cleanup and handoff proof are recorded in work/072. On 21 October 2026
+   the user authorized committing/pushing completed Tasks 070-072 to master;
+   earlier no-Git notes describe their implementation-completion scope. This
+   publication request does not authorize VPS or source service actions.
+7. Future mobile/local-only 68 may provide guest device storage and optional
    account login; it does not weaken today's authenticated backend.
 
 ## Deferred research

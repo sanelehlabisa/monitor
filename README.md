@@ -38,7 +38,8 @@ Task 058 left the existing database untouched. Task 059 then upgraded it only
 after a new verified backup/rehearsal and writer-stop approval, preserving all
 original records and assigning only the approved existing admin. No seed replay
 or account creation occurred. Task 064's initial startup/diagnostic history is
-retained in its work record; the current user-started stack is running.
+retained in its work record. Tasks 071/072 later found all four source services
+already stopped and preserved that state.
 
 ## User value
 
@@ -211,7 +212,8 @@ own implementation approval; details live in the closest software README.
   - [x] Ticket 69.4: Shared-Meter Backend Access — membership, full admin scope,
     all endpoint checks and concurrent last-member protection.
     Tasks 063/064 implement and verify the backend and preserved-data DB cutover.
-    The user-started stack passed read-only UI/API/schema smoke checks and remains running.
+    The user-started stack passed read-only UI/API/schema smoke checks then;
+    Task 071 later found all source services stopped and left them stopped.
   - [x] Ticket 69.5: Minimal Sharing UI — collapsed member management and
     server-scoped My/All/search, retaining existing record-management flows (Task 065).
   - [x] Ticket 69.6: Calendar-Month Planning — strictly next UTC 1st, actual target
@@ -235,6 +237,10 @@ own implementation approval; details live in the closest software README.
   and safe app links; reuse SMTP after 69.7's recipient/message contract.
 - [ ] Ticket 65: Monitor Usability Review — first-user onboarding, clear actual
   readings/estimates, compact mobile states and wording; branding links to 58.
+  [Task 071](agents/work/071-browser-security-readiness/changes.md) records the
+  initial assessment; [Task 072](agents/work/072-minimal-pilot-hardening/changes.md)
+  addresses its minimal configuration gaps and passes ordinary browser/phone-width
+  flows, including actual sign-out. Household validation remains open.
 - [ ] Ticket 66: Forecasting Algorithm Validation — offline per-meter research;
   retain the current calculation as the baseline, not a shared user model.
   - [ ] Ticket 66.1: Example Datasets — reproducible distinct-meter usage and
@@ -247,9 +253,14 @@ own implementation approval; details live in the closest software README.
     correctness checks and an evidence-based go/no-go (after 66.3).
   - [ ] Ticket 66.5: Approved Integration — only after a positive 66.4 decision
     and fresh approval; retain the baseline if the candidate is not justified.
-- [ ] Ticket 57: Web Deployment — reuse Task 036's completed production images;
-  plan production configuration, HTTPS, migrations, OTP email, backups, monitoring,
-  privacy and logging on existing Roventics infrastructure (after 65 and 66).
+- [ ] Ticket 57: Web Deployment — reuse Task 036's production images on existing
+  Roventics infrastructure; no new backup work in the current PoC scope.
+  - [x] 57.1: Production Compose/shared HTTPS preparation — Task 070 builds and
+    isolated HTTPS/OTP/meter/persistence/DNS-recovery checks pass; temporary
+    resources cleaned. Task 072 adds one shared env template and minimal tested
+    gateway/OTP protections. See the [operator guide](software/production/README.md).
+  - [ ] 57.2: Separately approved live deployment — DNS/proxy/certificate setup,
+    SMTP/login and meter-flow acceptance; preserve other sites and stored data.
 - [ ] Ticket 56: Personal Usage Validation — retain Task 034's completed technical
   checks; compare real household predictions with later readings and return usage.
 - [ ] Ticket 67: External User Testing — a consented 3-5-user deployed pilot for
@@ -260,10 +271,16 @@ own implementation approval; details live in the closest software README.
 
 ### Shared execution priority
 
-1. Ticket 69 is complete for monthly-only/local Mailpit automation. Next, perform
-   the compact real-user phone/browser walkthrough and fix concrete issues (65).
-2. Prepare minimal Monitor deployment (57) using the existing model/images;
-   production/external mail and VPS changes need their own approval.
+1. Ticket 69 is complete for monthly-only/local Mailpit automation. The user
+   selected deployment preparation next: Task 070 / Ticket 57.1 is complete after
+   isolated verification/cleanup; live deployment is not yet authorized.
+2. Retain the compact real-user phone/browser walkthrough (65) and live
+   deployment acceptance (57.2); VPS/external mail need their own approval.
+   Task 072 addresses Task 071's minimal gaps: patched Nginx, browser write/frame
+   policy, OTP budgets and one env template; local configuration/browser checks
+   pass. Next is separately approved VPS setup and real HTTPS/SMTP acceptance,
+   not a new model or extra infrastructure. Shared-edge patch status still needs
+   operator inspection; local checks are not a whole-system security guarantee.
 3. HTML email presentation (70) and offline forecast validation (66.1 -> 66.4)
    remain separate. Candidate adoption 66.5 is not a pilot-deployment requirement;
    retain the baseline if the candidate is not justified. Keep costs deferred.

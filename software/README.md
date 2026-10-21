@@ -16,14 +16,18 @@ dependencies.
 
 ## Development stack
 
-Copy `.env.example` to `.env` and change the development password. Administrator
+Copy [.env.example](.env.example) to `.env` only if it does not exist, then change
+the development password. Keep one ignored `.env` per installation; both Compose
+modes use it, and the same example documents the values to replace for a VPS.
+Never overwrite an existing environment or reuse the local secrets for production. Administrator
 authority comes only from `users.type`, not environment settings. Task 059's
 guarded source transition passed after backup/rehearsal and approval to stop
 writers. Task 064 separately applied the shared-backend FK transition after a
 fresh backup/restore/rehearsal and exact live preservation checks. Do not rerun
 that transaction or fresh seeds. Following the initial health timeout and bounded
 diagnostic, the user independently restarted/rebuilt the full stack. Read-only
-UI/API/schema checks passed; all four services remain running. No health-probe
+UI/API/schema checks passed; all four services were left running then. Task 071
+later found all four already stopped/exited and preserved that state. No health-probe
 configuration change was made. Fresh initialization is not an existing-volume
 upgrade. For an approved fresh setup:
 
@@ -56,8 +60,8 @@ Backend and frontend sources are bind-mounted for reload; Uvicorn watches only
 `app/`, not the offline research environment. Rebuild after changing
 Python or npm dependencies. The ignored `.env` is the visible source of Compose
 development values; Compose reports required missing values instead of silently
-using a second set of inline defaults. The committed `.env.example` contains
-development-only examples and must not be exposed as production configuration.
+using a second set of inline defaults. The single committed `.env.example` starts
+with local Mailpit/development values; follow the production guide before VPS use.
 
 Current features are email OTP/cookie login, name-only meter management,
 member/admin access, on-demand email sharing, membership-based My/All views,
@@ -111,10 +115,23 @@ and SMTP settings explicitly for the deployment; development defaults are not a
 production configuration. Schema installation and upgrades are not performed by
 the image command. See the component READMEs for the runtime boundaries.
 
-This is image preparation only, not a ready deployment stack. Remaining Ticket 57
-work (production Compose/env and operations) is unapproved; HTTPS is needed for
-production cookie login. No VPS, DNS, TLS or household database changes are
-included. Both production and development images built successfully after Docker
+Task 070 adds [prod.docker-compose.yaml](prod.docker-compose.yaml) and a
+[shared HTTPS operator guide](production/README.md) under Ticket 57.1. Task 072
+consolidates configuration into one [.env.example](.env.example), without changing
+the actual ignored `.env` or adding another environment loader. Production reuses
+the VPS's existing Nginx/Certbot; no extra gateway/TLS container, public listener
+or renewal timer. Only the frontend joins the shared proxy network. Production
+uses a separate database volume and schema only, without development seeds.
+Automatic production monthly reminders stay off pending separate activation.
+The current development `.env` is unchanged. Live deployment remains unapproved;
+no VPS, DNS, public certificate or household database changes are included.
+Both production targets build in Task 070 using cached dependency layers. Local
+self-signed HTTPS/OTP/cookie/meter/ledger/forecast checks, changed-IP proxy recovery
+and database restart/recreation persistence pass. All task-owned resources are
+cleaned; source services, environment and frozen public inputs stayed unchanged.
+Real provider SMTP, public certificates and VPS state remain unverified. See
+[Task 070 results](../agents/work/070-production-compose-https/changes.md).
+Both production and development images built successfully in Task 036 after Docker
 recovered. Disposable smoke checks passed for static assets, SPA fallback,
 proxied API errors/cookie headers, process health and production-secret refusal.
 Only task containers/network were removed; existing development services and
@@ -283,22 +300,43 @@ validated accuracy without real comparisons. Can begin with 67 after 57.
 
 ### Ticket 57: Web Deployment
 
-Reuse the completed Task 036 images; do not rebuild an architecture from scratch.
-Plan the existing Roventics VPS/subdomain, choosing exact host/domain details in
-the later approved implementation prompt. Release follows 65/66 readiness.
+Task 071's [local browser/security-readiness results](../agents/work/071-browser-security-readiness/changes.md)
+record four passed real desktop/mobile functional groups and passing bounded
+API auth/access checks using synthetic accounts/captured mail. NOT READY for
+security-cleared merge/deployment at that assessment: it found an affected Nginx
+1.30.5 pin and missing aggregate OTP-abuse controls. Origin evidence was incomplete, with no
+demonstrated CSRF fixture mutation; framing/UI sign-out were not reached (API
+logout passed). Full OS/native and real VPS/provider checks remain open.
+Only owned test resources were removed; source data/services/.env stay unchanged,
+with all four source services stopped as found. Task 071 made no fixes or Git/VPS actions.
+Task 072's [minimal hardening results](../agents/work/072-minimal-pilot-hardening/changes.md)
+patch the gateway, add browser-origin/framing policy and public-edge OTP budgets,
+and use one environment example. Both Compose modes/builds, gateway policy/headers,
+bounded rate limits and the real desktop/phone-width meter flow including Sign out
+pass locally. The candidate can proceed to review and separately approved live
+57.2 setup/HTTPS/SMTP acceptance. Inspect the actual shared edge's patch status;
+no whole-image security certification or public-provider acceptance is implied.
 
-- Production Docker configuration without reload, minimal explicit runtime env
-  and secrets, HTTPS/public origin and secure-cookie login.
-- Reviewed schema/upgrade procedure following 69.1/69.2, persistent data, backup schedule
-  and a demonstrated restore/rollback procedure before pilot invitations.
-- Real SMTP/OTP delivery with a verified request/login/logout flow; no public
-  Mailpit, database or administrative debug endpoint.
-- Basic service/database/email checks, actionable error logging and a simple
-  privacy statement explaining stored emails, records, use and contact/removal.
-  Never log OTPs, session tokens or secrets.
-- Acceptance: HTTPS meter/ledger/forecast smoke checks, user/admin isolation,
-  restart persistence, migration/restore evidence and an operations/release
-  checklist. Deployment itself still requires separate approval.
+Reuse the completed Task 036 images and current per-meter model. The user chose
+monitor.roventics.com and Job Talk's existing VPS Nginx/host Certbot pattern.
+The app serves internal HTTP port 80; the shared edge owns public 80/443, HTTP
+redirect and HTTPS. Do not introduce another public listener or renewal timer.
+
+- 57.1 / Task 070 (complete, isolated checks passed): production Compose, explicit minimal env/origin/secrets,
+  private backend/database, persistent fresh-schema-only setup, shared proxy
+  integration and certificate issuance/renewal instructions. See the
+  [operator guide](production/README.md); no VPS verification is claimed.
+- 57.2: later approved live DNS/proxy/certificate deployment, real SMTP/OTP
+  request/login/logout and meter/ledger/forecast smoke checks, member/admin
+  isolation and restart persistence. Confirm actual VPS state and preserve
+  existing sites, certificate names, environments and data before changes.
+- Production monthly automation requires a separate explicit fixed activation
+  cutoff; never copy the local Mailpit cutoff. No public Mailpit/database/debug
+  endpoints, automatic seeds/role promotion or automatic existing-volume upgrades.
+- Keep actionable secret-free logs and simple privacy/contact/removal guidance.
+  Retain the real-user walkthrough (65); adopting research model 66.5 is not a
+  deployment prerequisite. No new backup work in this PoC scope; preserve existing
+  recovery artifacts. Live deployment/external mail need separate approval.
 
 ### Ticket 67: External User Testing
 

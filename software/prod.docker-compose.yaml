@@ -1,0 +1,76 @@
+name: monitor-prod
+
+services:
+  database:
+    image: postgres:17.11-alpine3.24
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in the production .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in the production .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the production .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks: [database]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: {context: ./backend, target: production}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 120s
+    environment:
+      MONITOR_ENVIRONMENT: production
+      MONITOR_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      MONITOR_CORS_ORIGIN: https://${APP_DOMAIN:?Set APP_DOMAIN in the production .env}
+      MONITOR_OTP_HMAC_SECRET: ${MONITOR_OTP_HMAC_SECRET:?Set a unique production OTP secret}
+      # Production reminder activation requires separate approval, never the dev cutoff.
+      MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT: ""
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in the production .env}
+      SMTP_PORT: ${SMTP_PORT:?Set SMTP_PORT in the production .env}
+      SMTP_SECURE: ${SMTP_SECURE:?Set SMTP_SECURE in the production .env}
+      SMTP_USER: ${SMTP_USER:?Set SMTP_USER in the production .env}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Set SMTP_PASSWORD in the production .env}
+      EMAIL_FROM: ${EMAIL_FROM:?Set EMAIL_FROM in the production .env}
+    command: [uvicorn, app.main:app, --host, 0.0.0.0, --port, "8000", --proxy-headers, --forwarded-allow-ips, 172.30.70.0/24, --no-access-log]
+    networks: [web, database, outbound]
+    depends_on:
+      database: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  frontend:
+    build: {context: ./frontend, target: production}
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in the production .env}
+    networks:
+      web:
+      public_proxy:
+        aliases: [monitor-frontend]
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  web:
+    internal: true
+    ipam:
+      config: [{subnet: 172.30.70.0/24}]
+  database: {internal: true}
+  outbound:
+  public_proxy: {external: true, name: roventics_proxy}
+
+volumes:
+  postgres-data:

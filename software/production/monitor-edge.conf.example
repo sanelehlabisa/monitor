@@ -1,0 +1,50 @@
+# Add inside the existing public edge's http context; preserve all other sites.
+# Verify the existing certificate name/paths and all SANs before enabling TLS.
+# Budget only OTP issuance, using the real connection address before stripping it.
+map "$request_method:$uri" $monitor_otp_client {
+    default "";
+    ~^POST:/api/auth/request-otp/?$ $binary_remote_addr;
+}
+map $monitor_otp_client $monitor_otp_global {
+    "" "";
+    default monitor;
+}
+limit_req_zone $monitor_otp_client zone=monitor_otp_client:1m rate=10r/m;
+limit_req_zone $monitor_otp_global zone=monitor_otp_global:1m rate=60r/m;
+
+server {
+    listen 80;
+    server_name monitor.roventics.com;
+    access_log off;
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        try_files $uri =404;
+    }
+    location / { return 301 https://monitor.roventics.com$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    server_name monitor.roventics.com;
+    access_log off;
+    ssl_certificate /etc/letsencrypt/live/roventics.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/roventics.com/privkey.pem;
+    resolver 127.0.0.11 valid=5s ipv6=off;
+    limit_req_status 429;
+
+    location / {
+        limit_req zone=monitor_otp_client burst=5 nodelay;
+        limit_req zone=monitor_otp_global burst=10 nodelay;
+        # Runtime DNS allows other sites to start while Monitor is absent/replaced.
+        set $monitor_frontend monitor-frontend:80;
+        proxy_pass http://$monitor_frontend$request_uri;
+        proxy_set_header Host monitor.roventics.com;
+        proxy_set_header X-Forwarded-Host monitor.roventics.com;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For "";
+        proxy_set_header X-Real-IP "";
+        proxy_set_header Forwarded "";
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+    }
+}

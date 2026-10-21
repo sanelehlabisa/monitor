@@ -9,8 +9,10 @@ The following describes the current UI. Task 059 makes stored DB roles active;
 Task 063 implements the shared backend; Task 064 applied its safe DB transition.
 After the initial health timeout/diagnostic, the user started the full stack.
 Read-only checks passed for served UI/deep links, transformed main/App modules,
-branding assets and signed-out API denial through the frontend proxy. Services
-remain running; live browser/login/write verification is still outstanding.
+branding assets and signed-out API denial through the frontend proxy. Those checks
+left services running then; Task 071 later found all four stopped and preserved
+that state. Its isolated real-browser functional groups passed, while framing/
+UI sign-out checks were incomplete; this is not live household/VPS acceptance.
 Task 065 adds minimal sharing and membership-aware My; Task 066 adds calendar-month planning.
 
 Regular users receive their accessible meter memberships from the backend.
@@ -80,15 +82,29 @@ shims; their committed originals remain recoverable from Git history.
 
 `development` retains Vite on port 5173 and bind-mount reload. The default
 `production` target builds with the existing npm lockfile and copies only `dist/`
-into `nginx:1.30.5-alpine3.24`; Node/npm and application source are not copied into
+into `nginx:1.30.6-alpine3.24`; Node/npm and application source are not copied into
 the serving stage. Local `.env*` files are excluded from the build context.
 
-Nginx listens on port 80. It forwards `/api` and `/api/...` to `backend:8000`
-without stripping the API path, while other application routes fall back to
-`index.html`. Missing `/assets/...` files return 404 rather than SPA HTML. A
-backend network alias/service must exist before Nginx starts. HTTPS/public proxy
-configuration is deferred; production cookie login requires HTTPS. Build
-commands and completed image verification are recorded in the software README.
+Nginx listens on internal port 80. At startup its template substitutes only the
+required production `APP_DOMAIN`; Nginx variables remain intact. It forwards
+`/api` and `/api/...` to `backend:8000` using runtime Docker DNS, preserving path,
+query, methods and API errors. Other application routes fall back to `index.html`;
+missing `/assets/...` files return 404 rather than SPA HTML.
+
+Task 070's production Compose joins the existing `roventics_proxy` network only
+from this frontend, under `monitor-frontend`. The shared VPS edge provides HTTPS;
+the internal gateway fixes canonical Host/scheme and removes client forwarding
+headers. Development still uses Vite and is unchanged. See the
+[operator guide](../production/README.md) for the edge example and certificate
+issuance/renewal ownership; public deployment/TLS verification remains separate.
+
+Task 072 patches the production Nginx pin and adds a small gateway write boundary:
+unsafe API methods reject a supplied foreign/null Origin or same-site/cross-site
+Fetch Metadata. Exact configured HTTPS-origin and headerless non-browser requests
+retain backend cookie/authorization checks; GET/HEAD/OPTIONS stay unchanged.
+Responses prohibit framing through `X-Frame-Options: DENY` and CSP `frame-ancestors
+'none'`, not a broad CSP. OTP client/aggregate budgets belong to the public edge
+before IP stripping, as documented in the operator guide. No UI/auth API changes.
 
 ## Navigation and meter links
 

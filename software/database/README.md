@@ -8,7 +8,10 @@ PostgreSQL with explicit Psycopg SQL; no ORM or automatic runtime migrations.
 - seed.sql: fresh-development admin and fictional example meters/history.
 - README.md: setup, safety and recovery guidance.
 
-Compose mounts schema.sql then seed.sql read-only into PostgreSQL initialization.
+Development Compose mounts schema.sql then seed.sql read-only into initialization;
+Task 070 production Compose mounts only schema.sql in its separate project/volume.
+Fresh production has no example data or admin. Use normal verified signup then
+an explicit manual DB role assignment; see the [operator guide](../production/README.md).
 They run only on an empty persistent volume; restart/recreation does not replay
 SQL or overwrite roles/examples. The API never installs/upgrades SQL. Never
 delete a volume or replay seeds as an upgrade/partial-init repair; preserve

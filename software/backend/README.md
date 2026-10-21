@@ -26,8 +26,8 @@ to Task 060, and independent AST checks found no function-body changes.
 
 ## Database setup and checks
 
-The backend connects directly through Psycopg. PostgreSQL's empty-volume init
-runs `schema.sql` then `seed.sql`; Compose starts Uvicorn without running or
+The backend connects directly through Psycopg. Development empty-volume init
+runs `schema.sql` then `seed.sql`; production runs schema only. Compose starts Uvicorn without running or
 mounting numbered migrations. Integration checks no longer apply migrations.
 Run checks only inside a dedicated verification environment with an explicitly
 isolated `MONITOR_DATABASE_URL` and initialized schema, never the current DB:
@@ -63,9 +63,15 @@ validator refuses startup with the development OTP secret. Supply the unique
 secret and deployment database/origin/SMTP values at runtime; no credential
 is built into the image. Local `.env*` files are excluded from build context.
 
-The image command does not install/upgrade SQL or create a database. Production
-Compose and schema/upgrade orchestration require a separate Ticket 57 task. Process health
-does not validate database/SMTP connectivity. Task 036's image builds and
+The image command does not install/upgrade SQL or create a database. Task 070 adds
+production Compose with fresh-schema-only PostgreSQL, no published backend port,
+and SMTP egress. Uvicorn trusts proxy headers only from the private web subnet;
+the production gateway supplies its configured canonical Host/HTTPS scheme and
+removes client forwarding headers. Keep the trusted CIDR aligned with Compose
+IPAM if adapting the network after a collision check. Production monthly reminders
+are forced off pending separate activation, regardless of any local cutoff.
+See the [operator guide](../production/README.md); live deployment remains Ticket
+57.2. Process health does not validate database/SMTP connectivity. Task 036's image builds and
 disposable production smoke checks passed; see the software README.
 
 ## Authentication foundation
