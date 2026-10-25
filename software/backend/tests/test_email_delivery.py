@@ -1,6 +1,8 @@
 """Unit tests for safe login-message construction and SMTP modes."""
 
 from email.message import EmailMessage
+from email import policy
+from email.parser import BytesParser
 from typing import Any
 
 from app.modules.email_delivery import (
@@ -41,21 +43,38 @@ class FakeSmtpClient:
         self.calls.append(("send_message", message))
 
 
-def test_login_message_is_plain_text_and_normalizes_recipient() -> None:
-    """The OTP message contains only the approved sign-in guidance."""
+def test_login_message_has_html_and_plain_text_and_normalizes_recipient() -> None:
+    """MIME delivery preserves the code, expiry and personal-use guidance."""
 
     message = build_login_code_message(
-        " User@Example.TEST ", "123456", "login@monitor.local"
+        " User@Example.TEST ", "012345", "login@monitor.local"
     )
+    message = BytesParser(policy=policy.default).parsebytes(message.as_bytes())
 
     assert message["To"] == "user@example.test"
     assert message["From"] == "login@monitor.local"
     assert message["Subject"] == "Your Roventics Monitor sign-in code"
-    assert message.get_content_type() == "text/plain"
-    assert "123456" in message.get_content()
-    assert "10 minutes" in message.get_content()
-    assert "Do not share" in message.get_content()
-    assert "ignore this email" in message.get_content()
+    assert message.get_content_type() == "multipart/alternative"
+    assert [part.get_content_type() for part in message.iter_parts()] == ["text/plain", "text/html"]
+    for kind in ("plain", "html"):
+        body = message.get_body(preferencelist=(kind,)).get_content()
+        assert "012345" in body
+        assert "10 minutes" in body
+        assert "Do not share this code with anyone" in body
+        assert "Use it only to sign in yourself" in body
+        assert "ignore this email" in body
+        assert "The Roventics team" in body
+    html = message.get_body(preferencelist=("html",)).get_content()
+    assert "<script" not in html and "<button" not in html
+    assert "https://roventics.com/images/logo.png" in html
+    assert 'href="https://roventics.com"' in html
+
+
+def test_login_html_escapes_interpolated_content() -> None:
+    """Unexpected code content cannot become active HTML or a link."""
+    message = build_login_code_message("user@example.test", "<b>&012345", "login@monitor.local")
+    assert "&lt;b&gt;&amp;012345" in message.get_body(preferencelist=("html",)).get_content()
+    assert "<b>&012345" in message.get_body(preferencelist=("plain",)).get_content()
 
 
 def test_plain_smtp_sends_without_credentials(monkeypatch: MonkeyPatch) -> None:

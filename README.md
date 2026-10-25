@@ -252,6 +252,8 @@ own implementation approval; details live in the closest software README.
       one backend recreation activated local automation. Other services/data stay.
 - [ ] Ticket 70: Readable HTML Emails — OTP/reminder HTML with plain-text fallback
   and safe app links; reuse SMTP after 69.7's recipient/message contract.
+  Task 088 completes the compact login-code presentation; reminder HTML/app links
+  remain open.
 - [ ] Ticket 65: Monitor Usability Review — first-user onboarding, clear actual
   readings/estimates, compact mobile states and wording; branding links to 58.
   [Task 071](agents/work/071-browser-security-readiness/changes.md) records the

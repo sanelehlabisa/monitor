@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from email.message import EmailMessage
+from html import escape
 import os
 import smtplib
 import ssl
@@ -97,17 +98,44 @@ class SmtpEmailSender:
 
 
 def build_login_code_message(recipient: str, code: str, sender: str) -> EmailMessage:
-    """Create a plain-text message for one normalized email recipient."""
+    """Create a readable login email with a plain-text fallback."""
 
+    expires_in = int(OTP_TTL.total_seconds() // 60)
+    safe_code = escape(code)
     message = EmailMessage()
     message["From"] = sender
     message["To"] = normalize_email(recipient)
     message["Subject"] = "Your Roventics Monitor sign-in code"
     message.set_content(
         f"Your Roventics Monitor sign-in code is {code}.\n\n"
-        f"It expires in {int(OTP_TTL.total_seconds() // 60)} minutes. "
-        "Do not share this code.\n\n"
-        "If you did not request this code, you can ignore this email.\n"
+        f"It expires in {expires_in} minutes.\n\n"
+        "Do not share this code with anyone. Use it only to sign in yourself.\n\n"
+        "If you did not request this code, you can ignore this email.\n\n"
+        "The Roventics team\nRoventics (Pty) Ltd\nhttps://roventics.com\n"
+    )
+    message.add_alternative(
+        f"""<!doctype html>
+<html lang="en"><body style="margin:0;padding:0;background-color:#f4f4f4;color:#111;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background-color:#fff;border:1px solid #ddd;">
+<tr><td style="padding:24px;">
+<h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;">Sign in to Monitor</h1>
+<p style="margin:0 0 20px;font-size:15px;line-height:1.5;">Enter this code in Monitor to sign in.</p>
+<p style="margin:0 0 20px;padding:20px;background-color:#f2f2f2;text-align:center;font-family:monospace;font-size:32px;font-weight:700;letter-spacing:4px;">{safe_code}</p>
+<p style="margin:0 0 16px;font-size:15px;">Expires in {expires_in} minutes.</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.5;">Do not share this code with anyone. Use it only to sign in yourself.</p>
+<p style="margin:0;color:#555;font-size:13px;line-height:1.5;">If you did not request this code, you can ignore this email.</p>
+</td></tr>
+<tr><td style="padding:20px 24px;border-top:1px solid #ddd;">
+<table role="presentation" cellspacing="0" cellpadding="0"><tr>
+<td style="padding-right:12px;"><img src="https://roventics.com/images/logo.png" width="32" height="32" alt="Roventics" style="display:block;border:0;"></td>
+<td style="font-size:13px;line-height:1.6;color:#555;"><strong style="color:#111;">The Roventics team</strong><br>
+Roventics (Pty) Ltd &middot; <a href="https://roventics.com" style="color:#111;">roventics.com</a></td>
+</tr></table>
+</td></tr></table>
+</td></tr></table>
+</body></html>""",
+        subtype="html",
     )
     return message
 

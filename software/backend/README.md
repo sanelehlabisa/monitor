@@ -155,6 +155,13 @@ is internal to Compose. Configuration follows `SMTP_HOST`, `SMTP_PORT`,
 implicit TLS. Credentials are never sent without encryption. Failed delivery
 invalidates the challenge but keeps its row counted for request limits.
 
+Task 088 adds a compact monochrome HTML alternative to the login email while
+retaining plain text. The contiguous code is selectable, its existing expiry is
+shown, and short guidance says to use it personally and never share it. A small
+Roventics logo/team/company footer uses public HTTPS assets and links, with text
+remaining readable when images are blocked. No custom copy button, code-bearing
+URL, new setting or SMTP/authentication behavior is added.
+
 Ticket 45 exposes `POST /api/auth/request-otp`, `POST /api/auth/verify-otp`,
 `POST /api/auth/logout` and `GET /api/me`. Valid-shaped OTP requests return one
 HTTP 202 response for successful delivery, policy rejection or expected SMTP
@@ -491,9 +498,14 @@ Acceptance: isolated multi-member fan-out, non-member/admin-only exclusion,
 membership removal, recipient retries/dedup, restart/catch-up, failed/stale claims,
 month/year boundaries and unchanged forecast eligibility. No real mail, source
 SQL or service actions before separate approval. Explain automation in the UI
-without adding settings. HTML presentation remains Ticket 70.
+without adding settings. Reminder HTML presentation remains Ticket 70.
 
-## Planned Ticket 70: Readable HTML Email and App Links
+## Ticket 70: Readable HTML Email and App Links
+
+Task 088 completes login-code HTML/plain formatting only. Six focused MIME,
+escaping and mocked SMTP/TLS checks pass; synthetic desktop/phone HTML previews
+were inspected. No real email was sent. Reminder formatting and app-link behavior
+below remain planned, and real inbox-client acceptance remains an operator check.
 
 Separate presentation ticket after the 69.7 recipient/scheduling contract; reuse
 existing OTP delivery, reminder runner and SMTP abstraction. Do not redesign

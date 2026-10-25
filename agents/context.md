@@ -7,6 +7,11 @@ READMEs hold details; historical results stay in work/ and Git.
 
 ## Current contracts
 
+- Task 088 formats login-code emails as compact monochrome HTML plus a plain-text
+  fallback, with visible selectable codes, existing expiry, non-sharing guidance
+  and Roventics footer/logo. No copy button or authentication/SMTP change. This
+  completes only Ticket 70's login presentation; reminder HTML remains future work.
+
 - Task 086 adds public homepage search metadata, robots.txt and a single-URL
   sitemap through the existing Vite public assets. Private meter records remain
   authenticated; crawl preferences are not access control. The frontend README
