@@ -17,6 +17,8 @@ RATE_QUANTUM = Decimal("0.000001")
 ENERGY_QUANTUM = Decimal("0.001")
 DAYS_QUANTUM = Decimal("0.01")
 SECONDS_PER_DAY = Decimal("86400")
+# Starting assumption only; a complete meter interval replaces it with measured use.
+DEFAULT_DAILY_USAGE_KWH = Decimal("10.000000")
 
 
 @dataclass(frozen=True)
@@ -34,6 +36,7 @@ class ForecastResult:
     remaining_days: Decimal | None
     run_out_at: datetime | None
     recommended_monthly_top_up_kwh: Decimal | None
+    monthly_requirement_kwh: Decimal | None
     intervals_used: int
 
 
@@ -67,6 +70,7 @@ def _unavailable_result(
         remaining_days=None,
         run_out_at=None,
         recommended_monthly_top_up_kwh=None,
+        monthly_requirement_kwh=None,
         intervals_used=0,
     )
 
@@ -93,9 +97,9 @@ def run_forecast_model(
 
     ordered_balances = sorted(balances, key=lambda item: (item.occurred_at, item.id))
     latest = ordered_balances[-1] if ordered_balances else None
-    if len(ordered_balances) < 2:
+    if latest is None:
         return _unavailable_result("not_enough_data", as_of, latest)
-    if latest and latest.occurred_at > as_of:
+    if latest.occurred_at > as_of:
         return _unavailable_result("inconsistent_history", as_of, latest)
 
     total_consumption = Decimal("0")
@@ -118,11 +122,10 @@ def run_forecast_model(
         total_consumption += consumption
         total_days += elapsed_days
 
-    daily_usage = (total_consumption / total_days).quantize(
+    daily_usage = (total_consumption / total_days if total_days else DEFAULT_DAILY_USAGE_KWH).quantize(
         RATE_QUANTUM,
         rounding=ROUND_HALF_UP,
     )
-    assert latest
     later_top_ups = sum(
         (
             item.top_up_kwh
@@ -170,5 +173,8 @@ def run_forecast_model(
         remaining_days=remaining_days,
         run_out_at=run_out_at,
         recommended_monthly_top_up_kwh=recommendation,
+        monthly_requirement_kwh=(daily_usage * planning_days).quantize(
+            ENERGY_QUANTUM, rounding=ROUND_HALF_UP,
+        ),
         intervals_used=len(ordered_balances) - 1,
     )

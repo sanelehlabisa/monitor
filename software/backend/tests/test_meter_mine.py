@@ -43,7 +43,7 @@ def test_admin_mine_uses_membership_not_creator_and_combines_search(sharing_case
 
     assert admin.client.delete(f"/api/meters/{own['id']}/members/{admin.id}").status_code == 409
     assert set(_ids(admin, mine=True)) == my_ids
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         assert connection.execute("SELECT count(*) FROM monitor.meters m WHERE NOT EXISTS "
             "(SELECT 1 FROM monitor.user_meters um WHERE um.meter_id=m.id)").fetchone() == (0,)
 

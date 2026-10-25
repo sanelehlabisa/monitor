@@ -9,22 +9,21 @@ from app.database import connect_database
 from app.main import create_app
 from app.modules.meters import create_meter
 from app.modules.sessions import create_session
-from app.settings import Settings
 from fastapi.testclient import TestClient
 from tests.support import cleanup_users
 
 
 def _client_for(
-    settings: Settings, email: str, user_type: Literal["user", "admin"] = "user"
+    email: str, user_type: Literal["user", "admin"] = "user"
 ) -> tuple[TestClient, int]:
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         row = connection.execute(
             "INSERT INTO monitor.users (email, type) VALUES (%s, %s) RETURNING id",
             (email, user_type),
         ).fetchone()
         assert row
         session = create_session(connection, row[0])
-    client = TestClient(create_app(settings))
+    client = TestClient(create_app())
     client.cookies.set(COOKIE_NAME, session.token)
     return client, row[0]
 
@@ -35,11 +34,10 @@ def test_manual_ledger_crud_validation_and_access() -> None:
     owner_email = f"ledger-owner-{uuid4().hex}@example.test"
     other_email = f"ledger-other-{uuid4().hex}@example.test"
     admin_email = f"ledger-admin-{uuid4().hex}@example.test"
-    settings = Settings(environment="test")
-    owner, owner_id = _client_for(settings, owner_email)
-    other, _ = _client_for(settings, other_email)
-    admin, _ = _client_for(settings, admin_email, "admin")
-    with connect_database(settings) as connection:
+    owner, owner_id = _client_for(owner_email)
+    other, _ = _client_for(other_email)
+    admin, _ = _client_for(admin_email, "admin")
+    with connect_database() as connection:
         home = create_meter(connection, owner_id, "Home")
         garage = create_meter(connection, owner_id, "Garage")
 
@@ -49,7 +47,7 @@ def test_manual_ledger_crud_validation_and_access() -> None:
     balances_url = f"/api/meters/{home.id}/balances"
     top_ups_url = f"/api/meters/{home.id}/top-ups"
     try:
-        assert TestClient(create_app(settings)).get(balances_url).status_code == 401
+        assert TestClient(create_app()).get(balances_url).status_code == 401
         first_balance = owner.post(
             balances_url,
             json={"balance_kwh": "42.125", "occurred_at": first_time.isoformat()},
@@ -114,5 +112,5 @@ def test_manual_ledger_crud_validation_and_access() -> None:
         for url, payload in invalid_payloads:
             assert owner.post(url, json=payload).status_code == 422
     finally:
-        with connect_database(settings) as connection:
+        with connect_database() as connection:
             cleanup_users(connection, (owner_email, other_email, admin_email))

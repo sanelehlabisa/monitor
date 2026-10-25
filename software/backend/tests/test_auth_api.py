@@ -10,7 +10,6 @@ from app.modules.email_delivery import EmailDeliveryError
 from app.main import create_app
 from app.modules.otp import OtpRateLimitError, OtpVerificationError, User
 from app.modules.sessions import CreatedSession
-from app.settings import Settings
 from fastapi.testclient import TestClient
 from pytest import MonkeyPatch, mark
 
@@ -29,10 +28,10 @@ def test_request_response_hides_expected_outcomes(
             raise expected_error
 
     monkeypatch.setattr(
-        "app.endpoints.auth.connect_database", lambda settings: nullcontext(object())
+        "app.endpoints.auth.connect_database", lambda: nullcontext(object())
     )
     monkeypatch.setattr("app.endpoints.auth.deliver_login_code", fake_delivery)
-    client = TestClient(create_app(Settings(environment="test")))
+    client = TestClient(create_app())
 
     response = client.post(
         "/api/auth/request-otp", json={"email": " USER@Example.test "}
@@ -51,11 +50,11 @@ def test_request_does_not_hide_unexpected_server_failures(
         raise RuntimeError("unexpected failure")
 
     monkeypatch.setattr(
-        "app.endpoints.auth.connect_database", lambda settings: nullcontext(object())
+        "app.endpoints.auth.connect_database", lambda: nullcontext(object())
     )
     monkeypatch.setattr("app.endpoints.auth.deliver_login_code", fail_unexpectedly)
     client = TestClient(
-        create_app(Settings(environment="test")), raise_server_exceptions=False
+        create_app(), raise_server_exceptions=False
     )
 
     response = client.post(
@@ -89,12 +88,12 @@ def test_verification_sets_approved_secure_cookie(
         datetime(2026, 11, 8, tzinfo=UTC),
     )
     monkeypatch.setattr(
-        "app.endpoints.auth.connect_database", lambda settings: nullcontext(object())
+        "app.endpoints.auth.connect_database", lambda: nullcontext(object())
     )
     monkeypatch.setattr("app.endpoints.auth.verify_otp", lambda *args: user)
     monkeypatch.setattr("app.endpoints.auth.create_session", lambda *args: session)
     client = TestClient(
-        create_app(Settings(environment="test")), base_url="https://testserver"
+        create_app(), base_url="https://testserver"
     )
 
     response = client.post(
@@ -125,10 +124,10 @@ def test_verification_failure_is_generic(monkeypatch: MonkeyPatch) -> None:
         raise OtpVerificationError("specific internal reason")
 
     monkeypatch.setattr(
-        "app.endpoints.auth.connect_database", lambda settings: nullcontext(object())
+        "app.endpoints.auth.connect_database", lambda: nullcontext(object())
     )
     monkeypatch.setattr("app.endpoints.auth.verify_otp", reject_code)
-    client = TestClient(create_app(Settings(environment="test")))
+    client = TestClient(create_app())
 
     response = client.post(
         "/api/auth/verify-otp",
@@ -142,7 +141,7 @@ def test_verification_failure_is_generic(monkeypatch: MonkeyPatch) -> None:
 def test_invalid_email_and_code_shapes_are_rejected() -> None:
     """Malformed inputs fail before database or SMTP work starts."""
 
-    client = TestClient(create_app(Settings(environment="test")))
+    client = TestClient(create_app())
 
     invalid_email = client.post(
         "/api/auth/request-otp", json={"email": "not-an-email"}
@@ -157,7 +156,7 @@ def test_invalid_email_and_code_shapes_are_rejected() -> None:
 def test_logout_without_cookie_is_idempotent() -> None:
     """A missing session still receives the same successful logout response."""
 
-    response = TestClient(create_app(Settings(environment="test"))).post(
+    response = TestClient(create_app()).post(
         "/api/auth/logout"
     )
 

@@ -85,18 +85,37 @@ shims; their committed originals remain recoverable from Git history.
 into `nginx:1.30.6-alpine3.24`; Node/npm and application source are not copied into
 the serving stage. Local `.env*` files are excluded from the build context.
 
-Nginx listens on internal port 80. At startup its template substitutes only the
-required production `APP_DOMAIN`; Nginx variables remain intact. It forwards
+Task 077's Nginx serves the app on HTTPS443; HTTP80 returns canonical 308 redirects
+preserving path/query. Local production maps loopback host80/443 to those same
+container ports. The standard Nginx entrypoint
+substitutes only `APP_URL`, supplied by Compose from `.env`'s `APP_BASE_URL`.
+An Nginx map extracts its host/port authority; no custom startup script or extra
+authority setting is needed. The backend still validates the HTTPS origin after
+Task 078 replaces its settings object with direct environment reads.
+Other Nginx variables remain intact. It forwards
 `/api` and `/api/...` to `backend:8000` using runtime Docker DNS, preserving path,
 query, methods and API errors. Other application routes fall back to `index.html`;
 missing `/assets/...` files return 404 rather than SPA HTML.
+The frontend health check uses internal HTTPS with its self-signed certificate.
+Run production directly with `docker compose -f prod.docker-compose.yaml up --build`
+from `software/`. Compose fixes loopback HTTP80/HTTPS443 and backend8000;
+`.env` contains `APP_BASE_URL=https://127.0.0.1`, with no binding variables.
+Development Vite remains localhost:5173 and ignores production settings.
+Private localhost/127.0.0.1 certificates mount read-only from `../nginx/certs`;
+they never replace the public edge's Certbot certificate. The `nginx/` directory
+is used only by production Compose; its certificate helper is the only setup script.
 
-Task 070's production Compose joins the existing `roventics_proxy` network only
-from this frontend, under `monitor-frontend`. The shared VPS edge provides HTTPS;
-the internal gateway fixes canonical Host/scheme and removes client forwarding
-headers. Development still uses Vite and is unchanged. See the
-[operator guide](../production/README.md) for the edge example and certificate
-issuance/renewal ownership; public deployment/TLS verification remains separate.
+Production creates its own ingress network; no shared external network is needed
+for local use. The internal gateway fixes canonical Host/scheme and removes client
+forwarding headers. Development still uses Vite. Task 070's shared-edge design
+is preserved as a [deferred VPS reference](../nginx/README.md), not a prerequisite
+or deployment instruction for the current local Compose setup.
+Use `APP_BASE_URL=https://127.0.0.1` for local production and
+`https://monitor.roventics.com` for the VPS's existing HTTPS edge. This is the
+same image/config with exactly two Compose files, three production services and
+no profiles, extra proxy service or extra environment files. Certificate setup
+and initial production SMTP/secret configuration are still required; a URL change
+does not supply credentials or prove startup ready.
 
 Task 072 patches the production Nginx pin and adds a small gateway write boundary:
 unsafe API methods reject a supplied foreign/null Origin or same-site/cross-site
@@ -195,10 +214,12 @@ tabs retain their existing ARIA relationships and use the standard blue underlin
 Meter details, name-only creation and list rows are flat and divided; inputs,
 edit/delete icons and hover/focus feedback stay visible.
 
-The forecast is an open section with muted labels, blue balance/days and a teal
-monthly purchase value. It has no coloured background, rounded box or shadow.
-At widths below 600px the figures stack; 600–899px shows balance/days together
-and the monthly recommendation underneath; 900px and wider shows three columns.
+The forecast is an open section with muted labels, blue balance/days and teal
+Additional top-up and Monthly requirement values. The requirement is total use
+for the actual planning month; the additional amount subtracts estimated balance.
+Task 082 keeps an open 2 by 2 grid from 360px upward, with subtle row dividers,
+consistent labels and 20–24px values. Narrower screens stack the figures; long
+values can wrap. It has no coloured background, rounded box or shadow.
 Latest actual reading/time and calculation time remain separate below. The two
 record actions stay prominent, forms open on demand, and History starts collapsed
 below a divider. Existing navigation, handlers, record order and math are unchanged.
@@ -221,9 +242,10 @@ a municipal meter number, tariff, Rand amount, image or device setup. Show the
 last actual reading time beside estimated balance, daily usage, remaining days,
 predicted run-out, next monthly top-up date and actual-month recommended kWh.
 
-Use "Not enough data" when the backend cannot support a forecast. Make correction
-and deletion behavior explicit; never hide inconsistent history behind a smooth
-chart.
+Task 080 shows starting estimates from one balance, visibly labelled with the
+backend's assumed 10 kWh/day rate. Two or more valid readings replace the assumption
+with that meter's measured usage. No balance shows "Not enough data"; inconsistent
+history stays unavailable. Existing add/edit/delete refreshes update all estimates.
 
 Future UI may take inspiration from the sibling Switch dashboard's compact cards,
 clear primary actions and mobile sizing, but Monitor stays a native React/Material
@@ -262,7 +284,7 @@ If a write succeeded, its form clears/closes and the message confirms it was sav
 Refresh retries only the read, never the purchase or balance write. Responses
 from a meter left, reopened or signed out of cannot overwrite the newer view.
 
-Insufficient or inconsistent history shows an explicit state without invented
+Empty or inconsistent history shows an explicit state without invented
 numbers; valid zero use has no fake run-out date. The browser does not calculate
 forecasts. Backend persistence stays explicit raw SQL through Psycopg, with no
 SQLAlchemy, and the replaceable first forecast model is simple math rather than
@@ -331,7 +353,9 @@ estimated kWh currently available, without depleting it to the future 1st.
    without reopening the meter. Restore it to 80 afterward.
 2. Edit the top-up to 30 kWh; the rate should become 5 kWh/day. Restore 20 kWh.
 3. Delete yesterday's balance and confirm the prompt. One remaining reading
-   should show `Not enough data`; add yesterday's 80 kWh reading again.
+   should show starting estimates at 10 kWh/day. Add yesterday's 80 kWh reading
+   again and confirm measured usage returns. Deleting all balances instead shows
+   `Not enough data`.
 4. Select Refresh to update the calculation time without creating records.
    Reopen the meter or reload the page; records and the session should persist.
 5. In another browser profile, sign in with a second test email. The first
@@ -390,7 +414,7 @@ removes the former 42px account icon. Task 045 refines the system font, shades,
 corners and focus styling as described above. Task 046 changes layout only; the stacked header,
 manual forms, history and behaviour remain.
 
-The footer retains the manual-kWh note and the existing 24px Roventics
+Task 082 removes the manual-kWh/hardware note. The footer keeps the 24px Roventics
 logo plus black by Roventics text (Task 048). Its https://roventics.com link opens
 a new tab with noopener/noreferrer, preserving the current meter. The Monitor identity is
 primary; company artwork does not determine the app palette.

@@ -47,6 +47,7 @@ export type Forecast = {
   remaining_days: string | null;
   run_out_at: string | null;
   recommended_monthly_top_up_kwh: string | null;
+  monthly_requirement_kwh: string | null;
   intervals_used: number;
 };
 

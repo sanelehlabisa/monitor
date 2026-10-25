@@ -26,7 +26,7 @@ services:
     environment:
       MONITOR_ENVIRONMENT: production
       MONITOR_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
-      MONITOR_CORS_ORIGIN: https://${APP_DOMAIN:?Set APP_DOMAIN in the production .env}
+      MONITOR_CORS_ORIGIN: ${APP_BASE_URL:?Set an HTTPS APP_BASE_URL in software/.env}
       MONITOR_OTP_HMAC_SECRET: ${MONITOR_OTP_HMAC_SECRET:?Set a unique production OTP secret}
       # Production reminder activation requires separate approval, never the dev cutoff.
       MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT: ""
@@ -37,6 +37,8 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:?Set SMTP_PASSWORD in the production .env}
       EMAIL_FROM: ${EMAIL_FROM:?Set EMAIL_FROM in the production .env}
     command: [uvicorn, app.main:app, --host, 0.0.0.0, --port, "8000", --proxy-headers, --forwarded-allow-ips, 172.30.70.0/24, --no-access-log]
+    ports:
+      - "127.0.0.1:8000:8000"
     networks: [web, database, outbound]
     depends_on:
       database: {condition: service_healthy}
@@ -49,16 +51,19 @@ services:
   frontend:
     build: {context: ./frontend, target: production}
     restart: unless-stopped
+    expose: ["80", "443"]
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    volumes:
+      - ./nginx/certs:/etc/nginx/certs:ro
     environment:
-      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in the production .env}
-    networks:
-      web:
-      public_proxy:
-        aliases: [monitor-frontend]
+      APP_URL: ${APP_BASE_URL:?Set an HTTPS APP_BASE_URL in software/.env}
+    networks: [web, ingress]
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "--no-check-certificate", "https://127.0.0.1/"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -70,7 +75,7 @@ networks:
       config: [{subnet: 172.30.70.0/24}]
   database: {internal: true}
   outbound:
-  public_proxy: {external: true, name: roventics_proxy}
+  ingress:
 
 volumes:
   postgres-data:

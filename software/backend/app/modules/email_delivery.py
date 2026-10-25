@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from email.message import EmailMessage
+import os
 import smtplib
 import ssl
 from typing import Any, Protocol
@@ -10,8 +11,7 @@ from uuid import UUID
 
 from psycopg import Connection
 
-from app.modules.otp import OTP_TTL, invalidate_otp_challenge, issue_otp, normalize_email
-from app.settings import Settings
+from app.modules.otp import OTP_TTL, get_otp_secret, invalidate_otp_challenge, issue_otp, normalize_email
 
 
 class EmailDeliveryError(Exception):
@@ -36,17 +36,29 @@ class OtpDelivery:
 class SmtpEmailSender:
     """Deliver email using implicit TLS or opportunistic STARTTLS."""
 
-    def __init__(self, settings: Settings) -> None:
-        self.settings = settings
+    def __init__(self) -> None:
+        self.smtp_host = os.environ["SMTP_HOST"]
+        try:
+            self.smtp_port = int(os.environ["SMTP_PORT"])
+            if not 1 <= self.smtp_port <= 65535:
+                raise ValueError
+        except ValueError:
+            raise ValueError("SMTP_PORT must be an integer from 1 to 65535") from None
+        secure = os.environ["SMTP_SECURE"].lower()
+        if secure not in {"0", "1", "false", "true", "f", "t", "no", "yes", "n", "y", "off", "on"}:
+            raise ValueError("SMTP_SECURE must be a boolean")
+        self.smtp_secure = secure in {"1", "true", "t", "yes", "y", "on"}
+        self.smtp_user = os.environ["SMTP_USER"]
+        self.smtp_password = os.environ["SMTP_PASSWORD"]
 
     def send(self, message: EmailMessage) -> None:
         """Send a message without leaking credentials or message contents."""
 
         try:
-            if self.settings.smtp_secure:
+            if self.smtp_secure:
                 with smtplib.SMTP_SSL(
-                    self.settings.smtp_host,
-                    self.settings.smtp_port,
+                    self.smtp_host,
+                    self.smtp_port,
                     timeout=10,
                     context=ssl.create_default_context(),
                 ) as client:
@@ -54,7 +66,7 @@ class SmtpEmailSender:
                 return
 
             with smtplib.SMTP(
-                self.settings.smtp_host, self.settings.smtp_port, timeout=10
+                self.smtp_host, self.smtp_port, timeout=10
             ) as client:
                 client.ehlo()
                 encrypted = False
@@ -73,8 +85,8 @@ class SmtpEmailSender:
     ) -> None:
         """Authenticate only over encryption, then send the prepared message."""
 
-        username = self.settings.smtp_user
-        password = self.settings.smtp_password.get_secret_value()
+        username = self.smtp_user
+        password = self.smtp_password
         if bool(username) != bool(password):
             raise EmailDeliveryError("SMTP credentials are incomplete")
         if username:
@@ -103,7 +115,6 @@ def build_login_code_message(recipient: str, code: str, sender: str) -> EmailMes
 def deliver_login_code(
     connection: Connection[Any],
     email: str,
-    settings: Settings,
     sender: EmailSender | None = None,
     now: datetime | None = None,
 ) -> OtpDelivery:
@@ -112,12 +123,12 @@ def deliver_login_code(
     issued = issue_otp(
         connection,
         email,
-        settings.otp_hmac_secret.get_secret_value(),
+        get_otp_secret(),
         now,
     )
-    message = build_login_code_message(email, issued.code, settings.email_from)
+    message = build_login_code_message(email, issued.code, os.environ["EMAIL_FROM"])
     try:
-        (sender or SmtpEmailSender(settings)).send(message)
+        (sender or SmtpEmailSender()).send(message)
     except EmailDeliveryError:
         invalidate_otp_challenge(connection, issued.challenge_id, now)
         raise

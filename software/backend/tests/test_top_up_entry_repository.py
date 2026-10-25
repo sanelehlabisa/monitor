@@ -7,7 +7,6 @@ from uuid import uuid4
 
 from app.database import connect_database
 from app.modules.meters import MeterNotFoundError, create_meter
-from app.settings import Settings
 from app.modules.top_up_entries import (
     TopUpEntryNotFoundError,
     create_top_up_entry,
@@ -34,8 +33,7 @@ def _create_user(connection: Connection[Any], prefix: str) -> tuple[int, str]:
 def test_top_up_crud_allows_repeated_times_and_enforces_owner_scope() -> None:
     """Purchases can share a time while foreign users cannot reach the meter."""
 
-    settings = Settings()
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         owner_id, owner_email = _create_user(connection, "top-up-owner")
         other_id, other_email = _create_user(connection, "top-up-other")
         meter = create_meter(connection, owner_id, "Home")
@@ -72,8 +70,7 @@ def test_top_up_crud_allows_repeated_times_and_enforces_owner_scope() -> None:
 def test_top_up_values_and_database_constraints_are_strict() -> None:
     """Repository and schema reject zero, negative and over-precise purchases."""
 
-    settings = Settings()
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         owner_id, email = _create_user(connection, "top-up-values")
         meter = create_meter(connection, owner_id, "Home")
         occurred_at = datetime(2026, 10, 4, 8, tzinfo=UTC)

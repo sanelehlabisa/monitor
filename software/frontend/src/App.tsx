@@ -753,14 +753,6 @@ export default function App() {
               />
             )}
             <Stack component="footer" spacing={1}>
-              <Typography
-                align="center"
-                color="text.secondary"
-                sx={{ display: 'block', px: 2 }}
-                variant="caption"
-              >
-                Manual kWh planning. No hardware or meter modification required.
-              </Typography>
               <Box component="a" href="https://roventics.com" target="_blank" rel="noopener noreferrer" aria-label="Visit Roventics"
                 sx={{ alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 0.75, color: 'common.black', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
                 <Box component="img" src="/roventics-logo.png" alt="Roventics logo" width={24} height={24} sx={{ display: 'block' }} />

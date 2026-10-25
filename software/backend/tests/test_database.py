@@ -3,7 +3,6 @@
 from uuid import uuid4
 
 from app.database import connect_database, database_is_available
-from app.settings import Settings
 from psycopg.errors import (
     CheckViolation,
     ForeignKeyViolation,
@@ -18,13 +17,13 @@ SEED_OWNER = "monitor-seed@example.test"
 def test_database_connectivity() -> None:
     """The backend can execute SQL against its explicit isolated test target."""
 
-    assert database_is_available(Settings())
+    assert database_is_available()
 
 
 def test_fresh_schema_has_domain_tables_without_fake_migration_history() -> None:
     """Empty-volume initialization supplies nine tables, not applied markers."""
 
-    with connect_database(Settings()) as connection:
+    with connect_database() as connection:
         tables = connection.execute(
             "SELECT tablename FROM pg_tables WHERE schemaname = 'monitor'"
         ).fetchall()
@@ -43,7 +42,7 @@ def test_fresh_schema_has_domain_tables_without_fake_migration_history() -> None
 def test_fresh_seeds_have_stored_types_and_owner_memberships() -> None:
     """Seeded DB types prepare later work; they do not change runtime authority."""
 
-    with connect_database(Settings()) as connection:
+    with connect_database() as connection:
         users = connection.execute(
             "SELECT email, type FROM monitor.users WHERE email IN (%s, %s) ORDER BY email",
             ("hlabisasanele730@gmail.com", SEED_OWNER),
@@ -65,7 +64,7 @@ def test_fresh_seeds_have_stored_types_and_owner_memberships() -> None:
 def test_user_type_defaults_and_constraints() -> None:
     """New users default to user, and invalid or absent stored types fail."""
 
-    with connect_database(Settings()) as connection:
+    with connect_database() as connection:
         try:
             user = connection.execute(
                 "INSERT INTO monitor.users (email) VALUES (%s) RETURNING id, type",
@@ -89,7 +88,7 @@ def test_user_type_defaults_and_constraints() -> None:
 def test_membership_keys_restrict_user_delete_and_cascade_meter_delete() -> None:
     """Membership rejects invalid keys, protects users and follows meter deletion."""
 
-    with connect_database(Settings()) as connection:
+    with connect_database() as connection:
         try:
             user = connection.execute(
                 "INSERT INTO monitor.users (email) VALUES (%s) RETURNING id",

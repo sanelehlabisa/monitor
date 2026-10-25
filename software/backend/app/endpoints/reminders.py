@@ -28,7 +28,7 @@ def reminders_show(
     """Return reminder preferences for an accessible meter."""
 
     try:
-        with connect_database(request.app.state.settings) as connection:
+        with connect_database() as connection:
             settings = get_reminder_settings(
                 connection, meter_id, meter_access_scope(authenticated)
             )
@@ -47,7 +47,7 @@ def reminders_update(
     """Create or replace reminder preferences for an accessible meter."""
 
     try:
-        with connect_database(request.app.state.settings) as connection:
+        with connect_database() as connection:
             settings = upsert_reminder_settings(
                 connection,
                 meter_id,

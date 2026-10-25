@@ -16,7 +16,6 @@ from app.modules.reminder_deliveries import (
 )
 from app.modules.reminder_runner import run_due_reminders
 from app.modules.reminder_settings import upsert_reminder_settings
-from app.settings import Settings
 from psycopg import Connection
 from tests.support import cleanup_users
 
@@ -69,14 +68,13 @@ def _configured_meter(
 def test_runner_sends_due_messages_once_to_the_owner() -> None:
     """Monthly and low-balance messages are deduplicated per approved keys."""
 
-    settings = Settings(environment="test")
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         user_id, email = _create_user(connection, "reminder-run")
         _configured_meter(connection, user_id)
         sender = RecordingSender()
         try:
-            first = run_due_reminders(connection, settings, sender, NOW)
-            second = run_due_reminders(connection, settings, sender, NOW)
+            first = run_due_reminders(connection, sender, NOW)
+            second = run_due_reminders(connection, sender, NOW)
 
             assert first.messages_sent == 2
             assert second.messages_sent == 0
@@ -92,15 +90,14 @@ def test_runner_sends_due_messages_once_to_the_owner() -> None:
 def test_failed_delivery_releases_claim_for_retry() -> None:
     """SMTP failure is counted and the same due reminder can retry later."""
 
-    settings = Settings(environment="test")
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         user_id, email = _create_user(connection, "reminder-retry")
         _configured_meter(connection, user_id)
         try:
             failed = run_due_reminders(
-                connection, settings, RecordingSender(fail=True), NOW
+                connection, RecordingSender(fail=True), NOW
             )
-            retried = run_due_reminders(connection, settings, RecordingSender(), NOW)
+            retried = run_due_reminders(connection, RecordingSender(), NOW)
 
             assert failed.delivery_failures == 2
             assert retried.messages_sent == 2
@@ -111,8 +108,7 @@ def test_failed_delivery_releases_claim_for_retry() -> None:
 def test_monthly_sends_without_forecast_but_low_balance_does_not() -> None:
     """Unavailable history prompts a reading without inventing a low warning."""
 
-    settings = Settings(environment="test")
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         user_id, email = _create_user(connection, "reminder-empty")
         meter = create_meter(connection, user_id, "Home")
         upsert_reminder_settings(
@@ -127,7 +123,7 @@ def test_monthly_sends_without_forecast_but_low_balance_does_not() -> None:
         )
         sender = RecordingSender()
         try:
-            result = run_due_reminders(connection, settings, sender, NOW)
+            result = run_due_reminders(connection, sender, NOW)
 
             assert result.messages_sent == 1
             assert "fresh balance" in sender.messages[0].get_content()
@@ -138,8 +134,7 @@ def test_monthly_sends_without_forecast_but_low_balance_does_not() -> None:
 def test_stale_claim_can_recover_but_sent_or_active_claim_cannot() -> None:
     """Only an abandoned pending claim becomes available to a later runner."""
 
-    settings = Settings(environment="test")
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         user_id, email = _create_user(connection, "reminder-claim")
         meter = create_meter(connection, user_id, "Home")
         try:

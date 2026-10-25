@@ -33,6 +33,7 @@ software/ocr/data/
 software/ocr/models/
 hardware/camera/captures/
 software/.data/
+software/nginx/certs/
 
 # Editor and OS
 .vscode/

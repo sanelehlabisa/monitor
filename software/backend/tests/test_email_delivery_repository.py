@@ -8,10 +8,10 @@ from urllib.request import urlopen
 from uuid import uuid4
 
 from app.database import connect_database
+from app.modules.otp import get_otp_secret
 from app.modules.email_delivery import EmailDeliveryError, deliver_login_code
 from app.modules.otp import code_digest
-from app.settings import Settings
-from pytest import raises
+from pytest import MonkeyPatch, raises
 
 
 class FailingSender:
@@ -25,8 +25,8 @@ def _unique_email(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex}@example.test"
 
 
-def _remove_email(settings: Settings, email: str) -> None:
-    with connect_database(settings) as connection:
+def _remove_email(email: str) -> None:
+    with connect_database() as connection:
         connection.execute(
             "DELETE FROM monitor.otp_challenges WHERE email = %s", (email,)
         )
@@ -48,16 +48,16 @@ def _mailpit_message_for(email: str) -> dict[str, object]:
     raise AssertionError("Mailpit did not receive the OTP message")
 
 
-def test_delivery_failure_invalidates_but_retains_challenge() -> None:
+def test_delivery_failure_invalidates_but_retains_challenge(monkeypatch: MonkeyPatch) -> None:
     """Failed sends remain counted but cannot later authenticate a user."""
 
-    settings = Settings(otp_hmac_secret="delivery-test-secret")
+    monkeypatch.setenv("MONITOR_OTP_HMAC_SECRET", "delivery-test-secret")
     email = _unique_email("failed-delivery")
     now = datetime(2026, 10, 8, tzinfo=UTC)
     try:
-        with connect_database(settings) as connection:
+        with connect_database() as connection:
             with raises(EmailDeliveryError, match="delivery failed"):
-                deliver_login_code(connection, email, settings, FailingSender(), now)
+                deliver_login_code(connection, email, FailingSender(), now)
             row = connection.execute(
                 """SELECT COUNT(*), COUNT(invalidated_at)
                    FROM monitor.otp_challenges WHERE email = %s""",
@@ -66,17 +66,17 @@ def test_delivery_failure_invalidates_but_retains_challenge() -> None:
 
         assert row == (1, 1)
     finally:
-        _remove_email(settings, email)
+        _remove_email(email)
 
 
-def test_generated_code_reaches_only_requested_mailpit_recipient() -> None:
+def test_generated_code_reaches_only_requested_mailpit_recipient(monkeypatch: MonkeyPatch) -> None:
     """Real SMTP delivery matches the HMAC-only PostgreSQL challenge."""
 
-    settings = Settings(otp_hmac_secret="mailpit-integration-secret")
+    monkeypatch.setenv("MONITOR_OTP_HMAC_SECRET", "mailpit-integration-secret")
     email = _unique_email("mailpit-delivery")
     try:
-        with connect_database(settings) as connection:
-            delivery = deliver_login_code(connection, email, settings)
+        with connect_database() as connection:
+            delivery = deliver_login_code(connection, email)
             stored = connection.execute(
                 "SELECT code_digest FROM monitor.otp_challenges WHERE id = %s",
                 (delivery.challenge_id,),
@@ -93,7 +93,7 @@ def test_generated_code_reaches_only_requested_mailpit_recipient() -> None:
         assert code is not None
         assert stored == (
             code_digest(
-                settings.otp_hmac_secret.get_secret_value(),
+                get_otp_secret(),
                 email,
                 delivery.challenge_id,
                 code.group(),
@@ -101,4 +101,4 @@ def test_generated_code_reaches_only_requested_mailpit_recipient() -> None:
         )
         assert stored[0] != code.group()
     finally:
-        _remove_email(settings, email)
+        _remove_email(email)

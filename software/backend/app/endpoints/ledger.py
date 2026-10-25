@@ -55,7 +55,7 @@ def dashboard_show(
     """Return current factual history and a newly calculated forecast."""
 
     access_scope = meter_access_scope(authenticated)
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         balances = _available(
             lambda: list_balance_entries(connection, meter_id, access_scope)
         )
@@ -104,7 +104,7 @@ def balances_index(
 ) -> list[BalanceEntryResponse]:
     """List an accessible meter's actual balances newest-first."""
 
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         entries = _available(
             lambda: list_balance_entries(
                 connection, meter_id, meter_access_scope(authenticated)
@@ -127,7 +127,7 @@ def balances_create(
     """Record one actual remaining balance."""
 
     try:
-        with connect_database(request.app.state.settings) as connection:
+        with connect_database() as connection:
             entry = _available(
                 lambda: create_balance_entry(
                     connection,
@@ -151,7 +151,7 @@ def balances_show(
 ) -> BalanceEntryResponse:
     """Retrieve one accessible actual balance."""
 
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         entry = _available(
             lambda: get_balance_entry(
                 connection, meter_id, entry_id, meter_access_scope(authenticated)
@@ -171,7 +171,7 @@ def balances_update(
     """Correct an accessible actual balance."""
 
     try:
-        with connect_database(request.app.state.settings) as connection:
+        with connect_database() as connection:
             entry = _available(
                 lambda: update_balance_entry(
                     connection,
@@ -196,7 +196,7 @@ def balances_delete(
 ) -> Response:
     """Delete one accessible actual balance."""
 
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         _available(
             lambda: delete_balance_entry(
                 connection, meter_id, entry_id, meter_access_scope(authenticated)
@@ -213,7 +213,7 @@ def top_ups_index(
 ) -> list[TopUpEntryResponse]:
     """List an accessible meter's purchased-energy events newest-first."""
 
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         entries = _available(
             lambda: list_top_up_entries(
                 connection, meter_id, meter_access_scope(authenticated)
@@ -233,7 +233,7 @@ def top_ups_create(
 ) -> TopUpEntryResponse:
     """Record one purchased-energy event."""
 
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         entry = _available(
             lambda: create_top_up_entry(
                 connection,
@@ -255,7 +255,7 @@ def top_ups_show(
 ) -> TopUpEntryResponse:
     """Retrieve one accessible purchased-energy event."""
 
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         entry = _available(
             lambda: get_top_up_entry(
                 connection, meter_id, entry_id, meter_access_scope(authenticated)
@@ -274,7 +274,7 @@ def top_ups_update(
 ) -> TopUpEntryResponse:
     """Correct an accessible purchased-energy event."""
 
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         entry = _available(
             lambda: update_top_up_entry(
                 connection,
@@ -297,7 +297,7 @@ def top_ups_delete(
 ) -> Response:
     """Delete one accessible purchased-energy event."""
 
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         _available(
             lambda: delete_top_up_entry(
                 connection, meter_id, entry_id, meter_access_scope(authenticated)

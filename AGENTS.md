@@ -24,8 +24,10 @@ authorisation.
 
 Monitor V1 is a software-only prepaid-electricity planning application. Users
 manually record remaining balance and purchased top-up energy in kWh at selected
-times. Use simple, tested calculations and show "Not enough data" instead of
-inventing forecasts. V1 has no tariffs, Rand forecasts, payment execution,
+times. Use simple, tested calculations. With one actual balance, show a labelled
+10 kWh/day starting assumption; use measured per-meter usage once valid intervals
+exist. Without a balance show "Not enough data"; never hide inconsistent history
+behind the default. V1 has no tariffs, Rand forecasts, payment execution,
 hardware, OCR, MQTT or ML.
 
 Preserve hardware/OCR research for later evidence-driven reconsideration. Any

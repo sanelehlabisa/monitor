@@ -10,6 +10,27 @@ READMEs hold details; historical results stay in work/ and Git.
 - FastAPI uses explicit Psycopg SQL, not an ORM. React/Vite/Material UI is the
   mobile-friendly frontend. Development uses software/dev.docker-compose.yaml
   and ignored software/.env. Never print/commit secrets or private records.
+- Task 077's correction uses direct docker compose with exactly dev/prod files
+  and one ignored software/.env plus its safe example. APP_BASE_URL is
+  https://127.0.0.1. The user deferred VPS work: production Compose now fixes
+  loopback HTTP80/HTTPS443 and backend8000, with no port/binding env variables
+  or external network prerequisite. Its ingress network belongs to this stack.
+  Development overrides local URLs/ports and Mailpit SMTP in Compose; no env
+  edits are needed when switching modes. Production has three services and no
+  Mailpit. No launcher, profiles or custom startup script; only the certificate
+  helper remains under nginx/, used only by production. Nginx derives the
+  canonical authority with a map; backend origin validation remains required.
+  HTTP80 redirects to HTTPS443; the frontend health check uses internal HTTPS.
+  There is no separate redirect port or plain-HTTP app-serving hop. Database
+  URL/CORS remain derived; no user mode/log-level settings or backend fallbacks.
+  Existing VPS instructions are deferred references, not current deployment steps.
+- Task 078 removes settings.py and pydantic-settings entirely. Existing database,
+  auth, mail, startup and scheduler modules read os.environ directly; no renamed
+  configuration class/module or new loader. Preserve current env keys, secrets,
+  canonical origin/HTTPS, SMTP TLS, cookie policy and aware UTC cutoff checks.
+  Pydantic request/response schemas remain, explicitly pinned to the existing
+  runtime's 2.13.5 version for API compatibility. The user subsequently rebuilt
+  production; Task 079 confirms the running backend no longer has settings.py.
 - A meter needs only a name. Task 063 backend code authorizes current members or
   DB admins, including permanent deletion of a meter/history. Last-member removal
   is rejected; leaving does not delete a meter. Task 064 applied the live FK
@@ -27,8 +48,15 @@ READMEs hold details; historical results stay in work/ and Git.
 - Fresh-only seeds provision hlabisasanele730@gmail.com as admin and fictional
   examples, without credentials/sessions. Later role changes are manual DB
   operations, never startup or login re-promotion.
+  These seeds run in development only; production has its own schema-only volume.
+  Task 079 explicitly restored the existing approved production account to admin
+  at the user's request, preserving other roles and all records. Reload the browser
+  after manual role changes; admins default to My and select All for global scope.
 - The UI has an open white layout, blue/teal Monitor branding, compact system
   typography, stacked logo/name, Back and email/red icon-labelled Sign out.
+  Task 079 removes the unnecessary software-only tagline from the login screen.
+  Task 082 uses a simple 2 by 2 forecast grid (stacked below 360px), responsive
+  values and subtle dividers. The footer keeps only Roventics attribution.
   /meters lists profiles; /meters/<uuid> supports direct login/reload/history.
   / and /meters/ remain compatible entries; login is not a separate URL.
 - Estimates lead; record forms/history open on demand. Search is server-side by
@@ -48,10 +76,14 @@ All callers use one run_forecast_model function with that meter's history:
     consumed = previous_balance + intervening_top_ups - current_balance
     daily_usage = consumed / elapsed_days
 
-Require at least two actual readings with positive elapsed time. Include top-ups
-and surface impossible negative consumption/inconsistent chronology. Show
-Not enough data/Inconsistent history instead of inventing numbers. Genuine
-zero use has no finite run-out date.
+Task 080 uses a labelled fixed 10 kWh/day starting assumption with exactly one
+actual balance at or before calculation time. With two or more valid readings,
+use measured per-meter usage with positive elapsed time and intervening top-ups.
+No balance stays Not enough data; negative consumption/inconsistent chronology
+stays unavailable rather than falling back. Genuine zero use has no finite run-out.
+The existing available status with intervals_used=0 identifies the starting
+assumption in the UI and monthly email; legacy low-balance warnings still require
+measured intervals. This is not the research simulator's calibrated prior.
 
 The deterministic time-weighted rate produces estimated current balance and
 remaining days/run-out. Task 066 uses the strictly-next UTC 1st and its full
@@ -60,6 +92,9 @@ estimated_balance). This is not total usage, Rand cost or a future-balance
 projection. On the 1st advance again; rate/current-balance/run-out math stays.
 The API replaces the old 30_days key with recommended_monthly_top_up_kwh and adds
 planning_at (target UTC month-start, not calculation time) and planning_days.
+Task 081 adds monthly_requirement_kwh = daily_usage * planning_days, without
+subtracting balance. The compact UI shows Monthly requirement and Additional
+top-up separately; unavailable forecasts keep both values null.
 Calendar metadata is known even when kWh estimates are unavailable. Preserve
 latest actual reading/time and calculation time; never adopt a research prior.
 
@@ -102,11 +137,12 @@ scheduler locally with internal Mailpit; production/external mail remains separa
 - Live browser login/end-to-end verification after 059 is outstanding. Isolated
   HTTP checks are not live-user or household validation.
 
-## Current source layout (Tasks 060-062)
+## Current source layout (Tasks 060-062 and 078)
 
 060 retired old setup/stale active context. Backend logic lives under
 app/modules, Pydantic validation under schemas and routers under endpoints;
-main/settings/database and version-bearing __init__ stay at app root.
+main/database and version-bearing __init__ stay at app root. Task 078 removes
+settings.py and reads configuration directly in the existing consumers.
 Frontend login/meters screens live under routes, meter-only components under
 routes/meters, shared navigation under components and helpers under lib.
 Keep behavior, URLs, validation and permissions unchanged; add no dependency,
@@ -196,9 +232,10 @@ Existing API payloads are unchanged; only three member operations were added.
 4. Task 070 / Ticket 57.1 production preparation for monitor.roventics.com is
    complete: own production Compose/volume, schema-only fresh setup and shared-edge
    instructions. Task 072 consolidates its example into the single .env.example.
-   Reuse Job Talk's VPS Nginx/host Certbot:
-   frontend internal 80, shared edge public 80/443; only frontend joins
-   roventics_proxy. Backend has private scoped proxy trust and SMTP egress.
+   Its historical plan reused Job Talk's VPS Nginx/host Certbot with an internal
+   HTTP80 app hop and external roventics_proxy. Task 077's local-only correction
+   supersedes that wiring; VPS adaptation is deferred. Backend retains scoped
+   proxy trust and SMTP egress.
    Production monthly automation is forced off; the dev cutoff cannot carry over.
    Both production targets build with cached dependency layers. Isolated local
    HTTPS/OTP/secure cookies/meter/ledger/forecast/logout, changed-IP two-hop DNS
@@ -235,8 +272,103 @@ Existing API payloads are unchanged; only three member operations were added.
    the user authorized committing/pushing completed Tasks 070-072 to master;
    earlier no-Git notes describe their implementation-completion scope. This
    publication request does not authorize VPS or source service actions.
-7. Future mobile/local-only 68 may provide guest device storage and optional
+7. Tasks 070-072 were committed/pushed to master as 52a0e1d after user approval.
+   Task 073 implements the approved explicit-environment contract on 22 October
+   2026: its 11 backend installation fields were required, normal validation errors
+   hide input values and invalid-cutoff errors do not echo the literal. Only the
+   saved reminder cutoff was optional/off. Log-level wiring was completed there,
+   not added as a new verbosity feature; Task 074 removes that unused setting.
+   Production mode/reminder-off remain fixed.
+   At that task's completion ignored .env had APP_DOMAIN and matched 17 example keys;
+   hashes confirm all 16 previous values/cutoff are preserved. No sibling secrets
+   copied. Its Mailpit/development values were not converted for the VPS.
+   Frontend internal 80 is explicit Compose metadata; shared public HTTPS and
+   no-host-binding behavior are unchanged. All 33 focused checks, 11 missing-field
+   app-startup checks, lifespan/health/CORS and both Compose modes pass in an
+   isolated network-none backend container. All 12 required production inputs
+   reject omission. Source services/data stay unchanged; no restart or Git/VPS
+   action. Exact cleanup and verification limits are recorded in work/073.
+8. Task 074's implementation/isolated verification are historical in work/074.
+   It introduced validated origins/local HTTPS and removed user mode/log-level
+   keys, retaining ten required backend fields. Task 075 supersedes its public
+   URL/profile/development-setting instructions, not its preserved work records.
+   Its retired Bash/certificate helpers have preserved recovery copies, not current
+   setup instructions; generated private certs stay ignored. No standalone local
+   TLS service remains in the amended scope.
+   Production frontend80/backend8000 remain private, its volume initializes schema
+   only when empty, and reminders stay off. Both production images build with
+   cached dependencies; frontend TypeScript/Vite compilation ran afresh. All three
+   Compose modes and 12 missing-input checks pass. An isolated network-none run
+   passes 82 focused settings/main/CORS/auth API checks and ten missing-field app
+   import/startup checks. All 20 frontend startup cases pass (three valid,
+   seventeen invalid); Bash SAN/CA:false and non-overwrite checks pass, preserving
+   both certificate-file hashes on rerun. The actual optional TLS edge passes certificate/SAN and
+   HTTPS/API OTP checks with captured mail, Secure cookies, correct redirect
+   host/port, meter create/rename, two balances/one top-up yielding 4 kWh/day and
+   logout401. These are local API checks, not real-provider/browser/household proof.
+   All 14 unrelated actual .env values retain their hashes, including credentials
+   and the saved cutoff; all four source services stay stopped/unchanged through
+   smoke checks. The obsolete backend/.env.example was retired only after Git and
+   ignored-copy recovery verification. Windows NTFS key ACL protection is not
+   verified; the script requests restrictive creation/chmod without changing trust.
+   Exact cleanup removes five owned containers, five networks, one synthetic
+   volume and two image tags; zero owned resources remain. Source stopped-service
+   metadata and public runtime hashes are unchanged. No source startup, real email,
+   credential rotation, Git or VPS action; full results belong in work/074.
+9. Task 075's amended two-file implementation/static checks are historical in
+   work/075. It fixed dev URLs/ports/Mailpit and kept production values explicit;
+   no backend fallbacks were added. Production images and static missing-input
+   checks passed, but isolated startup timed out before API-flow verification.
+   No end-to-end success was claimed. Exact cleanup removed five containers,
+   five networks, one synthetic volume and two tags; source state stayed unchanged.
+   Task 076 supersedes its HTTP-only loopback/port-variable instructions, not its
+   preserved records or the two-file/three-production-service boundary.
+10. Task 076's implementation/isolated checks are historical in work/076. The
+   production→nginx move preserved files/private certificate hashes, and the
+   prior fixed8443 HTTPS/API OTP/session/meter/ledger/4 kWh/day/logout checks passed.
+   Both images, synthetic same-env modes/VPS variant and missing-input checks
+   passed. The helper's SAN/CA:false/non-overwrite checks passed; exact cleanup
+   removed four containers, five networks, one synthetic volume and two tags,
+   preserving all four stopped source containers. No new browser/provider/VPS
+   acceptance was claimed. Task 077 supersedes the old local8443 URL/binding,
+   not the preserved records, certificates or two-file/three-service boundary.
+11. The user corrected Task 077 to remove its launcher and custom origin script.
+   From software/, use docker compose -f prod.docker-compose.yaml up --build;
+   focus only on local frontend80/443 and backend8000. Compose fixes those ports;
+   there are no binding variables or shared external network requirements.
+   Nginx HTTP80 redirects to its HTTPS443 app; dev keeps its local overrides.
+   VPS work is deferred and the old shared HTTP hop is not active.
+   Earlier launcher/configuration/HTTPS API checks and exact cleanup remain
+   historical in work/077; do not present them as verification of later edits.
+   The later user-reported startup failure was fixed by replacing only the public
+   example OTP secret in ignored .env with a random 256-bit value. The failing
+   production backend was recreated and its already-created frontend started;
+   both are healthy. Database identity/start time/mounts remained unchanged.
+   Read-only HTTP redirect/HTTPSroot200/backendhealth200/signed-out401 passed.
+   SMTP then pointed to Mailpit; provider settings are installation-owned. No email,
+   source SQL, VPS or Git action occurred. The subsequent user choice explicitly
+   requested removal of settings.py, handled separately by Task 078.
+   The preceding isolated local correction passed direct config,
+   production builds, Nginx validation, HTTP80-to-HTTPS443, backend8000 health
+   and isolated captured-OTP/meter/forecast/logout. Its separate evidence is in
+   .tmp/task077-local; see work/077 for cleanup and preservation results.
+12. Task 078 removes the settings object and dependency, updating callers to direct
+   environment reads and reminder functions to a parsed activation datetime.
+   Login/session, SMTP, database and reminder behavior remain the contract.
+   Final images built; all 218 backend checks, identical OpenAPI and isolated
+   HTTPS/captured-OTP/meter/forecast/logout passed. Owned fixtures were cleaned.
+   Existing credentials and source containers were preserved during that task;
+   the user subsequently rebuilt the backend. Results/recovery are in work/078.
+13. Future mobile/local-only 68 may provide guest device storage and optional
    account login; it does not weaken today's authenticated backend.
+
+## Git handoff
+
+Git handoff: on 25 October 2026 the user authorized committing/pushing completed
+Tasks 073–082 to master. Earlier no-commit notes record completion-time scope.
+Feature checks pass, but shared-VPS deployment still needs the public proxy/TLS
+route with OTP limits, installation credentials, explicit first-admin assignment
+and live acceptance. Current Compose is local-only and forces monthly mail off.
 
 ## Deferred research
 

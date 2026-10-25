@@ -1,6 +1,7 @@
 """FastAPI routes and reusable dependency for human authentication."""
 
 from dataclasses import dataclass
+import os
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
@@ -10,6 +11,7 @@ from app.modules.otp import (
     OtpRateLimitError,
     OtpVerificationError,
     User,
+    get_otp_secret,
     verify_otp,
 )
 from app.modules.sessions import (
@@ -26,7 +28,6 @@ from app.schemas.auth import (
     UserResponse,
     VerifyOtpRequest,
 )
-from app.settings import Settings
 
 COOKIE_NAME = "monitor_session"
 REQUEST_ACCEPTED_MESSAGE = (
@@ -52,10 +53,9 @@ class AuthenticatedUser:
 def request_otp(payload: EmailRequest, request: Request) -> AcceptedResponse:
     """Request a code without exposing policy or delivery outcomes."""
 
-    settings = _settings(request)
     try:
-        with connect_database(settings) as connection:
-            deliver_login_code(connection, payload.email, settings)
+        with connect_database() as connection:
+            deliver_login_code(connection, payload.email)
     except (OtpRateLimitError, EmailDeliveryError):
         pass
     return AcceptedResponse(message=REQUEST_ACCEPTED_MESSAGE)
@@ -67,14 +67,13 @@ def verify_code(
 ) -> UserResponse:
     """Verify the newest code and establish an opaque cookie session."""
 
-    settings = _settings(request)
     try:
-        with connect_database(settings) as connection:
+        with connect_database() as connection:
             user = verify_otp(
                 connection,
                 payload.email,
                 payload.code,
-                settings.otp_hmac_secret.get_secret_value(),
+                get_otp_secret(),
             )
             session = create_session(connection, user.id)
     except OtpVerificationError as error:
@@ -82,7 +81,7 @@ def verify_code(
             status.HTTP_401_UNAUTHORIZED, "Invalid or expired code"
         ) from error
 
-    _set_session_cookie(response, session, settings)
+    _set_session_cookie(response, session)
     return _user_response(user)
 
 
@@ -90,18 +89,17 @@ def verify_code(
 def logout(request: Request, response: Response) -> None:
     """Revoke only the presented session and always clear its cookie."""
 
-    settings = _settings(request)
     token = request.cookies.get(COOKIE_NAME)
     if token:
         try:
-            with connect_database(settings) as connection:
+            with connect_database() as connection:
                 revoke_session(connection, token)
         except SessionAuthenticationError:
             pass
     response.delete_cookie(
         COOKIE_NAME,
         path="/",
-        secure=_cookie_is_secure(settings),
+        secure=_cookie_is_secure(),
         httponly=True,
         samesite="lax",
     )
@@ -123,11 +121,10 @@ def require_authenticated_user(request: Request) -> AuthenticatedUser:
     """Resolve the session cookie or return one generic authentication error."""
 
     token = request.cookies.get(COOKIE_NAME)
-    settings = _settings(request)
     try:
         if not token:
             raise SessionAuthenticationError("Session is unavailable")
-        with connect_database(settings) as connection:
+        with connect_database() as connection:
             user = authenticate_session(connection, token)
     except SessionAuthenticationError as error:
         raise HTTPException(
@@ -136,16 +133,12 @@ def require_authenticated_user(request: Request) -> AuthenticatedUser:
     return AuthenticatedUser(user=user, is_admin=user.type == "admin")
 
 
-def _settings(request: Request) -> Settings:
-    return request.app.state.settings
-
-
-def _cookie_is_secure(settings: Settings) -> bool:
-    return settings.environment != "development"
+def _cookie_is_secure() -> bool:
+    return os.environ["MONITOR_ENVIRONMENT"] != "development"
 
 
 def _set_session_cookie(
-    response: Response, session: CreatedSession, settings: Settings
+    response: Response, session: CreatedSession
 ) -> None:
     response.set_cookie(
         COOKIE_NAME,
@@ -153,7 +146,7 @@ def _set_session_cookie(
         max_age=int(SESSION_TTL.total_seconds()),
         expires=session.expires_at,
         path="/",
-        secure=_cookie_is_secure(settings),
+        secure=_cookie_is_secure(),
         httponly=True,
         samesite="lax",
     )

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.message import EmailMessage
+import os
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -26,7 +27,6 @@ from app.modules.reminder_deliveries import (
     list_reminder_candidates,
     release_reminder_delivery,
 )
-from app.settings import Settings
 from app.modules.top_up_entries import list_top_up_entries
 
 
@@ -61,6 +61,11 @@ def build_monthly_reminder_message(
             f"{forecast.recommended_monthly_top_up_kwh} additional kWh for the "
             f"{forecast.planning_days}-day calendar month, based on the current estimated balance."
         )
+        if forecast.intervals_used == 0:
+            planning += (
+                f" Starting estimate using {forecast.daily_usage_kwh} kWh/day; "
+                "record another balance to use measured usage."
+            )
     else:
         planning = (
             "Monitor does not have enough consistent history for a recommendation. "
@@ -124,6 +129,7 @@ def _due_reminders(
     if (
         candidate.low_balance_enabled
         and forecast.status == "available"
+        and forecast.intervals_used > 0
         and forecast.remaining_days is not None
         and forecast.run_out_at is not None
         and forecast.remaining_days <= candidate.low_balance_days
@@ -137,14 +143,13 @@ def _due_reminders(
 
 def run_due_reminders(
     connection: Connection[Any],
-    settings: Settings,
     sender: EmailSender | None = None,
     now: datetime | None = None,
 ) -> ReminderRunResult:
     """Evaluate all opted-in meters once and deliver every unclaimed reminder."""
 
     calculation_time = (now or datetime.now(UTC)).astimezone(UTC)
-    email_sender = sender or SmtpEmailSender(settings)
+    email_sender = sender or SmtpEmailSender()
     candidates = list_reminder_candidates(connection)
     sent = skipped = failures = 0
     for candidate in candidates:
@@ -169,9 +174,9 @@ def run_due_reminders(
                         skipped += 1
                         continue
                     message = (
-                        build_monthly_reminder_message(candidate, forecast, settings.email_from)
+                        build_monthly_reminder_message(candidate, forecast, os.environ["EMAIL_FROM"])
                         if due.reminder_type == "monthly"
-                        else build_low_balance_message(candidate, forecast, settings.email_from)
+                        else build_low_balance_message(candidate, forecast, os.environ["EMAIL_FROM"])
                     )
                     get_meter(connection, candidate.meter_id, candidate.owner_user_id)
                     try:
@@ -191,9 +196,8 @@ def run_due_reminders(
 def main() -> None:
     """Run one reminder pass for an external scheduler."""
 
-    settings = Settings()
-    with connect_database(settings) as connection:
-        result = run_due_reminders(connection, settings)
+    with connect_database() as connection:
+        result = run_due_reminders(connection)
     print(
         "Reminder run complete: "
         f"meters={result.meters_scanned} sent={result.messages_sent} "

@@ -11,7 +11,10 @@ PostgreSQL with explicit Psycopg SQL; no ORM or automatic runtime migrations.
 Development Compose mounts schema.sql then seed.sql read-only into initialization;
 Task 070 production Compose mounts only schema.sql in its separate project/volume.
 Fresh production has no example data or admin. Use normal verified signup then
-an explicit manual DB role assignment; see the [operator guide](../production/README.md).
+an explicit manual DB role assignment; see the [operator guide](../nginx/README.md).
+The development admin seed does not carry over to the separate production volume.
+After an explicit role change, reload the browser to refresh admin My/All controls;
+choose All to include meters outside the account's current memberships.
 They run only on an empty persistent volume; restart/recreation does not replay
 SQL or overwrite roles/examples. The API never installs/upgrades SQL. Never
 delete a volume or replay seeds as an upgrade/partial-init repair; preserve

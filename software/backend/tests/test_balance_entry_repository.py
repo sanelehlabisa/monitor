@@ -16,7 +16,6 @@ from app.modules.balance_entries import (
 )
 from app.database import connect_database
 from app.modules.meters import MeterNotFoundError, create_meter
-from app.settings import Settings
 from psycopg import Connection
 from psycopg.errors import CheckViolation
 from pytest import raises
@@ -35,8 +34,7 @@ def _create_user(connection: Connection[Any], prefix: str) -> tuple[int, str]:
 def test_balance_crud_ordering_conflicts_and_owner_scope() -> None:
     """Balances support correction while foreign users cannot reach the meter."""
 
-    settings = Settings()
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         owner_id, owner_email = _create_user(connection, "balance-owner")
         other_id, other_email = _create_user(connection, "balance-other")
         meter = create_meter(connection, owner_id, "Home")
@@ -83,8 +81,7 @@ def test_balance_crud_ordering_conflicts_and_owner_scope() -> None:
 def test_balance_values_and_database_constraints_are_strict() -> None:
     """Repository and schema reject negative, over-precise and invalid values."""
 
-    settings = Settings()
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         owner_id, email = _create_user(connection, "balance-values")
         meter = create_meter(connection, owner_id, "Home")
         occurred_at = datetime(2026, 10, 2, 8, tzinfo=UTC)

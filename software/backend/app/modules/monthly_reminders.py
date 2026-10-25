@@ -3,12 +3,12 @@
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+import os
 import re
 from typing import Any, Literal
 from uuid import UUID
 
 from psycopg import Connection
-from psycopg.conninfo import make_conninfo
 
 from app.database import connect_database
 from app.modules.balance_entries import list_balance_entries
@@ -23,7 +23,6 @@ from app.modules.reminder_deliveries import (
 )
 from app.modules.reminder_runner import ReminderRunResult, build_monthly_reminder_message
 from app.modules.top_up_entries import list_top_up_entries
-from app.settings import Settings
 
 MONTHLY_KEY = re.compile(r"([0-9]{4}-(?:0[1-9]|1[0-2])):([1-9][0-9]{0,18})")
 MONTH_END_LEAD = timedelta(hours=15)  # 09:00 UTC on the day before the target 1st.
@@ -116,7 +115,6 @@ def _deliver_job(
     observed_claim: datetime,
     cycle: datetime,
     user_id: int,
-    settings: Settings,
     sender: EmailSender,
     now: datetime,
     should_stop: Callable[[], bool] | None = None,
@@ -151,7 +149,7 @@ def _deliver_job(
                     list_balance_entries(connection, meter_id, user_id),
                     list_top_up_entries(connection, meter_id, user_id), now,
                 )
-                message = build_monthly_reminder_message(candidate, forecast, settings.email_from)
+                message = build_monthly_reminder_message(candidate, forecast, os.environ["EMAIL_FROM"])
                 if cycle != forecast.planning_at:
                     message.set_content(
                         f"Delayed monthly check-in. Original notification cycle: {cycle:%Y-%m}.\n\n"
@@ -172,7 +170,6 @@ def _deliver_job(
 
 
 def run_monthly_reminders(
-    settings: Settings,
     *,
     activation_at: datetime,
     sender: EmailSender | None = None,
@@ -188,14 +185,9 @@ def run_monthly_reminders(
             raise ValueError("Monthly reminder times must include a timezone")
     activation_at = activation_at.astimezone(UTC)
     calculation_time = calculation_time.astimezone(UTC)
-    email_sender = sender if sender is not None else SmtpEmailSender(settings)
+    email_sender = sender if sender is not None else SmtpEmailSender()
     counts = {"sent": 0, "failed": 0, "skipped": 0}
-    connection_settings = settings
-    if bounded_io:
-        connection_settings = settings.model_copy(update={
-            "database_url": make_conninfo(settings.database_url, connect_timeout=5),
-        })
-    with connect_database(connection_settings) as connection:
+    with connect_database(connect_timeout=5 if bounded_io else None) as connection:
         # Own the connection: SELECTs must not leave an implicit outer transaction.
         connection.autocommit = True
         if bounded_io:
@@ -227,7 +219,7 @@ def run_monthly_reminders(
                 _check_stop(should_stop)
                 outcome = _deliver_job(
                     connection, job_id, meter_id, observed_claim, cycle, user_id,
-                    settings, email_sender, calculation_time, should_stop,
+                    email_sender, calculation_time, should_stop,
                 )
             except _ReminderPassStopped:
                 break

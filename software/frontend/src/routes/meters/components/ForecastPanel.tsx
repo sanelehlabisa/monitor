@@ -18,17 +18,19 @@ function EstimateMetric({ label, value, note, colour = 'primary.main' }: {
     <Box
       sx={{
         minWidth: 0,
-        py: 1,
+        py: { xs: 1.5, sm: 2 },
+        borderTop: '1px solid',
+        borderColor: 'divider',
       }}
     >
-      <Typography color="text.secondary" variant="body2">
+      <Typography color="text.secondary" variant="body2" sx={{ fontWeight: 500, mb: 0.75 }}>
         {label}
       </Typography>
-      <Typography sx={{ color: colour, fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }} variant="h5">
+      <Typography sx={{ color: colour, fontWeight: 700, fontSize: { xs: '1.25rem', sm: '1.5rem' }, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em', overflowWrap: 'anywhere' }} variant="h5">
         {value}
       </Typography>
       {note && (
-        <Typography color="text.secondary" variant="caption">
+        <Typography color="text.secondary" variant="caption" sx={{ display: 'block', mt: 0.75, fontSize: '0.8125rem' }}>
           {note}
         </Typography>
       )}
@@ -56,6 +58,7 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
   const hasActual =
     forecast.latest_actual_balance_kwh !== null &&
     forecast.latest_actual_at !== null;
+  const usesDefault = forecast.status === 'available' && forecast.intervals_used === 0;
 
   return (
     <Stack spacing={2}>
@@ -66,7 +69,7 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
         <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.main', pl: 2, py: 1 }}>
           <Typography sx={{ fontWeight: 800 }}>Not enough data</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.75 }} variant="body2">
-            Add at least two actual balances. Monitor will not guess a forecast.
+            Add your first actual balance to see starting estimates.
           </Typography>
         </Box>
       )}
@@ -86,21 +89,25 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
         >
           <Typography
             component="h3"
-            sx={{ color: 'text.secondary', fontWeight: 700 }}
-            variant="caption"
+            sx={{ fontWeight: 600, mb: 0.75 }}
+            variant="h6"
           >
             Planning estimate
           </Typography>
+          {usesDefault && (
+            <Typography color="text.secondary" variant="body2">
+              Starting estimate using {Number(forecast.daily_usage_kwh)} kWh/day.
+              Add another balance to personalise it.
+            </Typography>
+          )}
           <Box
             sx={{
               display: 'grid',
-              gap: { xs: 2, sm: 3 },
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: 'repeat(2, minmax(0, 1fr))',
-                md: 'repeat(3, minmax(0, 1fr))',
-              },
-              mt: 1.25,
+              columnGap: { xs: 2, sm: 4 },
+              rowGap: { xs: 0.5, sm: 1 },
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              '@media (max-width: 359.95px)': { gridTemplateColumns: '1fr' },
+              mt: 2,
             }}
           >
             <EstimateMetric
@@ -120,17 +127,18 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
                   : `Predicted run-out ${localDateDisplay(forecast.run_out_at)}`
               }
             />
-            <Box sx={{ gridColumn: { sm: '1 / -1', md: 'auto' }, borderTop: '1px solid', borderColor: 'divider', borderTopWidth: { md: 0 }, pt: { xs: 2, md: 0 } }}>
-              <EstimateMetric
-                label="Monthly purchase recommendation"
-                value={`${forecast.recommended_monthly_top_up_kwh} kWh`}
-                colour="secondary.main"
-              />
-              <Typography color="text.secondary" variant="body2">
-                Additional kWh for the {forecast.planning_days}-day planning month,
-                based on historical usage and current balance.
-              </Typography>
-            </Box>
+            <EstimateMetric
+              label="Additional top-up"
+              value={`${forecast.recommended_monthly_top_up_kwh} kWh`}
+              note="After subtracting estimated balance."
+              colour="secondary.main"
+            />
+            <EstimateMetric
+              label="Monthly requirement"
+              value={`${forecast.monthly_requirement_kwh} kWh`}
+              note={`Total use for the ${forecast.planning_days}-day planning month.`}
+              colour="secondary.main"
+            />
           </Box>
           <Box component="details" sx={{ color: 'text.secondary', mt: 2 }}>
             <Typography component="summary" sx={{ cursor: 'pointer' }} variant="caption">
@@ -140,8 +148,10 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
             sx={{ color: 'text.secondary', display: 'block', mt: 1.25 }}
             variant="caption"
           >
-            Estimated use {forecast.daily_usage_kwh} kWh/day from {forecast.intervals_used}{' '}
-            valid interval(s). No safety buffer applied.
+            {usesDefault
+              ? `Assumed use ${Number(forecast.daily_usage_kwh)} kWh/day until a measured interval is available.`
+              : `Estimated use ${forecast.daily_usage_kwh} kWh/day from ${forecast.intervals_used} valid interval(s).`}
+            {' '}No safety buffer applied.
           </Typography>
           </Box>
         </Box>

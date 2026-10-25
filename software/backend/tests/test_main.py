@@ -3,13 +3,12 @@
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.settings import Settings
 
 
 def test_health_returns_service_metadata() -> None:
     """The health endpoint exposes its stable process-level contract."""
 
-    client = TestClient(create_app(Settings(environment="test")))
+    client = TestClient(create_app())
 
     response = client.get("/health")
 

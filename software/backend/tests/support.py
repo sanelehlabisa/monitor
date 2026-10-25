@@ -11,7 +11,6 @@ from app.database import connect_database
 from app.endpoints.auth import COOKIE_NAME
 from app.main import create_app
 from app.modules.sessions import create_session
-from app.settings import Settings
 
 
 def cleanup_users(connection: Connection[Any], emails: Sequence[str]) -> None:
@@ -41,7 +40,6 @@ class SharingCase:
     """Track exact synthetic account identities for deterministic teardown."""
 
     def __init__(self) -> None:
-        self.settings = Settings(environment="test")
         self.emails: list[str] = []
         self.clients: list[TestClient] = []
 
@@ -54,7 +52,7 @@ class SharingCase:
     def user(self, user_type: Literal["user", "admin"] = "user") -> Person:
         """Create an explicit isolated account/session fixture."""
         email = self.email()
-        with connect_database(self.settings) as connection:
+        with connect_database() as connection:
             row = connection.execute(
                 "INSERT INTO monitor.users (email, type) VALUES (%s, %s) RETURNING id",
                 (email, user_type),
@@ -67,7 +65,7 @@ class SharingCase:
 
     def client(self) -> TestClient:
         """Return a tracked unauthenticated test client."""
-        client = TestClient(create_app(self.settings), base_url="https://testserver")
+        client = TestClient(create_app(), base_url="https://testserver")
         self.clients.append(client)
         return client
 
@@ -76,5 +74,5 @@ class SharingCase:
         for client in self.clients:
             client.close()
         if self.emails:
-            with connect_database(self.settings) as connection:
+            with connect_database() as connection:
                 cleanup_users(connection, self.emails)

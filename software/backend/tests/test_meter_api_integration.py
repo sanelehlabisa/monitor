@@ -7,23 +7,22 @@ from app.endpoints.auth import COOKIE_NAME
 from app.database import connect_database
 from app.main import create_app
 from app.modules.sessions import create_session
-from app.settings import Settings
 from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
 from tests.support import cleanup_users
 
 
 def _client_for(
-    settings: Settings, email: str, user_type: Literal["user", "admin"] = "user"
+    email: str, user_type: Literal["user", "admin"] = "user"
 ) -> tuple[TestClient, int]:
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         row = connection.execute(
             "INSERT INTO monitor.users (email, type) VALUES (%s, %s) RETURNING id",
             (email, user_type),
         ).fetchone()
         assert row
         session = create_session(connection, row[0])
-    client = TestClient(create_app(settings))
+    client = TestClient(create_app())
     client.cookies.set(COOKIE_NAME, session.token)
     return client, row[0]
 
@@ -34,17 +33,16 @@ def test_meter_api_enforces_owner_scope_and_admin_access() -> None:
     normal_email = f"meter-user-{uuid4().hex}@example.test"
     other_email = f"meter-other-{uuid4().hex}@example.test"
     admin_email = f"meter-admin-{uuid4().hex}@example.test"
-    settings = Settings(environment="test")
-    normal, _ = _client_for(settings, normal_email)
-    other, _ = _client_for(settings, other_email)
-    admin, _ = _client_for(settings, admin_email, "admin")
+    normal, _ = _client_for(normal_email)
+    other, _ = _client_for(other_email)
+    admin, _ = _client_for(admin_email, "admin")
     try:
         existing = admin.get("/api/meters")
         assert existing.status_code == 200
         existing_meters = {
             item["id"]: item["owner_email"] for item in existing.json()
         }
-        denied = TestClient(create_app(settings)).get("/api/meters")
+        denied = TestClient(create_app()).get("/api/meters")
         home = normal.post("/api/meters", json={"name": " Home "})
         shop = other.post("/api/meters", json={"name": "Shop"})
         duplicate = normal.post("/api/meters", json={"name": "home"})
@@ -88,7 +86,7 @@ def test_meter_api_enforces_owner_scope_and_admin_access() -> None:
         me = admin.get("/api/me")
         assert me.json()["is_admin"] is True
     finally:
-        with connect_database(settings) as connection:
+        with connect_database() as connection:
             cleanup_users(connection, (normal_email, other_email, admin_email))
 
 
@@ -98,9 +96,8 @@ def test_same_cookie_observes_promotion_and_demotion(monkeypatch: MonkeyPatch) -
     email = f"role-session-{uuid4().hex}@example.test"
     owner_email = f"role-owner-{uuid4().hex}@example.test"
     monkeypatch.setenv("MONITOR_ADMIN_EMAILS", email)  # Negative legacy-env regression.
-    settings = Settings(environment="test")
-    client, user_id = _client_for(settings, email)
-    owner, _ = _client_for(settings, owner_email)
+    client, user_id = _client_for(email)
+    owner, _ = _client_for(owner_email)
     cookie = client.cookies.get(COOKIE_NAME)
     assert cookie
     try:
@@ -110,7 +107,7 @@ def test_same_cookie_observes_promotion_and_demotion(monkeypatch: MonkeyPatch) -
         for user_type, expected_admin in (
             ("user", False), ("admin", True), ("user", False)
         ):
-            with connect_database(settings) as connection:
+            with connect_database() as connection:
                 connection.execute(
                     "UPDATE monitor.users SET type = %s WHERE id = %s", (user_type, user_id)
                 )
@@ -120,5 +117,5 @@ def test_same_cookie_observes_promotion_and_demotion(monkeypatch: MonkeyPatch) -
             assert client.get(url).status_code == (200 if expected_admin else 404)
             assert client.cookies.get(COOKIE_NAME) == cookie
     finally:
-        with connect_database(settings) as connection:
+        with connect_database() as connection:
             cleanup_users(connection, (email, owner_email))

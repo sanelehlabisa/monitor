@@ -8,8 +8,8 @@ from uuid import uuid4
 
 from app.database import connect_database
 from app.main import create_app
-from app.settings import Settings
 from fastapi.testclient import TestClient
+from pytest import MonkeyPatch
 
 
 def _mailpit_code_for(email: str) -> str:
@@ -33,20 +33,20 @@ def _mailpit_code_for(email: str) -> str:
     raise AssertionError("Mailpit did not receive the OTP message")
 
 
-def _remove_identity(settings: Settings, email: str) -> None:
-    with connect_database(settings) as connection:
+def _remove_identity(email: str) -> None:
+    with connect_database() as connection:
         connection.execute(
             "DELETE FROM monitor.otp_challenges WHERE email = %s", (email,)
         )
         connection.execute("DELETE FROM monitor.users WHERE email = %s", (email,))
 
 
-def test_new_user_can_sign_in_use_me_and_log_out() -> None:
+def test_new_user_can_sign_in_use_me_and_log_out(monkeypatch: MonkeyPatch) -> None:
     """The complete open-signup flow uses Mailpit and an opaque cookie."""
 
-    settings = Settings(environment="development")
+    monkeypatch.setenv("MONITOR_ENVIRONMENT", "development")
     email = f"auth-api-{uuid4().hex}@example.test"
-    client = TestClient(create_app(settings))
+    client = TestClient(create_app())
     try:
         requested = client.post("/api/auth/request-otp", json={"email": email})
         code = _mailpit_code_for(email)
@@ -69,7 +69,7 @@ def test_new_user_can_sign_in_use_me_and_log_out() -> None:
         assert logged_out.status_code == 204
         assert denied.status_code == 401
 
-        with connect_database(settings) as connection:
+        with connect_database() as connection:
             assert connection.execute(
                 "SELECT type FROM monitor.users WHERE email = %s", (email,)
             ).fetchone() == ("user",)
@@ -82,4 +82,4 @@ def test_new_user_can_sign_in_use_me_and_log_out() -> None:
             ).fetchone()
         assert row == (1, 1)
     finally:
-        _remove_identity(settings, email)
+        _remove_identity(email)

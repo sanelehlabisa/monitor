@@ -23,14 +23,82 @@ def _top_up(kwh: str, occurred_at: datetime) -> TopUpEntry:
     )
 
 
-def test_forecast_requires_two_actual_balances() -> None:
-    """No rate is invented without a complete observation interval."""
+def test_forecast_requires_an_actual_balance_even_with_top_ups() -> None:
+    """Purchases alone cannot establish a starting balance."""
 
-    result = run_forecast_model([_balance("20", START)], [], START)
+    result = run_forecast_model([], [_top_up("20", START)], START)
 
     assert result.status == "not_enough_data"
     assert result.daily_usage_kwh is None
     assert result.intervals_used == 0
+    assert result.monthly_requirement_kwh is None
+
+
+def test_first_balance_uses_default_without_claiming_observed_intervals() -> None:
+    """A fresh reading immediately produces planning estimates at 10 kWh/day."""
+    result = run_forecast_model([_balance("20", START)], [], START)
+
+    assert result.status == "available"
+    assert result.daily_usage_kwh == Decimal("10.000000")
+    assert result.intervals_used == 0
+    assert result.estimated_balance_kwh == Decimal("20.000")
+    assert result.remaining_days == Decimal("2.00")
+    assert result.run_out_at == START + timedelta(days=2)
+    assert result.recommended_monthly_top_up_kwh == Decimal("280.000")
+    assert result.monthly_requirement_kwh == Decimal("300.000")
+
+
+def test_monthly_requirement_ignores_balance_and_later_purchases() -> None:
+    """Purchases and starting stock affect extra energy needed, not monthly usage."""
+    as_of = START + timedelta(days=1)
+    low = run_forecast_model([_balance("100", START)], [], as_of)
+    high = run_forecast_model([_balance("200", START)], [], as_of)
+    purchased = run_forecast_model(
+        [_balance("100", START)], [_top_up("50", START + timedelta(hours=12))], as_of,
+    )
+
+    assert low.monthly_requirement_kwh == high.monthly_requirement_kwh == purchased.monthly_requirement_kwh == Decimal("300.000")
+    assert low.recommended_monthly_top_up_kwh == Decimal("210.000")
+    assert high.recommended_monthly_top_up_kwh == Decimal("110.000")
+    assert purchased.recommended_monthly_top_up_kwh == Decimal("160.000")
+
+
+def test_default_uses_reading_time_and_only_later_known_purchases() -> None:
+    """Backdated input uses fractional days and avoids double-counting purchases."""
+    as_of = START + timedelta(days=2, hours=6)
+    result = run_forecast_model(
+        [_balance("100", START)],
+        [_top_up("99", START - timedelta(seconds=1)), _top_up("99", START),
+         _top_up("20", as_of), _top_up("99", as_of + timedelta(seconds=1))],
+        as_of.astimezone(timezone(timedelta(hours=2))),
+    )
+
+    assert result.as_of == as_of
+    assert result.latest_actual_balance_kwh == Decimal("100")
+    assert result.latest_actual_at == START
+    assert result.estimated_balance_kwh == Decimal("97.500")
+    assert result.remaining_days == Decimal("9.75")
+    assert result.run_out_at == START + timedelta(days=12)
+    assert result.recommended_monthly_top_up_kwh == Decimal("202.500")
+
+
+def test_first_zero_or_exhausted_balance_never_has_negative_estimates() -> None:
+    """An empty reading or depletion is not evidence of zero consumption."""
+    for balance in ("0", "5"):
+        result = run_forecast_model([_balance(balance, START)], [], START + timedelta(days=1))
+        assert result.daily_usage_kwh == Decimal("10.000000")
+        assert result.estimated_balance_kwh == Decimal("0.000")
+        assert result.remaining_days == Decimal("0.00")
+        assert result.run_out_at == START + timedelta(days=1)
+        assert result.recommended_monthly_top_up_kwh == Decimal("300.000")
+
+
+def test_future_first_balance_does_not_enable_default_forecast() -> None:
+    """A fallback must not project backwards from a future observation."""
+    result = run_forecast_model([_balance("20", START + timedelta(seconds=1))], [], START)
+    assert result.status == "inconsistent_history"
+    assert result.daily_usage_kwh is None
+    assert result.estimated_balance_kwh is None
 
 
 def test_forecast_uses_top_ups_and_time_weighted_intervals() -> None:
@@ -69,6 +137,7 @@ def test_forecast_accepts_zero_usage() -> None:
     assert result.remaining_days is None
     assert result.run_out_at is None
     assert result.recommended_monthly_top_up_kwh == Decimal("0.000")
+    assert result.monthly_requirement_kwh == Decimal("0.000")
 
 
 def test_forecast_surfaces_negative_consumption() -> None:

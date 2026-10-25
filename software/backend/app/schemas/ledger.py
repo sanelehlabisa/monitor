@@ -80,6 +80,7 @@ class ForecastResponse(BaseModel):
     remaining_days: Decimal | None
     run_out_at: datetime | None
     recommended_monthly_top_up_kwh: Decimal | None
+    monthly_requirement_kwh: Decimal | None
     intervals_used: int
 
 

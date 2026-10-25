@@ -42,7 +42,7 @@ def meters_index(
     """List accessible meters, optionally filtered by one keyword."""
 
     scope = authenticated.user.id if mine else meter_access_scope(authenticated)
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         meters = list_meters(connection, scope, q)
     return [_response(meter) for meter in meters]
 
@@ -56,7 +56,7 @@ def meters_create(
     """Create a meter with the signed-in user as its first member."""
 
     try:
-        with connect_database(request.app.state.settings) as connection:
+        with connect_database() as connection:
             meter = create_meter(connection, authenticated.user.id, payload.name)
     except MeterNameConflictError as error:
         raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
@@ -71,7 +71,7 @@ def meters_show(
 ) -> MeterResponse:
     """Return an accessible meter without revealing inaccessible IDs."""
 
-    with connect_database(request.app.state.settings) as connection:
+    with connect_database() as connection:
         meter = _find(connection, meter_id, meter_access_scope(authenticated))
     return _response(meter)
 
@@ -86,7 +86,7 @@ def meters_rename(
     """Rename an accessible meter."""
 
     try:
-        with connect_database(request.app.state.settings) as connection:
+        with connect_database() as connection:
             meter = rename_meter(
                 connection, meter_id, meter_access_scope(authenticated), payload.name
             )
@@ -106,7 +106,7 @@ def meters_delete(
     """Permanently delete a meter and history as a current member or admin."""
 
     try:
-        with connect_database(request.app.state.settings) as connection:
+        with connect_database() as connection:
             delete_meter(connection, meter_id, meter_access_scope(authenticated))
     except MeterNotFoundError as error:
         raise _not_found() from error
@@ -122,7 +122,7 @@ def members_index(
     """List an accessible meter's members without exposing a global directory."""
 
     try:
-        with connect_database(request.app.state.settings) as connection:
+        with connect_database() as connection:
             members = list_members(
                 connection, meter_id, meter_access_scope(authenticated)
             )
@@ -141,7 +141,7 @@ def members_share(
     """Share by normalized email, provisioning only a regular account if absent."""
 
     try:
-        with connect_database(request.app.state.settings) as connection:
+        with connect_database() as connection:
             member = share_member(
                 connection, meter_id, meter_access_scope(authenticated), payload.email
             )
@@ -160,7 +160,7 @@ def members_remove(
     """Remove one member, including oneself, unless they are the last member."""
 
     try:
-        with connect_database(request.app.state.settings) as connection:
+        with connect_database() as connection:
             remove_member(
                 connection, meter_id, meter_access_scope(authenticated), user_id
             )

@@ -28,6 +28,7 @@ const notEnoughForecast: Forecast = {
   remaining_days: null,
   run_out_at: null,
   recommended_monthly_top_up_kwh: null,
+  monthly_requirement_kwh: null,
   intervals_used: 0,
 };
 describe('Monitor authentication UI', () => {
@@ -245,7 +246,7 @@ describe('Monitor authentication UI', () => {
     expect(selectedMarkup).toContain('user@example.test');
     expect(selectedMarkup).toContain('value="Home"');
     expect(selectedMarkup).toContain('Not enough data');
-    expect(selectedMarkup).toContain('at least two actual balances');
+    expect(selectedMarkup).toContain('Add your first actual balance');
     expect(selectedMarkup).toContain('aria-label="Rename Home"');
     expect(selectedMarkup).toContain('readOnly=""');
     expect(selectedMarkup).not.toContain('SaveOutlinedIcon');
@@ -415,6 +416,7 @@ describe('Monitor authentication UI', () => {
       remaining_days: '8.34',
       run_out_at: '2026-10-17T20:09:36Z',
       recommended_monthly_top_up_kwh: '108.292',
+      monthly_requirement_kwh: '150.000',
       intervals_used: 2,
     };
 
@@ -433,20 +435,45 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain(utcDateDisplay(forecast.planning_at));
     expect(markup).not.toContain('(UTC)');
     expect(markup).toContain('108.292 kWh');
-    expect(markup).toContain('Monthly purchase recommendation');
+    expect(markup).toContain('Additional top-up');
+    expect(markup).toContain('Monthly requirement');
+    expect(markup).toContain('150.000 kWh');
     expect(markup).toContain('font-variant-numeric:tabular-nums');
     expect(markup).toContain('aria-label="Planning estimate"');
     expect(markup).toContain('repeat(2, minmax(0, 1fr))');
-    expect(markup).toContain('repeat(3, minmax(0, 1fr))');
-    expect(markup).toContain('border-top:1px solid');
+    expect(markup).not.toContain('repeat(4, minmax(0, 1fr))');
     expect(markup).not.toContain('linear-gradient(');
     expect(markup).not.toContain('rgba(255, 255, 255, 0.75)');
     expect(markup).toContain('30-day planning month');
-    expect(markup).toContain('current balance');
+    expect(markup).toContain('After subtracting estimated balance.');
     expect(markup).toContain('Calculation details');
     expect(markup).toContain('Calculated');
     expect(markup).not.toMatch(/<details[^>]*\sopen(?:[\s=>])/);
     expect(markup).toContain('No safety buffer applied');
+  });
+
+  it('labels first-balance estimates as a starting rate and switches to measured use', () => {
+    const forecast: Forecast = {
+      ...notEnoughForecast, status: 'available',
+      latest_actual_balance_kwh: '100.000', latest_actual_at: notEnoughForecast.as_of,
+      daily_usage_kwh: '10.000000', estimated_balance_kwh: '100.000',
+      remaining_days: '10.00', run_out_at: '2026-10-19T12:00:00Z',
+      recommended_monthly_top_up_kwh: '200.000', intervals_used: 0,
+      monthly_requirement_kwh: '300.000',
+    };
+    const starting = renderToStaticMarkup(<ForecastPanel forecast={forecast} loading={false} />);
+    expect(starting).toContain('Starting estimate using 10 kWh/day');
+    expect(starting).toContain('100.000 kWh');
+    expect(starting).toContain('10.00 days');
+    expect(starting).toContain('200.000 kWh');
+    expect(starting).toContain('300.000 kWh');
+    expect(starting).not.toContain('based on historical usage');
+    expect(starting).not.toContain('valid interval(s)');
+    expect(starting).not.toContain('Not enough data');
+
+    const measured = renderToStaticMarkup(<ForecastPanel forecast={{ ...forecast, intervals_used: 1 }} loading={false} />);
+    expect(measured).not.toContain('Starting estimate');
+    expect(measured).toContain('1 valid interval(s)');
   });
 
   it('withholds numbers for inconsistent forecast history', () => {
@@ -476,15 +503,17 @@ describe('Monitor authentication UI', () => {
       estimated_balance_kwh: '300.000', daily_usage_kwh: '15.000000',
       remaining_days: '20.00', run_out_at: new Date(Date.parse(asOf) + 20 * 86_400_000).toISOString(),
       recommended_monthly_top_up_kwh: amount,
+      monthly_requirement_kwh: (15 * days).toFixed(3),
     };
     const markup = renderToStaticMarkup(<ForecastPanel forecast={forecast} loading={false} />);
     expect(markup).toContain(utcDateDisplay(planningAt));
     expect(markup).toContain(`${days}-day planning month`);
     expect(markup).toContain(`${amount} kWh`);
+    expect(markup).toContain(`${(15 * days).toFixed(3)} kWh`);
     expect(markup).toContain('300.000 kWh');
     expect(markup).toContain('20.00 days');
     expect(markup).toContain('Predicted run-out');
-    expect(markup).toContain('current balance');
+    expect(markup).toContain('After subtracting estimated balance.');
     expect(markup).not.toContain('next 30 days');
   });
 
@@ -493,7 +522,8 @@ describe('Monitor authentication UI', () => {
       const markup = renderToStaticMarkup(<ForecastPanel forecast={{ ...notEnoughForecast, status }} loading={false} />);
       expect(markup).toContain('Next monthly top-up:');
       expect(markup).toContain(utcDateDisplay(notEnoughForecast.planning_at));
-      expect(markup).not.toContain('Monthly purchase recommendation');
+      expect(markup).not.toContain('Additional top-up');
+      expect(markup).not.toContain('Monthly requirement');
       expect(markup).not.toContain('Predicted run-out');
       expect(markup).not.toContain(' kWh');
     },
@@ -532,6 +562,7 @@ describe('Monitor authentication UI', () => {
           daily_usage_kwh: '0.000000',
           estimated_balance_kwh: '10.000',
           recommended_monthly_top_up_kwh: '0.000',
+          monthly_requirement_kwh: '0.000',
           intervals_used: 1,
         }}
         loading={false}

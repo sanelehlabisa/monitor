@@ -28,7 +28,7 @@ ACTIVATION = datetime(2024, 6, 1, tzinfo=UTC)
 
 def _meter(case: SharingCase, owner: Person, *members: Person) -> Meter:
     """Commit a meter predating the synthetic clock, never change seed records."""
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         meter = create_meter(connection, owner.id, f"Monthly {uuid4().hex[:8]}")
         connection.execute(
             "UPDATE monitor.meters SET created_at = %s WHERE id = %s",
@@ -41,7 +41,7 @@ def _meter(case: SharingCase, owner: Person, *members: Person) -> Meter:
 
 def _rows(case: SharingCase, meter_id: UUID) -> list[tuple]:
     """Read committed delivery state through an independent connection."""
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         return connection.execute(
             """SELECT id, dedupe_key, status, claimed_at, sent_at, reminder_type
                FROM monitor.reminder_deliveries WHERE meter_id = %s
@@ -53,7 +53,7 @@ def _job(case: SharingCase, meter: Meter, key: str, *, kind: str = "monthly",
          sent: bool = False, claimed_at: datetime = NOW - timedelta(hours=1)) -> UUID:
     """Persist one exact synthetic pending/sent job, including legacy fixtures."""
     job_id = uuid4()
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         connection.execute(
             """INSERT INTO monitor.reminder_deliveries
                (id, meter_id, reminder_type, dedupe_key, status, claimed_at, sent_at)
@@ -67,7 +67,7 @@ def _job(case: SharingCase, meter: Meter, key: str, *, kind: str = "monthly",
 def _run(case: SharingCase, sender: RecordingSender, now: datetime = NOW,
          activation: datetime = ACTIVATION):
     return monthly_reminders.run_monthly_reminders(
-        case.settings, activation_at=activation, sender=sender, now=now,
+        activation_at=activation, sender=sender, now=now,
     )
 
 
@@ -103,7 +103,7 @@ def test_explicit_aware_cutoff_and_clock_are_required(sharing_case: SharingCase)
     case = sharing_case
     sender = RecordingSender()
     with raises(TypeError):
-        monthly_reminders.run_monthly_reminders(case.settings, sender=sender, now=NOW)
+        monthly_reminders.run_monthly_reminders(sender=sender, now=NOW)
     with raises(ValueError):
         _run(case, sender, activation=ACTIVATION.replace(tzinfo=None))
     with raises(ValueError):
@@ -129,7 +129,7 @@ def test_discovery_uses_latest_cycle_and_excludes_newer_meters(sharing_case: Sha
     owner = case.user()
     old = _meter(case, owner)
     new = _meter(case, owner)
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         connection.execute(
             "UPDATE monitor.meters SET created_at = %s WHERE id = %s",
             (NOW + timedelta(microseconds=1), new.id),
@@ -147,7 +147,7 @@ def test_current_late_members_receive_without_preferences_or_admin_override(
     creator, member, late = case.user("admin"), case.user(), case.user()
     case.user("admin")  # Global access alone must never become a recipient.
     meter = _meter(case, creator, member, late)
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         remove_member(connection, meter.id, member.id, creator.id)
         assert connection.execute(
             "SELECT count(*) FROM monitor.reminder_settings WHERE meter_id = %s", (meter.id,)
@@ -251,7 +251,7 @@ def test_removed_member_pending_job_is_not_sent_and_deletion_cascades(
         nonlocal changed
         if not changed:
             changed = True
-            with connect_database(case.settings) as writer:
+            with connect_database() as writer:
                 remove_member(writer, meter.id, member.id, owner.id)
                 delete_meter(writer, deleted.id, owner.id)
         return original(connection, *args)
@@ -300,7 +300,7 @@ def test_delayed_message_keeps_notification_cycle_and_uses_fresh_forecast(
     meter = _meter(case, owner)
     now = datetime(2024, 7, 20, 10, tzinfo=UTC)
     _job(case, meter, f"2024-02:{owner.id}")
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         create_balance_entry(connection, meter.id, owner.id, Decimal("450"), now - timedelta(days=30))
         create_top_up_entry(connection, meter.id, owner.id, Decimal("300"), now - timedelta(days=15))
         create_balance_entry(connection, meter.id, owner.id, Decimal("300"), now)
@@ -331,7 +331,7 @@ def test_multiline_meter_name_cannot_inject_headers_or_abort_other_recipients(
     owner, other = case.user(), case.user()
     meter = _meter(case, owner)
     _meter(case, other)
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         connection.execute(
             "UPDATE monitor.meters SET name = %s WHERE id = %s",
             ("Home\r\nBcc: nobody@example.test", meter.id),
@@ -351,7 +351,7 @@ def test_unrepresentable_runout_keeps_job_pending_and_other_meter_continues(
     owner, other = case.user(), case.user()
     meter = _meter(case, owner)
     _meter(case, other)
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         create_balance_entry(connection, meter.id, owner.id, Decimal("999999999.999"),
                              NOW - timedelta(days=1))
         create_balance_entry(connection, meter.id, owner.id, Decimal("999999999.998"), NOW)
@@ -365,7 +365,7 @@ def test_unrepresentable_runout_keeps_job_pending_and_other_meter_continues(
 def test_owned_connection_never_commits_unrelated_caller_work(sharing_case: SharingCase) -> None:
     case = sharing_case
     owner = case.user()
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         connection.execute("SELECT 1")  # Make repository transactions nested savepoints.
         meter = create_meter(connection, owner.id, "Uncommitted monthly fixture")
         connection.execute(
@@ -374,7 +374,7 @@ def test_owned_connection_never_commits_unrelated_caller_work(sharing_case: Shar
         assert _run(case, RecordingSender()).messages_sent == 0
         assert connection.info.transaction_status == TransactionStatus.INTRANS
         connection.rollback()
-    with connect_database(case.settings) as observer:
+    with connect_database() as observer:
         assert observer.execute("SELECT id FROM monitor.meters WHERE id = %s", (meter.id,)).fetchone() is None
 
 
@@ -386,8 +386,8 @@ def test_overlapping_workers_do_not_send_the_same_valid_claim(
     entered, release = Event(), Event()
     pids: Queue[int] = Queue()
     original = monthly_reminders.connect_database
-    def tracked_connect(settings):
-        connection = original(settings)
+    def tracked_connect(**kwargs):
+        connection = original(**kwargs)
         connection.autocommit = True
         pids.put(connection.execute("SELECT pg_backend_pid()").fetchone()[0])
         return connection
@@ -428,7 +428,7 @@ def test_membership_revocation_waits_for_send_then_stops_later_cycles(
                 assert release.wait(timeout=15)
             super().send(message)
     def revoke() -> None:
-        with connect_database(case.settings) as connection:
+        with connect_database() as connection:
             pids.put(connection.execute("SELECT pg_backend_pid()").fetchone()[0])
             remove_member(connection, meter.id, member.id, owner.id)
     sender = BlockingSender()

@@ -12,12 +12,11 @@ from app.modules.sessions import (
     revoke_session,
     session_token_digest,
 )
-from app.settings import Settings
 from pytest import raises
 
 
-def _create_user(settings: Settings, email: str) -> int:
-    with connect_database(settings) as connection:
+def _create_user(email: str) -> int:
+    with connect_database() as connection:
         row = connection.execute(
             "INSERT INTO monitor.users (email) VALUES (%s) RETURNING id", (email,)
         ).fetchone()
@@ -25,20 +24,19 @@ def _create_user(settings: Settings, email: str) -> int:
     return row[0]
 
 
-def _remove_user(settings: Settings, email: str) -> None:
-    with connect_database(settings) as connection:
+def _remove_user(email: str) -> None:
+    with connect_database() as connection:
         connection.execute("DELETE FROM monitor.users WHERE email = %s", (email,))
 
 
 def test_multiple_sessions_authenticate_and_store_only_digests() -> None:
     """One user may sign in independently on more than one device."""
 
-    settings = Settings()
     email = f"sessions-{uuid4().hex}@example.test"
-    user_id = _create_user(settings, email)
+    user_id = _create_user(email)
     now = datetime(2026, 10, 9, tzinfo=UTC)
     try:
-        with connect_database(settings) as connection:
+        with connect_database() as connection:
             first = create_session(connection, user_id, now)
             second = create_session(connection, user_id, now + timedelta(seconds=1))
             first_user = authenticate_session(connection, first.token, now)
@@ -70,18 +68,17 @@ def test_multiple_sessions_authenticate_and_store_only_digests() -> None:
         assert "token" not in columns
         assert "token_digest" in columns
     finally:
-        _remove_user(settings, email)
+        _remove_user(email)
 
 
 def test_expired_and_revoked_sessions_share_one_error() -> None:
     """Callers cannot distinguish invalid session states through the domain."""
 
-    settings = Settings()
     email = f"session-state-{uuid4().hex}@example.test"
-    user_id = _create_user(settings, email)
+    user_id = _create_user(email)
     start = datetime(2026, 10, 9, tzinfo=UTC)
     try:
-        with connect_database(settings) as connection:
+        with connect_database() as connection:
             expired = create_session(connection, user_id, start)
             live = create_session(connection, user_id, start + timedelta(seconds=1))
             revoke_session(connection, live.token, start + timedelta(seconds=2))
@@ -97,4 +94,4 @@ def test_expired_and_revoked_sessions_share_one_error() -> None:
             with raises(SessionAuthenticationError, match="unavailable"):
                 revoke_session(connection, live.token, start + timedelta(seconds=4))
     finally:
-        _remove_user(settings, email)
+        _remove_user(email)

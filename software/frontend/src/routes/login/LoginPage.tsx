@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Chip, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Stack, TextField, Typography } from '@mui/material';
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import BorderColorOutlinedIcon from '@mui/icons-material/BorderColorOutlined';
@@ -41,11 +41,6 @@ export function LoginPage({
       <Box sx={{ py: 1 }}>
         <Box component="form" onSubmit={onSubmit}>
           <Stack spacing={2.5}>
-            <Chip
-              label="Software-only electricity planning"
-              size="small"
-              sx={{ alignSelf: 'flex-start' }}
-            />
             <Box>
               <Typography variant="h4" component="h1" gutterBottom>
                 {requestingCode ? 'Welcome to Monitor' : 'Check your email'}

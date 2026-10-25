@@ -8,7 +8,6 @@ from app.modules.email_delivery import (
     SmtpEmailSender,
     build_login_code_message,
 )
-from app.settings import Settings
 from pytest import MonkeyPatch, raises
 
 
@@ -67,7 +66,7 @@ def test_plain_smtp_sends_without_credentials(monkeypatch: MonkeyPatch) -> None:
         "app.modules.email_delivery.smtplib.SMTP", lambda *args, **kwargs: client
     )
 
-    SmtpEmailSender(Settings()).send(EmailMessage())
+    SmtpEmailSender().send(EmailMessage())
 
     assert [call[0] for call in client.calls if isinstance(call, tuple)] == [
         "has_extn",
@@ -82,9 +81,10 @@ def test_starttls_precedes_authenticated_delivery(monkeypatch: MonkeyPatch) -> N
     monkeypatch.setattr(
         "app.modules.email_delivery.smtplib.SMTP", lambda *args, **kwargs: client
     )
-    settings = Settings(smtp_user="monitor", smtp_password="secret")
+    monkeypatch.setenv("SMTP_USER", "monitor")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret")
 
-    SmtpEmailSender(settings).send(EmailMessage())
+    SmtpEmailSender().send(EmailMessage())
 
     names = [call if isinstance(call, str) else call[0] for call in client.calls]
     assert names == ["ehlo", "has_extn", "starttls", "ehlo", "login", "send_message"]
@@ -97,9 +97,11 @@ def test_implicit_tls_supports_authenticated_delivery(monkeypatch: MonkeyPatch) 
     monkeypatch.setattr(
         "app.modules.email_delivery.smtplib.SMTP_SSL", lambda *args, **kwargs: client
     )
-    settings = Settings(smtp_secure=True, smtp_user="monitor", smtp_password="secret")
+    monkeypatch.setenv("SMTP_SECURE", "true")
+    monkeypatch.setenv("SMTP_USER", "monitor")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret")
 
-    SmtpEmailSender(settings).send(EmailMessage())
+    SmtpEmailSender().send(EmailMessage())
 
     assert [call[0] for call in client.calls] == ["login", "send_message"]
 
@@ -111,10 +113,11 @@ def test_credentials_are_rejected_without_encryption(monkeypatch: MonkeyPatch) -
     monkeypatch.setattr(
         "app.modules.email_delivery.smtplib.SMTP", lambda *args, **kwargs: client
     )
-    settings = Settings(smtp_user="monitor", smtp_password="secret")
+    monkeypatch.setenv("SMTP_USER", "monitor")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret")
 
     with raises(EmailDeliveryError, match="requires TLS"):
-        SmtpEmailSender(settings).send(EmailMessage())
+        SmtpEmailSender().send(EmailMessage())
 
     assert not any(
         call[0] == "login" for call in client.calls if isinstance(call, tuple)

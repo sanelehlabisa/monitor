@@ -287,6 +287,7 @@ describe('authentication API client', () => {
         remaining_days: null,
         run_out_at: null,
         recommended_monthly_top_up_kwh: null,
+        monthly_requirement_kwh: null,
         intervals_used: 0,
       },
     };

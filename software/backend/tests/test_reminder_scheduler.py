@@ -7,15 +7,12 @@ from threading import Event, Lock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
-from psycopg.conninfo import conninfo_to_dict
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
 from app.database import connect_database
 from app.main import create_app
 from app.modules import monthly_reminders, reminder_scheduler
 from app.modules.reminder_runner import ReminderRunResult
-from app.settings import Settings
 from tests.support import SharingCase
 from tests.test_monthly_reminders import ACTIVATION, NOW, _job, _meter, _rows
 from tests.test_reminder_runner import RecordingSender
@@ -23,26 +20,26 @@ from tests.test_reminder_runner import RecordingSender
 EMPTY_RESULT = ReminderRunResult(0, 0, 0, 0)
 
 
-def _settings(cutoff: datetime | str | int | None = ACTIVATION) -> Settings:
-    """Set activation explicitly so unrelated process environment cannot enable it."""
-    return Settings(environment="test", monthly_reminders_activated_at=cutoff)
-
-
 @mark.parametrize("cutoff", [None, ""])
-def test_empty_activation_disables_automation(cutoff: datetime | str | None) -> None:
-    assert _settings(cutoff).monthly_reminders_activated_at is None
+def test_empty_activation_disables_automation(monkeypatch: MonkeyPatch, cutoff: str | None) -> None:
+    if cutoff is None:
+        monkeypatch.delenv("MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT", raising=False)
+    else:
+        monkeypatch.setenv("MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT", cutoff)
+    assert reminder_scheduler.read_activation_cutoff() is None
 
 
-@mark.parametrize("cutoff", ["not-a-date", "2024-06-01T09:00:00", 42, True])
-def test_invalid_or_naive_activation_is_rejected(cutoff: str | int) -> None:
-    with raises(ValidationError):
-        _settings(cutoff)
+@mark.parametrize("cutoff", ["not-a-date", "2024-06-01T09:00:00", "42", "true"])
+def test_invalid_or_naive_activation_is_rejected(monkeypatch: MonkeyPatch, cutoff: str) -> None:
+    monkeypatch.setenv("MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT", cutoff)
+    with raises(ValueError):
+        reminder_scheduler.read_activation_cutoff()
 
 
 def test_saved_activation_is_normalized_to_utc_and_not_reset(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT", "2024-06-01T11:00:00+02:00")
-    first = Settings(environment="test").monthly_reminders_activated_at
-    second = Settings(environment="test").monthly_reminders_activated_at
+    first = reminder_scheduler.read_activation_cutoff()
+    second = reminder_scheduler.read_activation_cutoff()
     assert first == second == datetime(2024, 6, 1, 9, tzinfo=UTC)
     assert first.utcoffset() == timedelta(0)
 
@@ -59,7 +56,7 @@ def test_disabled_or_stopped_pass_never_opens_database(
     if not disabled:
         stop.set()
     assert reminder_scheduler.run_scheduled_reminders(
-        _settings(None if disabled else ACTIVATION), stop,
+        None if disabled else ACTIVATION, stop,
     ) is None
 
 
@@ -69,7 +66,7 @@ def test_disabled_lifespan_creates_no_worker_and_health_stays_available(
     async def forbidden(*args, **kwargs):
         raise AssertionError("A disabled lifespan must not start a worker")
     monkeypatch.setattr(reminder_scheduler, "run_reminder_loop", forbidden)
-    with TestClient(create_app(_settings(None))) as client:
+    with TestClient(create_app()) as client:
         assert client.get("/health").status_code == 200
 
 
@@ -77,11 +74,11 @@ def test_startup_pass_runs_off_event_loop_without_blocking_requests(
     monkeypatch: MonkeyPatch,
 ) -> None:
     entered, release, finished = Event(), Event(), Event()
-    calls: list[Settings] = []
-    def blocking_pass(settings: Settings, stop: Event | None = None):
+    calls: list[datetime | None] = []
+    def blocking_pass(activation_at: datetime | None, stop: Event | None = None):
         with raises(RuntimeError, match="no running event loop"):
             asyncio.get_running_loop()
-        calls.append(settings)
+        calls.append(activation_at)
         entered.set()
         try:
             assert release.wait(timeout=5)
@@ -89,7 +86,8 @@ def test_startup_pass_runs_off_event_loop_without_blocking_requests(
         finally:
             finished.set()
     monkeypatch.setattr(reminder_scheduler, "run_scheduled_reminders", blocking_pass)
-    with TestClient(create_app(_settings())) as client:
+    monkeypatch.setenv("MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT", ACTIVATION.isoformat())
+    with TestClient(create_app()) as client:
         try:
             assert entered.wait(timeout=5)  # Immediate startup, not first 60-second tick.
             assert client.get("/health").status_code == 200
@@ -105,7 +103,7 @@ def test_loop_retries_failure_sequentially_without_logging_private_error_text(
     stop = Event()
     lock = Lock()
     calls = active = maximum_active = 0
-    def pass_once(settings: Settings, worker_stop: Event | None = None):
+    def pass_once(activation_at: datetime | None, worker_stop: Event | None = None):
         nonlocal calls, active, maximum_active
         with lock:
             calls += 1
@@ -123,7 +121,7 @@ def test_loop_retries_failure_sequentially_without_logging_private_error_text(
     assert reminder_scheduler.CHECK_INTERVAL_SECONDS == 60
     monkeypatch.setattr(reminder_scheduler, "CHECK_INTERVAL_SECONDS", 0.001)
     async def exercise() -> None:
-        await asyncio.wait_for(reminder_scheduler.run_reminder_loop(_settings(), stop), timeout=5)
+        await asyncio.wait_for(reminder_scheduler.run_reminder_loop(ACTIVATION, stop), timeout=5)
     asyncio.run(exercise())
     assert calls == 2 and maximum_active == 1
     assert "private-diagnostic-marker" not in caplog.text
@@ -133,7 +131,7 @@ def test_shutdown_signals_stop_and_drains_inflight_work_instead_of_detaching(
     monkeypatch: MonkeyPatch,
 ) -> None:
     entered, observed_stop, release, finished = Event(), Event(), Event(), Event()
-    def blocking_pass(settings: Settings, stop: Event | None = None):
+    def blocking_pass(activation_at: datetime | None, stop: Event | None = None):
         assert stop is not None
         entered.set()
         assert stop.wait(timeout=5)
@@ -145,7 +143,7 @@ def test_shutdown_signals_stop_and_drains_inflight_work_instead_of_detaching(
             finished.set()
     monkeypatch.setattr(reminder_scheduler, "run_scheduled_reminders", blocking_pass)
     async def exercise() -> None:
-        context = reminder_scheduler.monthly_reminder_lifespan(FastAPI(), _settings())
+        context = reminder_scheduler.monthly_reminder_lifespan(FastAPI(), ACTIVATION)
         await context.__aenter__()
         assert await asyncio.to_thread(entered.wait, 5)
         closing = asyncio.create_task(context.__aexit__(None, None, None))
@@ -163,7 +161,7 @@ def test_cancelled_loop_waits_for_its_actual_worker_to_finish(monkeypatch: Monke
     """Cancelling an asyncio wrapper is not treated as cancellation of its thread."""
     entered, observed_stop, release, finished = Event(), Event(), Event(), Event()
     stop = Event()
-    def blocking_pass(settings: Settings, worker_stop: Event | None = None):
+    def blocking_pass(activation_at: datetime | None, worker_stop: Event | None = None):
         entered.set()
         assert worker_stop is stop and stop.wait(timeout=5)
         observed_stop.set()
@@ -174,7 +172,7 @@ def test_cancelled_loop_waits_for_its_actual_worker_to_finish(monkeypatch: Monke
             finished.set()
     monkeypatch.setattr(reminder_scheduler, "run_scheduled_reminders", blocking_pass)
     async def exercise() -> None:
-        loop = asyncio.create_task(reminder_scheduler.run_reminder_loop(_settings(), stop))
+        loop = asyncio.create_task(reminder_scheduler.run_reminder_loop(ACTIVATION, stop))
         assert await asyncio.to_thread(entered.wait, 5)
         loop.cancel()
         try:
@@ -198,9 +196,9 @@ def test_legacy_or_malformed_monthly_rows_block_before_any_job_writes(
     _job(case, meter, legacy_key, sent=sent)
     before = _rows(case, meter.id)
     sender = RecordingSender()
-    monkeypatch.setattr(monthly_reminders, "SmtpEmailSender", lambda settings: sender)
+    monkeypatch.setattr(monthly_reminders, "SmtpEmailSender", lambda: sender)
     with raises(monthly_reminders.LegacyMonthlyDeliveriesError):
-        reminder_scheduler.run_scheduled_reminders(_settings())
+        reminder_scheduler.run_scheduled_reminders(ACTIVATION)
     assert _rows(case, meter.id) == before
     assert not sender.messages
 
@@ -215,7 +213,7 @@ def test_compatibility_allows_new_format_and_ignores_legacy_low_balance(
     _job(case, meter, f"2024-08:{owner.id}", sent=True)
     _job(case, meter, "2024-06-30", kind="low_balance")
     before = _rows(case, meter.id)
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         monthly_reminders.ensure_monthly_delivery_compatibility(connection)
     assert _rows(case, meter.id) == before
 
@@ -225,11 +223,11 @@ def test_scheduled_pass_forwards_fixed_cutoff_stop_and_bounded_io(
 ) -> None:
     captured: dict = {}
     stop = Event()
-    def finite_pass(settings: Settings, **kwargs):
+    def finite_pass(**kwargs):
         captured.update(kwargs)
         return EMPTY_RESULT
     monkeypatch.setattr(reminder_scheduler, "run_monthly_reminders", finite_pass)
-    assert reminder_scheduler.run_scheduled_reminders(_settings(), stop) == EMPTY_RESULT
+    assert reminder_scheduler.run_scheduled_reminders(ACTIVATION, stop) == EMPTY_RESULT
     assert captured["activation_at"] == ACTIVATION
     assert captured["bounded_io"] is True
     assert captured["check_legacy"] is True
@@ -246,13 +244,13 @@ def test_reminder_connection_bounds_do_not_change_normal_database_connections(
     def bounds(connection) -> tuple:
         return (connection.execute("SHOW statement_timeout").fetchone()[0],
                 connection.execute("SHOW lock_timeout").fetchone()[0])
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         original_bounds = bounds(connection)
     opened = []
     original = monthly_reminders.connect_database
-    def tracked_connect(settings: Settings):
-        assert conninfo_to_dict(settings.database_url)["connect_timeout"] == "5"
-        connection = original(settings)
+    def tracked_connect(*, connect_timeout: int | None = None):
+        assert connect_timeout == 5
+        connection = original(connect_timeout=connect_timeout)
         opened.append(connection)
         return connection
     monkeypatch.setattr(monthly_reminders, "connect_database", tracked_connect)
@@ -262,10 +260,10 @@ def test_reminder_connection_bounds_do_not_change_normal_database_connections(
             super().send(message)
     sender = ObservingSender()
     result = monthly_reminders.run_monthly_reminders(
-        case.settings, activation_at=ACTIVATION, sender=sender, now=NOW, bounded_io=True,
+        activation_at=ACTIVATION, sender=sender, now=NOW, bounded_io=True,
     )
     assert result.messages_sent == 1
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         assert bounds(connection) == original_bounds
 
 
@@ -284,7 +282,7 @@ def test_stop_during_discovery_rolls_back_entire_uncommitted_fanout(
     monkeypatch.setattr(monthly_reminders, "claim_reminder_delivery", claim_then_stop)
     sender = RecordingSender()
     result = monthly_reminders.run_monthly_reminders(
-        case.settings, activation_at=ACTIVATION, sender=sender, now=NOW,
+        activation_at=ACTIVATION, sender=sender, now=NOW,
         should_stop=stop.is_set,
     )
     assert result.messages_sent == 0 and not sender.messages
@@ -304,14 +302,14 @@ def test_stop_after_smtp_finishes_current_commit_and_preserves_remaining_jobs(
             stop.set()
     first = StopAfterSend()
     result = monthly_reminders.run_monthly_reminders(
-        case.settings, activation_at=ACTIVATION, sender=first, now=NOW,
+        activation_at=ACTIVATION, sender=first, now=NOW,
         should_stop=stop.is_set,
     )
     assert result.messages_sent == 1
     assert sorted(row[2] for row in _rows(case, meter.id)) == ["pending", "sent"]
     sender = RecordingSender()
     resumed = monthly_reminders.run_monthly_reminders(
-        case.settings, activation_at=ACTIVATION, sender=sender, now=NOW + timedelta(minutes=30),
+        activation_at=ACTIVATION, sender=sender, now=NOW + timedelta(minutes=30),
     )
     assert resumed.messages_sent == 1
     assert {message["To"] for message in first.messages + sender.messages} == {owner.email, member.email}

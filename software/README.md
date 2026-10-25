@@ -14,11 +14,50 @@ dependencies.
 - [Frontend](frontend/README.md): mobile-first manual entry, estimates and history.
 - [OCR](ocr/README.md): preserved future research only.
 
+## One environment, two Compose files
+
+Keep only ignored `software/.env` and the safe `.env.example`; do not create
+per-mode environment files. Use `APP_BASE_URL=https://127.0.0.1` for local
+production. VPS adaptation is deferred.
+There are no profiles or user mode/log-level settings.
+
+| Mode | Compose files | Browser URL |
+| --- | --- | --- |
+| Development | `dev.docker-compose.yaml` | `http://localhost:5173` |
+| Production | `prod.docker-compose.yaml` | `https://127.0.0.1` |
+
+Development fixes frontend/API/database ports at 5173/8000/5432 and always uses
+internal Mailpit. It ignores production URL/SMTP settings, so no `.env` edits are
+needed to switch back to development. Database credentials, OTP secret and the
+saved local reminder cutoff remain explicit. Production always forces reminders
+off and requires real SMTP plus a unique OTP secret. From `software/`, run either
+Compose file directly:
+
+```sh
+docker compose -f dev.docker-compose.yaml up --build
+docker compose -f prod.docker-compose.yaml up --build
+```
+
+Production Compose fixes loopback frontend HTTP80/HTTPS443 and backend8000.
+HTTP80 redirects to HTTPS443; no port or binding variables are needed in `.env`.
+Both modes publish backend8000, so run one at a time. No launcher, profiles,
+external network setup or additional Compose file are required. Production has
+no Mailpit. VPS work is deferred; the current file is for local testing.
+Only production uses `nginx/`; its certificate-generation helper is the only
+setup script. See [one-time certificate/setup instructions](nginx/README.md#local-https).
+The local correction passes direct configuration, production builds, HTTPS/API
+login, meter/forecast and logout checks with isolated data/captured mail.
+Earlier Task 077 checks remain separately recorded; real-provider acceptance is
+not established by these tests.
+The local `.env` now has a generated OTP secret and the production app starts.
+SMTP still points to Mailpit: replace it with real provider settings for production
+email login. Development keeps its captured-mail overrides.
+
 ## Development stack
 
-Copy [.env.example](.env.example) to `.env` only if it does not exist, then change
-the development password. Keep one ignored `.env` per installation; both Compose
-modes use it, and the same example documents the values to replace for a VPS.
+Copy [.env.example](.env.example) to `.env` only if it does not exist, then choose
+the installation's database password. Keep one ignored `.env` per installation;
+both Compose modes use it, and the same example documents the required values.
 Never overwrite an existing environment or reuse the local secrets for production. Administrator
 authority comes only from `users.type`, not environment settings. Task 059's
 guarded source transition passed after backup/rehearsal and approval to stop
@@ -32,7 +71,7 @@ configuration change was made. Fresh initialization is not an existing-volume
 upgrade. For an approved fresh setup:
 
 ```powershell
-docker compose -f dev.docker-compose.yaml up --build
+docker compose --env-file .env -f dev.docker-compose.yaml up --build
 ```
 
 The frontend is at `http://localhost:5173`, the API health endpoint at
@@ -44,7 +83,7 @@ inside the Compose network.
 Stop the stack without deleting data:
 
 ```powershell
-docker compose -f dev.docker-compose.yaml down
+docker compose --env-file .env -f dev.docker-compose.yaml down
 ```
 
 PostgreSQL runs `database/schema.sql` then fresh-only `database/seed.sql` only
@@ -60,8 +99,19 @@ Backend and frontend sources are bind-mounted for reload; Uvicorn watches only
 `app/`, not the offline research environment. Rebuild after changing
 Python or npm dependencies. The ignored `.env` is the visible source of Compose
 development values; Compose reports required missing values instead of silently
-using a second set of inline defaults. The single committed `.env.example` starts
-with local Mailpit/development values; follow the production guide before VPS use.
+using backend fallbacks. The single committed `.env.example` documents production
+settings; Compose fixes local ports and development overrides URL/mail values.
+The current production guide covers local HTTPS; VPS adaptation remains separate.
+Task 078 removes `settings.py` and `pydantic-settings`; the existing backend
+modules read the same ten required runtime values directly from `os.environ`.
+Validation remains beside each consumer without another configuration layer or
+private values in error messages. Compose maps the one `.env` and derives its database
+URL and fixes the backend mode. Development supplies local CORS/SMTP values;
+production derives its runtime CORS/gateway origins from `APP_BASE_URL`.
+Do not duplicate runtime URL/mode keys
+in `.env` or add another loader.
+Blank local SMTP credentials remain valid when explicitly supplied. The reminder
+cutoff alone remains optional; see [backend settings](backend/README.md#runtime-settings).
 
 Current features are email OTP/cookie login, name-only meter management,
 member/admin access, on-demand email sharing, membership-based My/All views,
@@ -81,8 +131,8 @@ remain in their numbered work records rather than current setup instructions.
 After changing frontend dependencies, refresh an existing named volume:
 
 ```powershell
-docker compose -f dev.docker-compose.yaml run --rm --no-deps frontend npm ci
-docker compose -f dev.docker-compose.yaml restart frontend
+docker compose --env-file .env -f dev.docker-compose.yaml run --rm --no-deps frontend npm ci
+docker compose --env-file .env -f dev.docker-compose.yaml restart frontend
 ```
 
 The existing frontend dependency volume survives image rebuilds. Refresh it
@@ -103,27 +153,39 @@ docker build --target production -t monitor-backend:production ./backend
 docker build --target production -t monitor-frontend:production ./frontend
 ```
 
-Production is also the default Dockerfile target. The frontend serves the built
-React assets through Nginx on port 80; the backend runs Uvicorn on port 8000
+Production is also the default Dockerfile target. The frontend serves built React
+assets through Nginx HTTPS443; HTTP80 redirects to HTTPS. Compose fixes loopback
+host80/443 bindings and mounts `./nginx/certs` read-only. The frontend health check
+uses internal HTTPS. No separate proxy service or launcher is added.
+The backend runs Uvicorn on port8000, published only at `127.0.0.1:8000`,
 without reload, as a non-root user. No local `.env*` files enter either build.
 Runtime credentials must not be passed as build arguments or copied into images.
 
 To run, the frontend needs a reachable `backend:8000` name on its Docker network.
-The backend defaults to production mode and requires a unique
-`MONITOR_OTP_HMAC_SECRET` at runtime. Supply the database, public origin
-and SMTP settings explicitly for the deployment; development defaults are not a
-production configuration. Schema installation and upgrades are not performed by
-the image command. See the component READMEs for the runtime boundaries.
+The production image explicitly sets production mode; backend environment reads
+do not fill missing installation values. Supply all ten runtime values,
+including a unique `MONITOR_OTP_HMAC_SECRET`, through the deployment configuration.
+Schema installation and upgrades are not performed by the image command. See the
+component READMEs for the runtime boundaries.
 
-Task 070 adds [prod.docker-compose.yaml](prod.docker-compose.yaml) and a
-[shared HTTPS operator guide](production/README.md) under Ticket 57.1. Task 072
-consolidates configuration into one [.env.example](.env.example), without changing
-the actual ignored `.env` or adding another environment loader. Production reuses
-the VPS's existing Nginx/Certbot; no extra gateway/TLS container, public listener
-or renewal timer. Only the frontend joins the shared proxy network. Production
-uses a separate database volume and schema only, without development seeds.
+Task 070 added [prod.docker-compose.yaml](prod.docker-compose.yaml) and a shared
+HTTPS design under Ticket 57.1. That design remains a [deferred reference](nginx/README.md),
+not a deployment recipe for the current local setup. Task 072 consolidated the
+template into one [.env.example](.env.example). Production now creates its own
+networks, with no external proxy prerequisite. It uses a separate database volume
+and schema only, without development seeds.
 Automatic production monthly reminders stay off pending separate activation.
-The current development `.env` is unchanged. Live deployment remains unapproved;
+The two-file configuration and existing frontend Nginx TLS are retained. Task 077's
+correction uses direct Compose with fixed local host bindings.
+`APP_BASE_URL` is the only public URL setting. The production file has three
+services, with no Mailpit, added TLS edge, profile or override. Credentials, SMTP
+values and saved reminder cutoff stay intact.
+Task 078 changes backend source without restarting the healthy production
+containers; rebuild the backend to load the configuration cleanup.
+Keep the generated OTP secret and supply provider SMTP before production email login.
+Production Compose fixes production mode and monthly reminders off as safety
+policy; it never inherits the local cutoff.
+Live deployment remains unapproved;
 no VPS, DNS, public certificate or household database changes are included.
 Both production targets build in Task 070 using cached dependency layers. Local
 self-signed HTTPS/OTP/cookie/meter/ledger/forecast checks, changed-IP proxy recovery
@@ -141,9 +203,10 @@ stored data were untouched by these checks.
 
 Users manage nickname-only meter/property profiles and manually enter actual
 balance and top-up energy in kWh. V1 does not require a physical meter number,
-tariff, Rand amount, device credential, image or OCR result. Forecasts must show
-"Not enough data" until valid history supports them and must visibly distinguish
-actual records from estimates.
+tariff, Rand amount, device credential, image or OCR result. Task 080 shows a
+labelled 10 kWh/day starting estimate from one actual balance; two or more valid
+readings supply the meter's measured rate. No balance remains "Not enough data",
+and inconsistent history stays unavailable. Distinguish actual records from estimates.
 
 Actual production deployment, payment integration, MQTT, hardware and OCR remain
 out of scope until their roadmap status changes through an approved task.
@@ -273,8 +336,9 @@ Run instructions and current limits are in the research README.
 The live model already calculates from each meter's own history. Research uses
 synthetic files only, with dense usage truth separated from daily/weekly/irregular
 manual observations. No real/demo DB changes, pooled customer histories or
-physical device processing. Optional starting-rate defaults remain labelled
-experiments; the live Not enough data policy stays unchanged. The simulator's
+physical device processing. The simulator's calibrated defaults remain labelled
+experiments; Task 080 separately adopts a fixed 10 kWh/day live starting assumption
+with one balance, not its trained prior or regression. The simulator's
 starting rate is the median of separate fictional training households' observed
 ledger rates, frozen independently of demo duration, randomness, lookback and
 reset. Fixed 10 kWh/day remains a labelled initial/fallback and comparison, not
@@ -317,15 +381,16 @@ pass locally. The candidate can proceed to review and separately approved live
 57.2 setup/HTTPS/SMTP acceptance. Inspect the actual shared edge's patch status;
 no whole-image security certification or public-provider acceptance is implied.
 
-Reuse the completed Task 036 images and current per-meter model. The user chose
-monitor.roventics.com and Job Talk's existing VPS Nginx/host Certbot pattern.
-The app serves internal HTTP port 80; the shared edge owns public 80/443, HTTP
-redirect and HTTPS. Do not introduce another public listener or renewal timer.
+VPS work is deferred while the user tests the local production setup. The earlier
+plan selected monitor.roventics.com and Job Talk's shared Nginx/Certbot pattern.
+That plan needs a separate adaptation: current Compose binds local80/443/8000,
+HTTP80 redirects, and no shared proxy network is attached. Preserve the existing
+VPS public proxy and other sites when that future work resumes.
 
 - 57.1 / Task 070 (complete, isolated checks passed): production Compose, explicit minimal env/origin/secrets,
   private backend/database, persistent fresh-schema-only setup, shared proxy
   integration and certificate issuance/renewal instructions. See the
-  [operator guide](production/README.md); no VPS verification is claimed.
+  [operator guide](nginx/README.md); no VPS verification is claimed.
 - 57.2: later approved live DNS/proxy/certificate deployment, real SMTP/OTP
   request/login/logout and meter/ledger/forecast smoke checks, member/admin
   isolation and restart persistence. Confirm actual VPS state and preserve

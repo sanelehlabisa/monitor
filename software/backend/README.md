@@ -1,15 +1,50 @@
 # Backend
 
-FastAPI REST service with a reusable application factory, typed configuration
-and a process-only health endpoint. Core settings use the `MONITOR_` prefix;
-SMTP settings use the approved Job Talk-style names in `.env.example`.
+FastAPI REST service with a reusable application factory, direct environment
+reads and a process-only health endpoint. Core settings use the `MONITOR_` prefix;
+SMTP settings use the approved Job Talk-style names in [the single template](../.env.example).
+
+## Runtime settings
+
+Task 078 removes `settings.py`, its `Settings` object and the `pydantic-settings`
+dependency. Existing modules read `os.environ` directly; there is no replacement
+configuration class/module or extra `.env` loader. Ten runtime values remain
+required before app import/startup:
+
+- `MONITOR_ENVIRONMENT`, `MONITOR_DATABASE_URL`,
+  `MONITOR_CORS_ORIGIN` and `MONITOR_OTP_HMAC_SECRET`.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`
+  and `EMAIL_FROM`.
+
+Task 078's production builds, 218 backend checks, unchanged OpenAPI and isolated
+HTTPS login/meter/forecast/logout flow pass. Rebuild the backend to load this
+change; the running app was preserved during verification.
+
+Missing variables fail by name rather than selecting development defaults.
+Origin, OTP, SMTP and cutoff validation stay beside their consumers, with errors
+that do not reflect private input values. Never print rendered Compose secrets.
+Explicit blank `SMTP_USER`/`SMTP_PASSWORD` remain
+valid for local Mailpit. Only `MONITOR_MONTHLY_REMINDERS_ACTIVATED_AT` is optional;
+missing/blank keeps it off, while an existing saved cutoff must be preserved.
+
+Both Compose modes map the single ignored `software/.env` into runtime variables.
+They derive the database URL from PostgreSQL values and fix `MONITOR_ENVIRONMENT`
+internally. Task 075's development Compose fixes local CORS and Mailpit SMTP,
+ignoring production URL/mail values. Production maps `APP_BASE_URL` to
+`MONITOR_CORS_ORIGIN` and the frontend's internal origin setting. Use
+`APP_BASE_URL=https://127.0.0.1` for local production. Both files run directly
+through Compose and fix their local port bindings; no binding variables are needed.
+Do not add duplicate mode/CORS/database URL keys or log-level settings to `.env`.
+Pydantic remains for API request/response schemas, pinned to the existing runtime's
+`2.13.5` version to preserve the OpenAPI contract during this cleanup. Production
+requires an HTTPS origin, a unique OTP secret and real SMTP credentials, including
+when run locally. Production reminders stay off; access-log policy is unchanged.
 
 ## Code layout
 
 ```text
 app/
   main.py          application factory; app.main:app stays the entrypoint
-  settings.py      typed configuration
   database.py      Psycopg connection helpers
   __init__.py      package version
   modules/         existing domain logic, raw SQL, email and forecast calculations
@@ -30,7 +65,10 @@ The backend connects directly through Psycopg. Development empty-volume init
 runs `schema.sql` then `seed.sql`; production runs schema only. Compose starts Uvicorn without running or
 mounting numbered migrations. Integration checks no longer apply migrations.
 Run checks only inside a dedicated verification environment with an explicitly
-isolated `MONITOR_DATABASE_URL` and initialized schema, never the current DB:
+isolated `MONITOR_DATABASE_URL` and initialized schema, never the current DB.
+Supply all ten synthetic runtime settings above before starting pytest:
+test collection imports the app and will now fail clearly without them. Point
+SMTP only at isolated capture; do not load the current installation's `.env`:
 
 ```powershell
 python -m pytest
@@ -58,19 +96,29 @@ GET/POST/PATCH/DELETE requests from the configured `MONITOR_CORS_ORIGIN`.
 environment is not scanned, and is selected explicitly by development Compose.
 The default `production` target uses the same pinned Python/dependencies
 and app code, starts Uvicorn without `--reload` and runs as numeric UID/GID
-10001. It defaults `MONITOR_ENVIRONMENT` to `production`, so the existing settings
-validator refuses startup with the development OTP secret. Supply the unique
-secret and deployment database/origin/SMTP values at runtime; no credential
-is built into the image. Local `.env*` files are excluded from build context.
+10001. The image explicitly sets `MONITOR_ENVIRONMENT=production`; environment
+reads have no installation defaults. The OTP module still refuses
+the example development OTP secret in production. Supply the other required
+runtime settings, including a unique secret; no credential is built into the
+image. Local `.env*` files are excluded from build context.
 
-The image command does not install/upgrade SQL or create a database. Task 070 adds
-production Compose with fresh-schema-only PostgreSQL, no published backend port,
-and SMTP egress. Uvicorn trusts proxy headers only from the private web subnet;
+Task 078 left running containers on their previous image. The user subsequently
+rebuilt the backend; Task 079 confirmed the removed settings file was absent.
+
+The image command does not install/upgrade SQL or create a database. Production
+Compose keeps fresh-schema-only PostgreSQL and SMTP egress. Uvicorn trusts proxy
+headers only from the private web subnet;
 the production gateway supplies its configured canonical Host/HTTPS scheme and
 removes client forwarding headers. Keep the trusted CIDR aligned with Compose
 IPAM if adapting the network after a collision check. Production monthly reminders
 are forced off pending separate activation, regardless of any local cutoff.
-See the [operator guide](../production/README.md); live deployment remains Ticket
+Task 077 keeps exactly development and production Compose files. From `software/`,
+run `docker compose -f prod.docker-compose.yaml up --build`. Production fixes
+frontend loopback HTTP80/TLS443 and backend `127.0.0.1:8000:8000`; the database
+stays unpublished. Development also fixes backend8000, so run one mode at a time.
+The browser uses same-origin `/api` through Nginx; port8000 supports local checks.
+No backend-port variable or external proxy network is required. See the
+[local setup and deferred VPS reference](../nginx/README.md); live deployment remains Ticket
 57.2. Process health does not validate database/SMTP connectivity. Task 036's image builds and
 disposable production smoke checks passed; see the software README.
 
@@ -91,9 +139,9 @@ locks serialize policy decisions. Plaintext exists only in the issuance return
 value for the next delivery layer and must never be logged.
 
 `MONITOR_OTP_HMAC_SECRET` is the only OTP policy environment setting.
-Development has a clearly marked local default; production refuses to start
-with it. Policy numbers stay as reviewed code constants rather than separate
-environment variables.
+The example explicitly supplies a clearly marked local value, not a backend
+fallback; production refuses to start with it. Policy numbers stay as reviewed
+code constants rather than separate environment variables.
 
 Ticket 44 delivers each issued code through a small standard-library SMTP
 boundary. Development uses Mailpit at `http://localhost:8025`; its SMTP listener
@@ -173,8 +221,13 @@ balances have unique per-meter times; purchases may share times. Nested IDs are
 authorized together with their parent, retaining generic inaccessible errors.
 
 All forecast callers still use `app.modules.forecasting.run_forecast_model`.
-At least two actual balances are required. Adjacent intervals include top-ups
-and yield one time-weighted daily rate; inconsistent history is unavailable.
+Task 080 uses DEFAULT_DAILY_USAGE_KWH (10 kWh/day) with exactly one actual balance
+at or before calculation time. Adjacent intervals from two or more readings include
+top-ups and yield one measured time-weighted daily rate. Without a balance, estimates are unavailable;
+inconsistent history stays unavailable and never falls back. The existing
+available status with intervals_used=0 identifies a default estimate; UI and
+monthly email label this assumption. Legacy low-balance warnings require measured
+intervals. Later purchases and elapsed time affect current estimates as before.
 Zero observed use has no finite run-out date. Dashboard output is derived,
 not stored, and includes actual records and latest actual reading/time.
 Task 066's additional monthly purchase is
@@ -185,6 +238,10 @@ following month-start. Rate/current-balance/run-out and unavailable states stay.
 The response now uses `recommended_monthly_top_up_kwh` instead of the removed
 `recommended_top_up_30_days_kwh`. `planning_at` and `planning_days` are known even
 without enough history; unsupported energy/rate estimates remain null.
+Task 081 additionally returns monthly_requirement_kwh: rate * planning_days,
+rounded to 0.001 kWh, independent of balance. It is zero for observed zero use
+and null for unavailable forecasts. The existing extra purchase and reminders
+keep their current-balance subtraction.
 
 Reminder GET/PATCH retains existing disabled-by-default settings, day 1-28,
 lead time up to 30 days and saved IANA timezone. Saving never sends mail.
@@ -497,9 +554,10 @@ Research contracts shared by all subtickets:
 - No real/demo DB writes, runtime/API changes or heavy frameworks. Research-only
   Matplotlib/NumPy do not change backend dependencies. Hardware/OCR/ML,
   costs and payments stay deferred.
-- The live app retains `not_enough_data` until its existing requirements are met.
-  Optional cold-start defaults are labelled research scenarios, never actual
-  meter readings or learned rates; live adoption requires separate approval.
+- The live app uses Task 080's labelled fixed 10 kWh/day assumption with one
+  balance and retains `not_enough_data` without a balance. Research-calibrated
+  defaults and rolling regression remain separate experiments, never actual
+  meter readings or deployed learned rates; their adoption needs separate approval.
 
 ### Ticket 66.1: Reproducible Synthetic Meter Datasets
 

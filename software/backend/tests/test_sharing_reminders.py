@@ -18,12 +18,12 @@ def test_removed_admin_creator_is_not_a_reminder_recipient(sharing_case: Sharing
     """Global admin privilege does not restore legacy recipient membership."""
     case = sharing_case
     creator, member = case.user("admin"), case.user()
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         meter = _configured_meter(connection, creator.id)
         share_member(connection, meter.id, creator.id, member.email)
         remove_member(connection, meter.id, member.id, creator.id)
         sender = RecordingSender()
-        result = reminder_runner.run_due_reminders(connection, case.settings, sender, NOW)
+        result = reminder_runner.run_due_reminders(connection, sender, NOW)
     assert result.messages_sent == 0
     assert sender.messages == []
 
@@ -34,20 +34,20 @@ def test_removal_after_candidate_selection_does_not_abort_other_meters(
     """A stale candidate is skipped while another eligible creator still receives."""
     case = sharing_case
     creator, member, other = case.user(), case.user(), case.user()
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         stale = _configured_meter(connection, creator.id, "Stale")
         share_member(connection, stale.id, creator.id, member.email)
         _configured_meter(connection, other.id, "Still eligible")
     original = reminder_runner.list_reminder_candidates
     def select_then_remove(connection):
         candidates = original(connection)
-        with connect_database(case.settings) as revoker:
+        with connect_database() as revoker:
             remove_member(revoker, stale.id, member.id, creator.id)
         return candidates
     monkeypatch.setattr(reminder_runner, "list_reminder_candidates", select_then_remove)
     sender = RecordingSender()
-    with connect_database(case.settings) as connection:
-        result = reminder_runner.run_due_reminders(connection, case.settings, sender, NOW)
+    with connect_database() as connection:
+        result = reminder_runner.run_due_reminders(connection, sender, NOW)
     assert result.messages_sent == 2
     assert {message["To"] for message in sender.messages} == {other.email}
 
@@ -58,7 +58,7 @@ def test_eligibility_is_rechecked_immediately_before_send(
     """A same-transaction mutation hook exercises the final recheck without SMTP."""
     case = sharing_case
     creator, member, other = case.user(), case.user(), case.user()
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         stale = _configured_meter(connection, creator.id, "Before send")
         share_member(connection, stale.id, creator.id, member.email)
         _configured_meter(connection, other.id, "Continue")
@@ -70,8 +70,8 @@ def test_eligibility_is_rechecked_immediately_before_send(
         return claim
     monkeypatch.setattr(reminder_runner, "claim_reminder_delivery", claim_then_remove)
     sender = RecordingSender()
-    with connect_database(case.settings) as connection:
-        result = reminder_runner.run_due_reminders(connection, case.settings, sender, NOW)
+    with connect_database() as connection:
+        result = reminder_runner.run_due_reminders(connection, sender, NOW)
     assert result.messages_sent == 2
     assert {message["To"] for message in sender.messages} == {other.email}
     # The synthetic hook is rolled back with the stale candidate's transaction;
@@ -82,7 +82,7 @@ def test_revocation_waits_until_dispatch_lock_is_released(sharing_case: SharingC
     """A concurrent removal waits for dispatch, then prevents the next run."""
     case = sharing_case
     creator, member = case.user(), case.user()
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         meter = _configured_meter(connection, creator.id)
         share_member(connection, meter.id, creator.id, member.email)
     entered, release = Event(), Event()
@@ -95,10 +95,10 @@ def test_revocation_waits_until_dispatch_lock_is_released(sharing_case: SharingC
             super().send(message)
     sender = BlockingSender()
     def dispatch():
-        with connect_database(case.settings) as connection:
-            return reminder_runner.run_due_reminders(connection, case.settings, sender, NOW)
+        with connect_database() as connection:
+            return reminder_runner.run_due_reminders(connection, sender, NOW)
     def revoke():
-        with connect_database(case.settings) as connection:
+        with connect_database() as connection:
             pids.put(connection.execute("SELECT pg_backend_pid()").fetchone()[0])
             remove_member(connection, meter.id, member.id, creator.id)
     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -111,5 +111,5 @@ def test_revocation_waits_until_dispatch_lock_is_released(sharing_case: SharingC
             release.set()
         assert dispatch_job.result(timeout=15).messages_sent == 2
         revoke_job.result(timeout=15)
-    with connect_database(case.settings) as connection:
-        assert reminder_runner.run_due_reminders(connection, case.settings, RecordingSender(), NOW).messages_sent == 0
+    with connect_database() as connection:
+        assert reminder_runner.run_due_reminders(connection, RecordingSender(), NOW).messages_sent == 0

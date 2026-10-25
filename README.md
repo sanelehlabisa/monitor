@@ -51,9 +51,10 @@ The dashboard should clearly distinguish actual entries from estimates and show:
 - next monthly top-up date (UTC 1st) and energy for that actual calendar month; and
 - simple balance and top-up history.
 
-Until enough valid history exists, the application must show **Not enough data**
-instead of manufacturing a forecast. Manual entry must take only a few seconds;
-whether users return often enough is the main V1 product risk.
+With one actual balance, show starting estimates using a clearly labelled
+10 kWh/day assumption. Valid additional readings replace it with that meter's
+measured usage. Without a balance, show **Not enough data**. Manual entry must
+take only a few seconds; whether users return often enough is the main V1 risk.
 
 ## Forecasting boundary
 
@@ -70,7 +71,10 @@ daily_usage_kwh = consumption_kwh / elapsed_days
 Forecast work must account for top-ups between readings, preserve the difference
 between actual and estimated balances, and reject zero/negative time intervals,
 negative consumption and inconsistent chronology. At least two valid actual
-balance readings are required before deriving a consumption rate.
+balance readings are required before deriving a measured consumption rate.
+Task 080 supplies the fixed 10 kWh/day fallback only for a single balance at or
+before calculation time; existing elapsed-time and later top-up calculations
+produce the estimates. Edits/deletions recalculate through the same model.
 
 V1 uses deterministic calculations, not machine learning. Formula selection,
 averaging windows, a conservative buffer and correction behavior belong in the
@@ -80,6 +84,8 @@ Monthly planning uses the strictly-next UTC 1st, advancing again once that day
 starts. Additional kWh is max(0, rate * target_month_days - current estimated
 balance), using the full target month's datetime duration, not a fixed 30 days
 or a future-balance projection. Earlier predicted run-out remains separate.
+The dashboard also shows total Monthly requirement (rate * target_month_days),
+without subtracting balance, alongside the Additional top-up amount.
 
 ## Technology
 
@@ -123,6 +129,14 @@ monitor/
 Documentation stays in these READMEs; no `docs/` directory. Development Compose,
 Docker build files and `.env.example` live under `software/`; real `.env` files
 are ignored.
+Use one installation `.env` with exactly development and production Compose files.
+`APP_BASE_URL=https://127.0.0.1` is the local production origin; development
+fixes its own localhost/Mailpit settings. Compose selects the mode without profiles.
+From `software/`, run `docker compose -f prod.docker-compose.yaml up --build`.
+Production Compose fixes local HTTP80/HTTPS443 and backend8000 bindings, with no
+port variables or external network setup. VPS deployment is deferred.
+See [mode settings](software/README.md#one-environment-two-compose-files) and the
+[Nginx HTTPS setup](software/nginx/README.md#local-https).
 
 Offline [forecasting research](software/backend/research/forecasting/README.md)
 lives under `software/backend/research/`, excluded from application Docker builds.
@@ -258,7 +272,30 @@ own implementation approval; details live in the closest software README.
   - [x] 57.1: Production Compose/shared HTTPS preparation — Task 070 builds and
     isolated HTTPS/OTP/meter/persistence/DNS-recovery checks pass; temporary
     resources cleaned. Task 072 adds one shared env template and minimal tested
-    gateway/OTP protections. See the [operator guide](software/production/README.md).
+    gateway/OTP protections. See the [operator guide](software/nginx/README.md).
+    Task 073 requires explicit installation settings, fills the missing local
+    domain key without replacing values and makes internal port 80 explicit.
+    Historical Task 074 implementation and isolated checks are preserved: `APP_URL` replaced
+    hostname-only settings,
+    removes user mode/log-level keys and adds opt-in localhost HTTPS. The VPS
+    retains its shared Nginx/Certbot; production requires real SMTP and a unique
+    OTP secret. All three configurations and the local HTTPS/OTP/meter/forecast/
+    logout flow pass with captured mail. Test-resource cleanup is verified complete;
+    no source startup or live-provider/VPS acceptance is claimed.
+    Historical Task 075 verified the two-file configuration and fixed development
+    URLs/ports/Mailpit. Its API flow timed out before verification, so no end-to-end
+    success is claimed. Task 076 supersedes its diagnostic HTTP/port-variable setup.
+    Historical Task 076's HTTPS/API/certificate checks and cleanup passed; Task
+    077 supersedes its local8443 URL/binding contract, not those records.
+    Task 077's correction focuses on local use: direct Compose, fixed HTTP80/
+    HTTPS443 and backend8000 bindings, one `.env`, no launcher or external network
+    prerequisite. Production has three services and no Mailpit. Earlier isolated
+    HTTPS/API and cleanup results remain historical in its work record. Real SMTP
+    and a unique OTP secret remain user-supplied. VPS adaptation and acceptance
+    are deferred; changing the URL alone does not deploy the current local setup.
+    Task 078 removes `settings.py` and its configuration dependency, using direct
+    environment reads in existing modules. Environment values and runtime behavior
+    stay unchanged; the running backend needs a rebuild to load this cleanup.
   - [ ] 57.2: Separately approved live deployment — DNS/proxy/certificate setup,
     SMTP/login and meter-flow acceptance; preserve other sites and stored data.
 - [ ] Ticket 56: Personal Usage Validation — retain Task 034's completed technical
@@ -278,9 +315,9 @@ own implementation approval; details live in the closest software README.
    deployment acceptance (57.2); VPS/external mail need their own approval.
    Task 072 addresses Task 071's minimal gaps: patched Nginx, browser write/frame
    policy, OTP budgets and one env template; local configuration/browser checks
-   pass. Next is separately approved VPS setup and real HTTPS/SMTP acceptance,
-   not a new model or extra infrastructure. Shared-edge patch status still needs
-   operator inspection; local checks are not a whole-system security guarantee.
+   pass. The current priority is the user's local production walkthrough on
+   HTTP80/HTTPS443 and backend8000. VPS adaptation and provider acceptance stay
+   deferred; local checks are not a whole-system security guarantee.
 3. HTML email presentation (70) and offline forecast validation (66.1 -> 66.4)
    remain separate. Candidate adoption 66.5 is not a pilot-deployment requirement;
    retain the baseline if the candidate is not justified. Keep costs deferred.
@@ -318,8 +355,8 @@ adoption. The full 66.1/66.2 acceptance, 66.3 review,
 
 Within forecast work, finish the remaining data/validation evidence, not a live
 model rewrite. The current model already uses each meter's own history. The
-simulator's calibrated/default rates are labelled research experiments only;
-the app still shows Not enough data when required. A no-go
+simulator's calibrated rates remain research experiments; Task 080's live
+10 kWh/day starting assumption is separate, not a trained model. A no-go
 retains the baseline; candidate adoption is not a deployment requirement if the
 baseline passes validation. Detailed outputs/checks are in the backend README.
 

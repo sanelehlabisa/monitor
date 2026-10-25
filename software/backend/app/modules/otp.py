@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import hashlib
 import hmac
+import os
 import secrets
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -15,6 +16,16 @@ RESEND_COOLDOWN = timedelta(seconds=60)
 REQUEST_WINDOW = timedelta(hours=1)
 MAX_REQUESTS_PER_WINDOW = 5
 MAX_ATTEMPTS = 5
+
+
+def get_otp_secret() -> str:
+    """Read the persistent login-code key without exposing it in errors."""
+    secret = os.environ["MONITOR_OTP_HMAC_SECRET"]
+    if os.environ["MONITOR_ENVIRONMENT"] == "production" and secret.strip() in (
+        "", "monitor_dev_otp_secret_change_me",
+    ):
+        raise ValueError("Production requires a unique MONITOR_OTP_HMAC_SECRET")
+    return secret
 
 
 class OtpPolicyError(Exception):

@@ -13,7 +13,6 @@ from app.modules.meters import (
     list_meters,
     rename_meter,
 )
-from app.settings import Settings
 from psycopg import Connection
 from psycopg.errors import CheckViolation
 from pytest import raises
@@ -32,8 +31,7 @@ def _create_user(connection: Connection[Any], prefix: str) -> tuple[int, str]:
 def test_meter_crud_is_ordered_and_owner_scoped() -> None:
     """Owners see their meters while unrestricted lookups see all."""
 
-    settings = Settings()
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         first_user, first_email = _create_user(connection, "meters-first")
         second_user, second_email = _create_user(connection, "meters-second")
         try:
@@ -77,8 +75,7 @@ def test_meter_crud_is_ordered_and_owner_scoped() -> None:
 def test_meter_names_are_valid_and_unique_per_owner() -> None:
     """Names are trimmed, bounded, and case-insensitively unique per owner."""
 
-    settings = Settings()
-    with connect_database(settings) as connection:
+    with connect_database() as connection:
         user_id, email = _create_user(connection, "meter-constraints")
         try:
             create_meter(connection, user_id, "Home")

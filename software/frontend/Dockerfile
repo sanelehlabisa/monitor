@@ -16,7 +16,7 @@ FROM base AS build
 RUN npm run build
 
 FROM nginx:1.30.6-alpine3.24 AS production
-ENV NGINX_ENVSUBST_FILTER=^APP_DOMAIN$
+ENV NGINX_ENVSUBST_FILTER=^APP_URL$
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 80 443

@@ -7,6 +7,7 @@ from pytest import raises
 from psycopg.errors import ForeignKeyViolation
 
 from app.database import connect_database
+from app.modules.otp import get_otp_secret
 from app.endpoints.auth import COOKIE_NAME
 from app.modules.otp import issue_otp
 from tests.support import SharingCase
@@ -26,7 +27,7 @@ def test_share_provisions_normalized_user_without_login_bypass(sharing_case: Sha
     assert set(first.json()) == {"user_id", "email"}
     assert first.json()["email"] == email
     assert owner.client.post(url, json={"email": admin.email}).status_code == 200
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         assert connection.execute("SELECT type FROM monitor.users WHERE email = %s", (email,)).fetchone() == ("user",)
         assert connection.execute("SELECT type FROM monitor.users WHERE id = %s", (admin.id,)).fetchone() == ("admin",)
         assert connection.execute("SELECT count(*) FROM monitor.user_sessions WHERE user_id = %s", (first.json()["user_id"],)).fetchone() == (0,)
@@ -37,8 +38,8 @@ def test_share_provisions_normalized_user_without_login_bypass(sharing_case: Sha
     assert client.get(f"/api/meters/{meter['id']}").status_code == 401
     client.cookies.clear()
     assert client.post("/api/auth/verify-otp", json={"email": email, "code": "000000"}).status_code == 401
-    with connect_database(case.settings) as connection:
-        otp = issue_otp(connection, email, case.settings.otp_hmac_secret.get_secret_value())
+    with connect_database() as connection:
+        otp = issue_otp(connection, email, get_otp_secret())
     verified = client.post("/api/auth/verify-otp", json={"email": email, "code": otp.code})
     assert verified.status_code == 200
     assert verified.json()["id"] == first.json()["user_id"]
@@ -63,7 +64,7 @@ def test_member_email_search_deduplicates_and_creator_is_only_metadata(sharing_c
     assert admin.client.get("/api/meters", params={"q": owner.email}).json() == []
     assert member.client.get(url).json()["owner_email"] == owner.email
     assert member.client.patch(url, json={"name": "Updated by member"}).status_code == 200
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         with raises(ForeignKeyViolation):
             with connection.transaction():
                 connection.execute("DELETE FROM monitor.users WHERE id = %s", (owner.id,))
@@ -109,7 +110,7 @@ def test_all_protected_paths_deny_nonmembers_and_immediate_removal(sharing_case:
     for person in (outsider, member):
         assert person.client.get("/api/meters").json() == []
         assert person.client.get("/api/meters", params={"q": owner.email}).json() == []
-    with connect_database(case.settings) as connection:
+    with connect_database() as connection:
         assert connection.execute("SELECT count(*) FROM monitor.users WHERE email = %s", (target_email,)).fetchone() == (0,)
         assert connection.execute("SELECT balance_kwh FROM monitor.balance_entries WHERE id = %s", (balance["id"],)).fetchone()[0] == 40
 
@@ -156,7 +157,7 @@ def test_shared_member_and_nonmember_admin_can_manage_and_delete(sharing_case: S
         assert admin.client.delete(base + f"/members/{last_id}").status_code == 409
         assert actor.client.delete(base + "/members/9223372036854775807").status_code == 404
         assert actor.client.delete(base).status_code == 204
-        with connect_database(case.settings) as connection:
+        with connect_database() as connection:
             for table in ("meters", "user_meters", "balance_entries", "top_up_entries", "reminder_settings", "reminder_deliveries"):
                 field = "id" if table == "meters" else "meter_id"
                 assert connection.execute(f"SELECT count(*) FROM monitor.{table} WHERE {field} = %s", (meter["id"],)).fetchone() == (0,)
