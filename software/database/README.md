@@ -5,14 +5,16 @@ PostgreSQL with explicit Psycopg SQL; no ORM or automatic runtime migrations.
 ## Active files
 
 - schema.sql: nine domain tables and constraints/indexes.
-- seed.sql: fresh-development admin and fictional example meters/history.
+- seeds/010-users.sql: the approved admin account for fresh development/production.
+- seeds/020-demo-meters.sql: fictional account, meters and history for development only.
 - README.md: setup, safety and recovery guidance.
 
-Development Compose mounts schema.sql then seed.sql read-only into initialization;
-Task 070 production Compose mounts only schema.sql in its separate project/volume.
-Fresh production has no example data or admin. Use normal verified signup then
-an explicit manual DB role assignment; see the [operator guide](../nginx/README.md).
-The development admin seed does not carry over to the separate production volume.
+Both Compose files mount schema.sql then seeds/010-users.sql read-only into
+initialization. Development also mounts seeds/020-demo-meters.sql last. Production
+mounts no demo seed: its fresh volume contains only the admin account, without
+meters, history, credentials or sessions. Sign in using the normal email-OTP flow
+and create meters in the app; see the [operator guide](../nginx/README.md).
+The two Compose projects keep separate persistent volumes.
 After an explicit role change, reload the browser to refresh admin My/All controls;
 choose All to include meters outside the account's current memberships.
 They run only on an empty persistent volume; restart/recreation does not replay
@@ -41,10 +43,12 @@ stored history table or data.
 
 OTP signup creates a user after verification; Task 063 sharing may provision a
 regular account first without granting authentication. Plaintext OTPs/tokens are
-never stored. Only users.type grants admin access, without env/email fallback. Fresh
-seeds provision hlabisasanele730@gmail.com as admin and monitor-seed@example.test
-examples, without credentials/sessions or enabled mail. Login/restart never
-overwrites manual role changes; see the [backend README](../backend/README.md).
+never stored. Only users.type grants admin access, without env/email fallback.
+The common fresh seed provisions hlabisasanele730@gmail.com as admin; the separate
+development seed creates monitor-seed@example.test and its examples. Neither
+creates credentials/sessions or enabled mail. Seeds are plain inserts, with no
+automatic re-promotion of an existing account. Login/restart never overwrites
+manual role changes; see the [backend README](../backend/README.md).
 
 Meter names are case-insensitively unique per owner. Balances have unique
 per-meter occurrence times; purchases may share a time. Store UTC instants,
@@ -87,7 +91,7 @@ IDs, auth state, constraints, both histories and sequence; advance sequences onl
 on the disposable copy. Logical backups exclude cluster roles/passwords/tablespaces.
 
 The backup predates the upgrade. To rehearse that old-state transition, use the
-exact retained reviewed SQL above, not schema.sql/seed.sql or an absent active
+exact retained reviewed SQL above, not schema.sql or fresh seeds or an absent active
 path. It is a one-time transaction with its own BEGIN/COMMIT/timeouts; use psql
 ON_ERROR_STOP, never a second wrapping transaction. Verify original-column data
 and default roles before separately rehearsing the reviewed admin assignment.

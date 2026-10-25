@@ -10,20 +10,22 @@ READMEs hold details; historical results stay in work/ and Git.
 - FastAPI uses explicit Psycopg SQL, not an ORM. React/Vite/Material UI is the
   mobile-friendly frontend. Development uses software/dev.docker-compose.yaml
   and ignored software/.env. Never print/commit secrets or private records.
-- Task 077's correction uses direct docker compose with exactly dev/prod files
-  and one ignored software/.env plus its safe example. APP_BASE_URL is
-  https://127.0.0.1. The user deferred VPS work: production Compose now fixes
-  loopback HTTP80/HTTPS443 and backend8000, with no port/binding env variables
-  or external network prerequisite. Its ingress network belongs to this stack.
+- Task 083 uses direct docker compose with exactly dev/prod files and one ignored
+  software/.env plus its safe example. The production browser origin is
+  https://monitor.roventics.com. Following Job Talk, production joins external
+  roventics_proxy as monitor-frontend and serves internal HTTP80, with a private
+  127.0.0.1:8082 diagnostic binding. The backend/database have no host ports.
+  Shared Roventics Nginx owns public HTTP80 redirects, HTTPS443 and certificates.
   Development overrides local URLs/ports and Mailpit SMTP in Compose; no env
   edits are needed when switching modes. Production has three services and no
-  Mailpit. No launcher, profiles or custom startup script; only the certificate
-  helper remains under nginx/, used only by production. Nginx derives the
+  Mailpit. No launcher, profiles or custom startup script. Nginx derives the
   canonical authority with a map; backend origin validation remains required.
-  HTTP80 redirects to HTTPS443; the frontend health check uses internal HTTPS.
-  There is no separate redirect port or plain-HTTP app-serving hop. Database
+  The frontend health check uses internal HTTP. Public certificates are not
+  mounted into Monitor. Standalone local HTTPS is superseded by the shared edge;
+  development remains independent. Database
   URL/CORS remain derived; no user mode/log-level settings or backend fallbacks.
-  Existing VPS instructions are deferred references, not current deployment steps.
+  software/nginx/README.md owns network/proxy/certificate setup instructions.
+  Repository preparation does not perform live VPS/DNS/certificate changes.
 - Task 078 removes settings.py and pydantic-settings entirely. Existing database,
   auth, mail, startup and scheduler modules read os.environ directly; no renamed
   configuration class/module or new loader. Preserve current env keys, secrets,
@@ -45,10 +47,12 @@ READMEs hold details; historical results stay in work/ and Git.
   users.type; that constrained user/admin column is the sole authority,
   read each request. No env/email override or cookie-cached role. Preserve opaque
   HTTP-only cookies, digest-only OTP/session storage and abuse controls.
-- Fresh-only seeds provision hlabisasanele730@gmail.com as admin and fictional
-  examples, without credentials/sessions. Later role changes are manual DB
+- Fresh-only seeds/010-users.sql provisions hlabisasanele730@gmail.com as admin
+  in both modes, without credentials/sessions. Development additionally uses
+  seeds/020-demo-meters.sql for a fictional account, meters and history; production
+  never seeds meters. Later role changes are manual DB
   operations, never startup or login re-promotion.
-  These seeds run in development only; production has its own schema-only volume.
+  Each mode has its own persistent volume; existing volumes never replay seeds.
   Task 079 explicitly restored the existing approved production account to admin
   at the user's request, preserving other roles and all records. Reload the browser
   after manual role changes; admins default to My and select All for global scope.
@@ -107,7 +111,7 @@ scheduler locally with internal Mailpit; production/external mail remains separa
 
 ## Database and runtime safety
 
-- database/ keeps only schema.sql, seed.sql and README.md. PostgreSQL runs SQL
+- database/ keeps schema.sql, numbered seeds/ and README.md. PostgreSQL runs SQL
   only on an empty volume. Startup never upgrades SQL or replays seeds. Agree
   an explicit safe repair for partial initialization; never reset automatically.
 - Task 059 upgraded the existing DB after verified backup/isolated rehearsal,
@@ -233,8 +237,9 @@ Existing API payloads are unchanged; only three member operations were added.
    complete: own production Compose/volume, schema-only fresh setup and shared-edge
    instructions. Task 072 consolidates its example into the single .env.example.
    Its historical plan reused Job Talk's VPS Nginx/host Certbot with an internal
-   HTTP80 app hop and external roventics_proxy. Task 077's local-only correction
-   supersedes that wiring; VPS adaptation is deferred. Backend retains scoped
+   HTTP80 app hop and external roventics_proxy. Task 083 restores that shared-edge
+   wiring and fresh admin-only production seeds after Task 077's local correction.
+   Backend retains scoped
    proxy trust and SMTP egress.
    Production monthly automation is forced off; the dev cutoff cannot carry over.
    Both production targets build with cached dependency layers. Isolated local
@@ -332,12 +337,10 @@ Existing API payloads are unchanged; only three member operations were added.
    preserving all four stopped source containers. No new browser/provider/VPS
    acceptance was claimed. Task 077 supersedes the old local8443 URL/binding,
    not the preserved records, certificates or two-file/three-service boundary.
-11. The user corrected Task 077 to remove its launcher and custom origin script.
-   From software/, use docker compose -f prod.docker-compose.yaml up --build;
-   focus only on local frontend80/443 and backend8000. Compose fixes those ports;
-   there are no binding variables or shared external network requirements.
-   Nginx HTTP80 redirects to its HTTPS443 app; dev keeps its local overrides.
-   VPS work is deferred and the old shared HTTP hop is not active.
+11. Historical Task 077 removed its launcher and custom origin script and fixed
+   local frontend80/443 and backend8000. Task 083 supersedes those local bindings
+   with the requested Job Talk-style shared proxy; direct Compose and development
+   overrides remain. The earlier local-only setup is not current deployment guidance.
    Earlier launcher/configuration/HTTPS API checks and exact cleanup remain
    historical in work/077; do not present them as verification of later edits.
    The later user-reported startup failure was fixed by replacing only the public

@@ -1,11 +1,9 @@
--- Fresh setup only; never replay against existing users or manually changed roles.
--- These are DB types, not runtime privileges until Task 059. No OTP/session seeds.
+-- Fresh development setup only. Production never mounts this seed.
+-- Fictional examples belong to a separate account, never to the real admin.
 BEGIN;
 INSERT INTO monitor.users (email, type) VALUES
-    ('hlabisasanele730@gmail.com', 'admin'),
     ('monitor-seed@example.test', 'user');
 
--- Fictional examples belong to a separate account, never to the real admin.
 INSERT INTO monitor.meters (id, user_id, name)
 SELECT example.id::uuid, users.id, example.name
 FROM monitor.users AS users
@@ -16,7 +14,14 @@ CROSS JOIN (VALUES
 WHERE users.email = 'monitor-seed@example.test';
 
 INSERT INTO monitor.user_meters (user_id, meter_id)
-SELECT user_id, id FROM monitor.meters;
+SELECT meters.user_id, meters.id
+FROM monitor.meters AS meters
+JOIN monitor.users AS users ON users.id = meters.user_id
+WHERE users.email = 'monitor-seed@example.test'
+  AND meters.id IN (
+    '58000000-0000-4000-8000-000000000001',
+    '58000000-0000-4000-8000-000000000002'
+  );
 
 INSERT INTO monitor.balance_entries (id, meter_id, balance_kwh, occurred_at) VALUES
     ('58000000-0000-4000-8000-000000000011', '58000000-0000-4000-8000-000000000001', 240, CURRENT_TIMESTAMP - INTERVAL '14 days'),

@@ -1,282 +1,120 @@
-# Nginx: local production HTTPS
+# Production Nginx and shared HTTPS
 
-The current setup is for local testing. Production Compose publishes frontend
-HTTP80/HTTPS443 and backend8000 on loopback only; the database remains unpublished.
-Nginx redirects HTTP to HTTPS and proxies same-origin `/api` requests to the
-backend. Compose creates its own networks, with no shared-network prerequisite.
-VPS adaptation is deferred.
+Monitor uses the same deployment pattern as Job Talk. The existing Roventics
+Nginx owns public HTTP80/HTTPS443 and Certbot certificates. Monitor's frontend
+serves HTTP80 on the shared `roventics_proxy` network as `monitor-frontend`, with
+an optional loopback diagnostic port `127.0.0.1:8082`. Its backend and database
+have no published ports. The frontend proxies `/api` to the private backend.
 
-## Local HTTPS
+There are exactly two Compose files and one ignored `software/.env`. Development
+runs independently at `http://localhost:5173`, with Compose overriding URL/SMTP
+for Mailpit. Production now requires the shared proxy; the previous standalone
+local HTTPS setup is retired. Existing private certificate files are preserved,
+but are no longer mounted. No launcher or local certificate script is required.
 
-Use exactly `dev.docker-compose.yaml` or `prod.docker-compose.yaml`, with the same
-ignored `.env`. Run Compose directly from `software/`; no launcher, profiles or
-third Compose file are needed. This directory is used only by production, which
-has three services and no Mailpit. Its only script generates private certificates
-once; it is not an application startup command.
+## 1. Prepare Monitor
 
-Set `APP_BASE_URL=https://127.0.0.1` in `.env`. Compose fixes the local ports;
-there are no port/binding environment variables. HTTP80 returns a canonical308
-redirect preserving path/query to HTTPS443, which serves the app. Its health
-check uses internal HTTPS. Backend health is available at
-`http://127.0.0.1:8000/health`; browser API calls still use Nginx `/api`.
-The standard Nginx entrypoint substitutes `APP_URL` from `APP_BASE_URL`; an Nginx
-map derives its authority without a custom shell script. The backend validates
-the configured HTTPS origin; Task 078 preserves that check while removing its
-settings object. No Nginx or Compose changes are needed for that cleanup.
+On the VPS, point the `monitor.roventics.com` A record to its public IPv4 address.
+Any AAAA record also needs working IPv6. Keep all existing DNS records/sites.
+In this installation's `software/.env`, set:
 
-Initial production setup still needs real provider SMTP, a unique OTP secret and
-appropriate database credentials. The later startup repair generated a unique
-OTP secret in the ignored local `.env`. SMTP must use real provider settings
-for production email login. The user has since supplied local SMTP settings;
-no real provider email or VPS acceptance was verified by the isolated checks.
-
-Host Bash/OpenSSL are needed for one-time private certificate setup. From
-`software/`, ONLY if the certificate pair is absent, run:
-
-```sh
-bash nginx/create-local-certs.sh
+```dotenv
+APP_BASE_URL=https://monitor.roventics.com
 ```
 
-Reuse the existing pair when present: the helper refuses overwrites. If only one
-file exists, stop and inspect rather than overwriting it. The helper generates
-localhost/127.0.0.1 SANs in ignored `nginx/certs/localhost.pem` and
-`nginx/certs/localhost-key.pem`, mounted read-only by the frontend. Never print or
-commit private keys. Restrictive creation permissions/chmod are requested, but
-Windows NTFS ACL protection is not verified; restrict local key access manually.
-Self-signed certificates cause an expected browser warning. Review your own
-certificate before allowing a local exception/manual trust; no system trust is
-changed automatically.
+Use real SMTP credentials, an independent strong database password and a unique
+OTP secret. Database credentials are embedded in a URI: a long random hex
+password avoids reserved-character escaping. Do not overwrite an existing
+installation's credentials. Production contains no Mailpit and still forces
+automatic monthly reminders off. Development keeps its Compose overrides.
 
-After credentials and certificates are ready, run:
+Confirm the existing public proxy belongs to `roventics_proxy`. Create that
+network only if absent. Check that Monitor's private `172.30.70.0/24` subnet does
+not overlap an existing network; if changing it, also update the backend's
+trusted-proxy CIDR in Compose. From `software/`:
 
 ```sh
+docker network inspect roventics_proxy
+# Only if the network does not exist:
+docker network create roventics_proxy
+
 docker compose -f prod.docker-compose.yaml config --quiet
 docker compose -f prod.docker-compose.yaml up -d --build --wait
 ```
 
-Run these from `software/`, where Compose reads the single `.env`.
-Open `http://127.0.0.1` to redirect to `https://127.0.0.1`. Do not stop unrelated
-services if local ports80/443 are occupied; resolve that conflict explicitly.
-Both modes publish backend8000, so run one mode at a time. Switching to
-development needs no `.env` edits:
-dev Compose fixes localhost ports 5173/8000/5432 and internal Mailpit, ignoring
-production URL/SMTP values. Production reminders stay forced off.
-The local correction passes direct Compose configuration, production builds,
-Nginx validation, HTTP80-to-HTTPS443 redirects, backend8000 health and isolated
-captured-OTP/meter/forecast/logout checks. Its work record preserves the earlier
-results separately. Local tests do not establish real-provider SMTP acceptance.
+Fresh production databases run `schema.sql` then `seeds/010-users.sql`, creating
+`hlabisasanele730@gmail.com` as admin and **no meters**. Create meters in the app.
+Development additionally runs `020-demo-meters.sql`. Initialization runs only on
+an empty database volume: existing data and manually assigned roles are never
+reset or re-seeded. See [database setup](../database/README.md). Never remove a
+data volume to force seeding; inspect an existing account separately if needed.
 
-## Deferred VPS reference
+## 2. Deploy the shared proxy route
 
-The following Task070 operator notes describe the earlier shared-proxy design;
-they are preserved for future Ticket57.2 work. They are **not compatible with the
-current local Compose file without a reviewed adaptation**. Do not run its local
-80/443 bindings on the VPS, which already has the Roventics public proxy. Changing
-only `APP_BASE_URL` is insufficient. The earlier `monitor-frontend:80` route also
-needs review because HTTP80 now redirects rather than serving the app, and the
-current stack does not join `roventics_proxy`. No VPS changes are part of this fix.
+Task 083 adds Monitor-only maps and server blocks to the sibling
+`roventics/nginx/nginx.conf`; existing company and Job Talk blocks are unchanged.
+Deploy that repository change as well as Monitor. The equivalent standalone
+[Monitor fragment](monitor-edge.conf.example) is provided for comparison; do not
+append it a second time or replace the shared configuration with it.
 
-### 1. Inspect before changing anything
+The route uses the existing `/etc/letsencrypt/live/roventics.com/` certificate and
+`/var/www/certbot` webroot, matching Job Talk. Confirm those files already exist
+and are mounted in the shared proxy. Existing certificates allow Nginx to load
+the new HTTP challenge route before the certificate covers Monitor. Public
+Monitor HTTPS is not ready until its hostname is included in that certificate.
 
-Confirm the reported `roventics-nginx-1` name, its Compose working directory,
-loaded configuration/includes, certificate/webroot mounts, network, Nginx version
-and Certbot installation. Inspect metadata, never print environment secrets or
-private keys. Do not replace the shared Nginx file with Monitor's example.
-
-Task 072's patched image pin applies only to Monitor's inner frontend gateway,
-not the existing shared VPS edge. Check that edge's actual version against the
-[vendor security advisories](https://nginx.org/en/security_advisories.html) before
-deployment; any needed shared-edge patch requires separate approval. Local test
-edge versions do not verify or upgrade the VPS. No VPS changes were made here.
+From the deployed **Roventics repository**, build and validate only its proxy:
 
 ```sh
-docker ps --format 'table {{.Names}}\t{{.Ports}}'
-docker context show
-docker network inspect roventics_proxy --format '{{json .IPAM.Config}}'
-docker network ls
-docker exec roventics-nginx-1 nginx -v
-sudo certbot --version
-sudo certbot certificates
-systemctl list-timers --all | grep -i certbot
+docker compose -f docker-compose.yaml build nginx
+docker compose -f docker-compose.yaml run --rm --no-deps nginx nginx -t
+# Only after validation succeeds:
+docker compose -f docker-compose.yaml up -d --no-deps nginx
 ```
 
-Also inspect the existing cron/deploy-hook configuration if renewal is not owned
-by that timer. Keep one existing renewal owner. Inspect all Docker network
-subnets: the Monitor private proxy network uses `172.30.70.0/24`. If this overlaps
-any existing route/network, stop and choose a non-overlapping subnet in BOTH the
-Compose IPAM and Uvicorn trusted-proxy setting before deployment. Do not change
-another project's network. The shared network must already exist and the public
-proxy must already belong to it; do not recreate it blindly.
+Both Monitor upstream hops use runtime Docker DNS, so Monitor being absent does
+not prevent shared Nginx startup. Normal HTTP requests redirect to HTTPS; the
+ACME path is served from the existing webroot. Check the HTTP challenge route
+and that the company website and Job Talk still work.
 
-Confirm `monitor.roventics.com` A/AAAA records resolve to this VPS, not an address
-copied from a repository. An AAAA record requires working IPv6 routing/listeners.
-Preserve root, Job Talk, mail and all other DNS records/sites.
+## 3. Extend the existing certificate
 
-### 2. Configure this installation
-
-From the VPS checkout's `software/`, create `.env` from
-[.env.example](../.env.example) ONLY if `.env` does not
-already exist. Never copy/overwrite the development environment or another app's
-file. Keep restrictive file permissions and fill every required deployment value.
-Use one `.env` per installation, never commit it or pass secrets as build args.
-This is the same template as development, not another active environment file.
-Fill real provider SMTP settings and use independent database credentials plus a
-unique OTP secret for the VPS. The following retained commands require the future
-reviewed VPS adaptation first. Prepare the private certificate pair as above;
-it is not copied into Git or substituted for the public Certbot certificate.
-Production Compose fixes its mode internally; no profile selector is needed.
-Updating public URL keys does not authorize credential rotation or convert
-development placeholders into working production credentials.
-
-The backend requires ten [runtime settings](../backend/README.md#runtime-settings)
-instead of falling back to development values. Compose supplies them explicitly:
-database URL is derived, mode is internal and `APP_BASE_URL` supplies CORS/gateway
-origin; do not duplicate these runtime keys in `.env`. Missing
-values fail startup without reflecting private inputs. Task 078 uses direct
-environment reads in existing modules rather than a settings class or loader.
-There is no user mode or unused log-level setting. Production mode and automatic
-reminders-off stay fixed safety settings; access-log policy is unchanged.
-
-- `APP_BASE_URL=https://monitor.roventics.com` is the complete VPS HTTPS origin,
-  without a trailing slash. Locally it is `https://127.0.0.1`. Production
-  rejects HTTP. Its existing shared Nginx/Certbot
-  route remains unchanged; production Compose alone has only three services.
-- Choose independent database credentials and a unique random
-  `MONITOR_OTP_HMAC_SECRET` (not the committed development secret). Database name,
-  user and password are embedded in a PostgreSQL URI: use URI-unreserved values,
-  for example a long random hex password, not an unencoded `@`, `:`, `/`, `#` or `%`.
-- Supply the provider's real SMTP host/port, TLS choice, credentials and sender.
-  The backend allows explicitly blank credentials for local capture, but this
-  production Compose requires non-empty provider credentials.
-  Single-quote literal `.env` passwords containing `$` to prevent interpolation.
-  `SMTP_SECURE=true` uses implicit TLS; false upgrades with STARTTLS when offered.
-  The sender refuses to authenticate without encryption. Mailpit is not deployed.
-- Production Compose deliberately forces automatic monthly reminders off, even
-  if an inherited environment contains a local activation cutoff. External
-  activation needs a separately approved saved cutoff and compatibility check;
-  never copy the local Mailpit cutoff or invoke the finite reminder CLI casually.
-
-Validate without printing rendered secrets:
+Inspect `sudo certbot certificates`. If its `roventics.com` certificate already
+covers Monitor, skip issuance. Otherwise preserve **every existing domain** and
+add `monitor.roventics.com`. For the three existing names in the checked-in
+proxy, the command is below; include any additional names shown by Certbot:
 
 ```sh
-docker compose -f prod.docker-compose.yaml config --quiet
-docker compose -f prod.docker-compose.yaml up -d --build --wait
-docker compose -f prod.docker-compose.yaml ps
-```
+sudo certbot certonly --webroot -w /var/www/certbot \
+  --cert-name roventics.com --expand \
+  -d roventics.com -d www.roventics.com -d jobtalk.roventics.com \
+  -d monitor.roventics.com
 
-The production project owns its own persistent `postgres-data` volume. On an
-empty volume PostgreSQL runs only `database/schema.sql`: no demo users/meters,
-admin seed, migrations or startup role changes. Existing volumes are never
-upgraded by restart. If initialization fails partway or an existing schema differs,
-stop and inspect; do not delete volumes or replay setup/seed SQL as a repair.
-This ticket transfers no development data and adds no backup work; preserve all
-existing recovery artifacts. `/health` checks process health, not DB/SMTP readiness.
-
-### 3. Add only Monitor's public edge route
-
-[monitor-edge.conf.example](monitor-edge.conf.example) contains Monitor-only maps,
-rate-limit zones and two server blocks for the existing Nginx **http context**.
-Inspect its real loaded includes/mounts first; merge all of these Monitor entries
-into that managed configuration (maps/zones stay outside the server blocks).
-Do not replace its top-level configuration, root/Job Talk vhosts or Docker mounts.
-
-The HTTPS edge budgets only `POST /api/auth/request-otp` (also its trailing-slash
-form): 10 requests/minute per connection address with burst 5, and 60/minute
-overall with burst 10. Excess requests receive 429 without delayed processing.
-Other routes are exempt. The client key is the real edge connection address,
-before forwarding headers are stripped; do not move this limiter to the inner
-gateway or trust client-supplied forwarding headers. Shared-IP users share a
-budget; these small pilot limits do not eliminate distributed/provider abuse.
-
-The frontend gateway rejects unsafe API methods with a foreign/null Origin or
-`Sec-Fetch-Site: same-site/cross-site`; only the configured HTTPS Origin is trusted.
-Headerless non-browser clients remain supported but still require backend auth.
-GET/HEAD/OPTIONS are unchanged. `X-Frame-Options: DENY` and CSP `frame-ancestors
-'none'` prevent framing; this is not a full content-security policy. Development
-Vite is unchanged. The policy reuses the derived runtime origin, without an extra
-CSRF service or client-IP trust layer.
-
-The example uses the existing `/etc/letsencrypt/live/roventics.com/` certificate
-and `/var/www/certbot` HTTP webroot. Confirm those exact paths first; if the
-inspected certificate name/webroot differs, adapt only the Monitor blocks.
-The certificate must already be readable for testing the TLS block. If no selected
-certificate exists, enable only the HTTP challenge/redirect block until issuance
-creates it, then add the TLS block. Existing certificates need not yet cover
-Monitor for its HTTP challenge, but HTTPS will not validate until they do.
-Both proxy hops use Docker DNS resolution on requests, allowing upstream
-replacement/absence without a shared Nginx startup dependency on Monitor.
-
-```sh
 docker exec roventics-nginx-1 nginx -t
+# Only after validation succeeds:
 docker exec roventics-nginx-1 nginx -s reload
 ```
 
-Reload only after successful validation. Verify the HTTP challenge path is
-served from the existing webroot, not redirected into the app. Other HTTP
-requests redirect to the fixed HTTPS hostname. Confirm other sites still work.
+Use the actual certificate/container names if the live installation differs.
+Reuse its current renewal timer and validated Nginx reload hook; do not add a
+second renewal mechanism. Verify renewal with `sudo certbot renew --dry-run`.
+See [Certbot's certificate-update instructions](https://eff-certbot.readthedocs.io/en/stable/using.html#re-creating-and-updating-existing-certificates).
+No VPS operation or public certificate issuance is performed by this repository change.
 
-### 4. Reuse certificate issuance and renewal
+## 4. Check the deployed app
 
-Read `sudo certbot certificates` first. If the existing valid certificate already
-covers `monitor.roventics.com`, skip issuance. Otherwise use host Certbot's
-`certonly --webroot -w /var/www/certbot` with the **inspected** `--cert-name`,
-existing `--key-type` (`ecdsa` or `rsa`), `--expand`, and one `-d` for **every current
-certificate name**, plus `-d monitor.roventics.com`. Construct/review that full
-list before execution; do not drop `www`, Job Talk or any other existing name.
-For an absent lineage, omit `--expand` and issue under an inspected, non-conflicting
-certificate name, then use its paths in Monitor's TLS block; preserve other lineages.
-Do not delete working certificates, use standalone issuance that stops Nginx,
-or mount public Certbot private keys into Monitor containers. Public issuance is
-not part of Task 070 and is not proven by its isolated self-signed TLS checks.
+Open `https://monitor.roventics.com`, verify a trusted certificate, receive a real
+OTP, log in as the seeded admin, and create a meter and balance. Check estimates,
+sharing, logout and that a restart retains records. Admins select **All** for
+global meter access. Existing databases keep their existing roles.
 
-After issuance validate/reload Nginx as above and verify HTTPS for Monitor AND
-all existing certificate names/sites. Reuse the installed renewal timer/cron and
-webroot renewal configuration. Its existing deploy hook must run `nginx -t`
-successfully before reloading `roventics-nginx-1`; do not add a second hook/timer.
-Review any old stop-Nginx standalone hook before changing it. Run the installed
-Certbot's supported renewal dry-run and separately exercise the reviewed reload
-hook if that version does not run deploy hooks during dry-runs.
+Monitor's edge limits OTP issuance by connection address and globally; other
+routes are unaffected. The inner frontend retains foreign-origin write checks,
+framing protection and canonical forwarded headers. Backend authentication and
+meter permissions remain required. The private diagnostic port is not a public
+login URL. Public browser traffic must use HTTPS through the shared proxy.
 
-### 5. First admin and live acceptance
-
-After HTTPS/SMTP work, sign in normally as `hlabisasanele730@gmail.com`. Open OTP
-signup creates a regular user; a separate explicit operator action may promote
-that exact verified account in this installation's DB:
-
-```sh
-docker compose -f prod.docker-compose.yaml exec database \
-  sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
-```
-
-At the SQL prompt, run:
-
-```sql
-UPDATE monitor.users SET type = 'admin'
-WHERE email = 'hlabisasanele730@gmail.com'
-RETURNING id, type;
-```
-
-Require exactly one returned account. Zero means stop/check normal signup, not
-insert a seed or bypass login. Future roles remain manual DB edits; login/startup
-never re-promotes accounts. Live signup/admin assignment is not executed by 070.
-
-Ticket 57.2 must verify trusted HTTPS/no mixed-content redirects, emailed OTP,
-login/logout, meter creation/deep links, balance/top-up edits, meaningful forecast,
-sharing/member/admin isolation and restart persistence. `/api/me` must reject
-signed-out requests, including outside clients that forge forwarding headers.
-Routine access logging is disabled only for Monitor's production Uvicorn and
-Nginx blocks, avoiding search-email query strings in normal request logs. Keep
-application/error logging, but treat those logs as private: Nginx errors can
-still include request URIs. Redact private records before sharing; never log
-OTPs/cookies or commit household data. Other sites' logging is unchanged.
-
-For upgrades, rebuild only this project's changed services using the same
-`docker compose -f prod.docker-compose.yaml` command. Docker DNS can take several seconds to refresh after
-upstream replacement; verify recovery and health rather than restarting other
-sites. Never use global prune, `down -v`, seed replay or unreviewed SQL upgrades.
-If Monitor fails, remove/disable only its new edge blocks and validate/reload;
-leave the shared certificate, other sites and Monitor's persistent data intact.
-
-Reference behavior: [Nginx proxy_pass](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass),
-[Uvicorn trusted proxy settings](https://uvicorn.dev/settings/#http),
-[Certbot certificate updates](https://eff-certbot.readthedocs.io/en/stable/using.html#re-creating-and-updating-existing-certificates).
+Isolated checks use synthetic records and captured mail; they cannot establish
+VPS DNS, certificate issuance or real SMTP delivery. Inspect the existing shared
+Nginx version before deployment; this change does not upgrade its image. Keep
+logs private and never print OTPs, cookies or environment secrets.

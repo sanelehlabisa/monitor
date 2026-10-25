@@ -17,14 +17,14 @@ dependencies.
 ## One environment, two Compose files
 
 Keep only ignored `software/.env` and the safe `.env.example`; do not create
-per-mode environment files. Use `APP_BASE_URL=https://127.0.0.1` for local
-production. VPS adaptation is deferred.
+per-mode environment files. Use `APP_BASE_URL=https://monitor.roventics.com` for
+the production browser origin behind the shared Roventics Nginx/Certbot proxy.
 There are no profiles or user mode/log-level settings.
 
 | Mode | Compose files | Browser URL |
 | --- | --- | --- |
 | Development | `dev.docker-compose.yaml` | `http://localhost:5173` |
-| Production | `prod.docker-compose.yaml` | `https://127.0.0.1` |
+| Production | `prod.docker-compose.yaml` | `https://monitor.roventics.com` |
 
 Development fixes frontend/API/database ports at 5173/8000/5432 and always uses
 internal Mailpit. It ignores production URL/SMTP settings, so no `.env` edits are
@@ -38,20 +38,18 @@ docker compose -f dev.docker-compose.yaml up --build
 docker compose -f prod.docker-compose.yaml up --build
 ```
 
-Production Compose fixes loopback frontend HTTP80/HTTPS443 and backend8000.
-HTTP80 redirects to HTTPS443; no port or binding variables are needed in `.env`.
-Both modes publish backend8000, so run one at a time. No launcher, profiles,
-external network setup or additional Compose file are required. Production has
-no Mailpit. VPS work is deferred; the current file is for local testing.
-Only production uses `nginx/`; its certificate-generation helper is the only
-setup script. See [one-time certificate/setup instructions](nginx/README.md#local-https).
-The local correction passes direct configuration, production builds, HTTPS/API
-login, meter/forecast and logout checks with isolated data/captured mail.
-Earlier Task 077 checks remain separately recorded; real-provider acceptance is
-not established by these tests.
-The local `.env` now has a generated OTP secret and the production app starts.
-SMTP still points to Mailpit: replace it with real provider settings for production
-email login. Development keeps its captured-mail overrides.
+Production has three services and no Mailpit. Its frontend serves internal HTTP80
+and joins the external `roventics_proxy` network as `monitor-frontend`, matching
+Job Talk's shared-proxy pattern. The existing Roventics Nginx handles public
+HTTP80 redirects, HTTPS443 and certificates. Monitor publishes only a private
+frontend diagnostic port at `127.0.0.1:8082`; backend and database ports remain
+unpublished. No launcher, profile, binding variable or extra Compose file is needed.
+Set up the shared network, proxy route and certificate coverage using the
+[production operator guide](nginx/README.md) before public use. Production now
+requires that shared edge; standalone local HTTPS is no longer its setup.
+Development remains independent and keeps its captured-mail overrides.
+Task 077's earlier isolated local HTTPS checks remain historical in its work
+record; they do not establish real-provider or VPS acceptance.
 
 ## Development stack
 
@@ -86,8 +84,11 @@ Stop the stack without deleting data:
 docker compose --env-file .env -f dev.docker-compose.yaml down
 ```
 
-PostgreSQL runs `database/schema.sql` then fresh-only `database/seed.sql` only
-when its persistent data volume is empty. Restart/recreation does not replay
+On an empty development volume, PostgreSQL runs `database/schema.sql`,
+`database/seeds/010-users.sql` and `database/seeds/020-demo-meters.sql` in order.
+The user seed creates the approved admin; the development seed creates fictional
+meters/history under a separate demo account. Production mounts only the schema
+and user seed, so all production meters are created manually. Restart/recreation does not replay
 SQL, duplicate examples or overwrite roles. The API no longer executes or mounts
 numbered migrations. Existing data is preserved but not automatically upgraded;
 never use volume deletion or fresh seeds as an upgrade/partial-init repair.
@@ -101,7 +102,7 @@ Python or npm dependencies. The ignored `.env` is the visible source of Compose
 development values; Compose reports required missing values instead of silently
 using backend fallbacks. The single committed `.env.example` documents production
 settings; Compose fixes local ports and development overrides URL/mail values.
-The current production guide covers local HTTPS; VPS adaptation remains separate.
+The current production guide covers the shared Roventics proxy and certificate setup.
 Task 078 removes `settings.py` and `pydantic-settings`; the existing backend
 modules read the same ten required runtime values directly from `os.environ`.
 Validation remains beside each consumer without another configuration layer or
@@ -154,10 +155,10 @@ docker build --target production -t monitor-frontend:production ./frontend
 ```
 
 Production is also the default Dockerfile target. The frontend serves built React
-assets through Nginx HTTPS443; HTTP80 redirects to HTTPS. Compose fixes loopback
-host80/443 bindings and mounts `./nginx/certs` read-only. The frontend health check
-uses internal HTTPS. No separate proxy service or launcher is added.
-The backend runs Uvicorn on port8000, published only at `127.0.0.1:8000`,
+assets through internal Nginx HTTP80 behind the shared public HTTPS edge.
+The frontend health check uses internal HTTP; public certificates stay at the
+Roventics edge. No separate Monitor proxy service or launcher is added.
+The backend runs Uvicorn privately on port8000, with no host publication,
 without reload, as a non-root user. No local `.env*` files enter either build.
 Runtime credentials must not be passed as build arguments or copied into images.
 
@@ -169,19 +170,18 @@ Schema installation and upgrades are not performed by the image command. See the
 component READMEs for the runtime boundaries.
 
 Task 070 added [prod.docker-compose.yaml](prod.docker-compose.yaml) and a shared
-HTTPS design under Ticket 57.1. That design remains a [deferred reference](nginx/README.md),
-not a deployment recipe for the current local setup. Task 072 consolidated the
-template into one [.env.example](.env.example). Production now creates its own
-networks, with no external proxy prerequisite. It uses a separate database volume
-and schema only, without development seeds.
+HTTPS design under Ticket 57.1. Task 083 restores Job Talk-style shared proxy
+wiring after the historical local-only iterations. The [operator guide](nginx/README.md)
+covers the required external `roventics_proxy` network, Monitor route and shared
+certificate coverage. Task 072 consolidated the template into one
+[.env.example](.env.example). Production uses a separate database volume and
+initializes only the schema and `010-users.sql`, never demo meters/history.
 Automatic production monthly reminders stay off pending separate activation.
-The two-file configuration and existing frontend Nginx TLS are retained. Task 077's
-correction uses direct Compose with fixed local host bindings.
+The two-file configuration and direct Compose commands are retained.
 `APP_BASE_URL` is the only public URL setting. The production file has three
 services, with no Mailpit, added TLS edge, profile or override. Credentials, SMTP
 values and saved reminder cutoff stay intact.
-Task 078 changes backend source without restarting the healthy production
-containers; rebuild the backend to load the configuration cleanup.
+Task 078 removed the settings object; the user subsequently rebuilt the backend.
 Keep the generated OTP secret and supply provider SMTP before production email login.
 Production Compose fixes production mode and monthly reminders off as safety
 policy; it never inherits the local cutoff.
@@ -381,23 +381,24 @@ pass locally. The candidate can proceed to review and separately approved live
 57.2 setup/HTTPS/SMTP acceptance. Inspect the actual shared edge's patch status;
 no whole-image security certification or public-provider acceptance is implied.
 
-VPS work is deferred while the user tests the local production setup. The earlier
-plan selected monitor.roventics.com and Job Talk's shared Nginx/Certbot pattern.
-That plan needs a separate adaptation: current Compose binds local80/443/8000,
-HTTP80 redirects, and no shared proxy network is attached. Preserve the existing
-VPS public proxy and other sites when that future work resumes.
+Task 083 prepares `monitor.roventics.com` using Job Talk's shared Nginx/Certbot
+pattern: Monitor serves private HTTP80 and joins `roventics_proxy`; the shared
+edge supplies public HTTPS. The active guide covers certificate coverage without
+dropping existing names. No VPS, DNS, certificate issuance or live data changes
+are executed by this repository preparation; preserve the existing sites.
 
 - 57.1 / Task 070 (complete, isolated checks passed): production Compose, explicit minimal env/origin/secrets,
-  private backend/database, persistent fresh-schema-only setup, shared proxy
+  private backend/database, persistent fresh-schema setup, shared proxy
   integration and certificate issuance/renewal instructions. See the
-  [operator guide](nginx/README.md); no VPS verification is claimed.
+  [operator guide](nginx/README.md); no VPS verification is claimed. Task 083 adds
+  the approved admin seed to fresh production setup and keeps demo data dev-only.
 - 57.2: later approved live DNS/proxy/certificate deployment, real SMTP/OTP
   request/login/logout and meter/ledger/forecast smoke checks, member/admin
   isolation and restart persistence. Confirm actual VPS state and preserve
   existing sites, certificate names, environments and data before changes.
 - Production monthly automation requires a separate explicit fixed activation
   cutoff; never copy the local Mailpit cutoff. No public Mailpit/database/debug
-  endpoints, automatic seeds/role promotion or automatic existing-volume upgrades.
+  endpoints, startup seed replay/role promotion or automatic existing-volume upgrades.
 - Keep actionable secret-free logs and simple privacy/contact/removal guidance.
   Retain the real-user walkthrough (65); adopting research model 66.5 is not a
   deployment prerequisite. No new backup work in this PoC scope; preserve existing

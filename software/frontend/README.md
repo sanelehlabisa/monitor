@@ -85,9 +85,9 @@ shims; their committed originals remain recoverable from Git history.
 into `nginx:1.30.6-alpine3.24`; Node/npm and application source are not copied into
 the serving stage. Local `.env*` files are excluded from the build context.
 
-Task 077's Nginx serves the app on HTTPS443; HTTP80 returns canonical 308 redirects
-preserving path/query. Local production maps loopback host80/443 to those same
-container ports. The standard Nginx entrypoint
+Production Nginx serves the built app on internal HTTP80. Task 083 follows Job
+Talk's shared-proxy pattern: Roventics Nginx owns public HTTP redirects and HTTPS,
+then forwards to `monitor-frontend:80` over `roventics_proxy`. The standard Nginx entrypoint
 substitutes only `APP_URL`, supplied by Compose from `.env`'s `APP_BASE_URL`.
 An Nginx map extracts its host/port authority; no custom startup script or extra
 authority setting is needed. The backend still validates the HTTPS origin after
@@ -96,26 +96,21 @@ Other Nginx variables remain intact. It forwards
 `/api` and `/api/...` to `backend:8000` using runtime Docker DNS, preserving path,
 query, methods and API errors. Other application routes fall back to `index.html`;
 missing `/assets/...` files return 404 rather than SPA HTML.
-The frontend health check uses internal HTTPS with its self-signed certificate.
+The frontend health check uses internal HTTP.
 Run production directly with `docker compose -f prod.docker-compose.yaml up --build`
-from `software/`. Compose fixes loopback HTTP80/HTTPS443 and backend8000;
-`.env` contains `APP_BASE_URL=https://127.0.0.1`, with no binding variables.
+from `software/` after the shared-network/proxy setup in the
+[operator guide](../nginx/README.md). The frontend's `127.0.0.1:8082:80` binding
+is for private diagnostics; the production backend has no host binding.
+`.env` uses `APP_BASE_URL=https://monitor.roventics.com`, with no binding variables.
 Development Vite remains localhost:5173 and ignores production settings.
-Private localhost/127.0.0.1 certificates mount read-only from `../nginx/certs`;
-they never replace the public edge's Certbot certificate. The `nginx/` directory
-is used only by production Compose; its certificate helper is the only setup script.
+Public certificates stay at the shared edge and are not mounted into Monitor.
 
-Production creates its own ingress network; no shared external network is needed
-for local use. The internal gateway fixes canonical Host/scheme and removes client
-forwarding headers. Development still uses Vite. Task 070's shared-edge design
-is preserved as a [deferred VPS reference](../nginx/README.md), not a prerequisite
-or deployment instruction for the current local Compose setup.
-Use `APP_BASE_URL=https://127.0.0.1` for local production and
-`https://monitor.roventics.com` for the VPS's existing HTTPS edge. This is the
-same image/config with exactly two Compose files, three production services and
-no profiles, extra proxy service or extra environment files. Certificate setup
-and initial production SMTP/secret configuration are still required; a URL change
-does not supply credentials or prove startup ready.
+Production requires the external `roventics_proxy` network. The internal gateway
+fixes canonical Host/scheme and removes client forwarding headers. There are
+exactly two Compose files, three production services and no profiles, extra proxy
+service or extra environment files. Standalone local HTTPS is superseded by this
+shared-edge setup; development still works independently. Certificate coverage,
+DNS and production SMTP/secrets must be configured before public acceptance.
 
 Task 072 patches the production Nginx pin and adds a small gateway write boundary:
 unsafe API methods reject a supplied foreign/null Origin or same-site/cross-site

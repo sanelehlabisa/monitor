@@ -130,13 +130,16 @@ Documentation stays in these READMEs; no `docs/` directory. Development Compose,
 Docker build files and `.env.example` live under `software/`; real `.env` files
 are ignored.
 Use one installation `.env` with exactly development and production Compose files.
-`APP_BASE_URL=https://127.0.0.1` is the local production origin; development
-fixes its own localhost/Mailpit settings. Compose selects the mode without profiles.
+`APP_BASE_URL=https://monitor.roventics.com` is the production browser origin;
+development fixes its own localhost/Mailpit settings. Compose selects the mode without profiles.
 From `software/`, run `docker compose -f prod.docker-compose.yaml up --build`.
-Production Compose fixes local HTTP80/HTTPS443 and backend8000 bindings, with no
-port variables or external network setup. VPS deployment is deferred.
+Production joins the existing `roventics_proxy` network as `monitor-frontend`.
+The shared Roventics Nginx handles public HTTP/HTTPS, just as it does for Job Talk;
+Monitor serves internal HTTP80, with a private `127.0.0.1:8082` diagnostic binding.
+The production backend/database have no host ports. Fresh production initializes
+the schema and approved admin only; development also seeds fictional meters.
 See [mode settings](software/README.md#one-environment-two-compose-files) and the
-[Nginx HTTPS setup](software/nginx/README.md#local-https).
+[Nginx deployment guide](software/nginx/README.md).
 
 Offline [forecasting research](software/backend/research/forecasting/README.md)
 lives under `software/backend/research/`, excluded from application Docker builds.
@@ -287,15 +290,18 @@ own implementation approval; details live in the closest software README.
     success is claimed. Task 076 supersedes its diagnostic HTTP/port-variable setup.
     Historical Task 076's HTTPS/API/certificate checks and cleanup passed; Task
     077 supersedes its local8443 URL/binding contract, not those records.
-    Task 077's correction focuses on local use: direct Compose, fixed HTTP80/
+    Historical Task 077's correction focused on local use: direct Compose, fixed HTTP80/
     HTTPS443 and backend8000 bindings, one `.env`, no launcher or external network
     prerequisite. Production has three services and no Mailpit. Earlier isolated
     HTTPS/API and cleanup results remain historical in its work record. Real SMTP
-    and a unique OTP secret remain user-supplied. VPS adaptation and acceptance
-    are deferred; changing the URL alone does not deploy the current local setup.
+    and a unique OTP secret remain user-supplied. Task 083 supersedes that local
+    wiring with Job Talk's shared-proxy pattern; the historical checks stay intact.
     Task 078 removes `settings.py` and its configuration dependency, using direct
     environment reads in existing modules. Environment values and runtime behavior
-    stay unchanged; the running backend needs a rebuild to load this cleanup.
+    stay unchanged; the user subsequently rebuilt the backend.
+    Task 083 prepares shared `roventics_proxy` routing, internal frontend HTTP80
+    and separate fresh user/demo seeds. Both modes seed the approved admin;
+    production never seeds meters. Existing volumes are not reseeded or upgraded.
   - [ ] 57.2: Separately approved live deployment — DNS/proxy/certificate setup,
     SMTP/login and meter-flow acceptance; preserve other sites and stored data.
 - [ ] Ticket 56: Personal Usage Validation — retain Task 034's completed technical
@@ -315,9 +321,9 @@ own implementation approval; details live in the closest software README.
    deployment acceptance (57.2); VPS/external mail need their own approval.
    Task 072 addresses Task 071's minimal gaps: patched Nginx, browser write/frame
    policy, OTP budgets and one env template; local configuration/browser checks
-   pass. The current priority is the user's local production walkthrough on
-   HTTP80/HTTPS443 and backend8000. VPS adaptation and provider acceptance stay
-   deferred; local checks are not a whole-system security guarantee.
+   pass. Task 083 prepares the requested Job Talk-style shared proxy and fresh
+   production admin seed. Next is the actual VPS DNS/certificate/SMTP acceptance
+   in 57.2; local checks are not a whole-system security guarantee.
 3. HTML email presentation (70) and offline forecast validation (66.1 -> 66.4)
    remain separate. Candidate adoption 66.5 is not a pilot-deployment requirement;
    retain the baseline if the candidate is not justified. Keep costs deferred.
@@ -382,7 +388,9 @@ Future frontend work may use `../switch/hardware/web/` as read-only inspiration
 for compact mobile interactions. Company artwork may be selected from
 `../roventics/frontend/images/` or `../switch/assets/branding/roventics/` in an
 approved UI ticket. Monitor must implement its UI natively in React/Material UI
-and must never modify either sibling repository.
+and must not modify either sibling repository without explicit authorization.
+Task 083's requested Monitor proxy configuration is a narrow exception for
+Roventics deployment files, not permission to change its site or Job Talk.
 
 ## Documentation
 

@@ -32,8 +32,8 @@ They derive the database URL from PostgreSQL values and fix `MONITOR_ENVIRONMENT
 internally. Task 075's development Compose fixes local CORS and Mailpit SMTP,
 ignoring production URL/mail values. Production maps `APP_BASE_URL` to
 `MONITOR_CORS_ORIGIN` and the frontend's internal origin setting. Use
-`APP_BASE_URL=https://127.0.0.1` for local production. Both files run directly
-through Compose and fix their local port bindings; no binding variables are needed.
+`APP_BASE_URL=https://monitor.roventics.com` for the shared production HTTPS edge.
+Both files run directly through Compose; no binding variables are needed.
 Do not add duplicate mode/CORS/database URL keys or log-level settings to `.env`.
 Pydantic remains for API request/response schemas, pinned to the existing runtime's
 `2.13.5` version to preserve the OpenAPI contract during this cleanup. Production
@@ -61,8 +61,11 @@ to Task 060, and independent AST checks found no function-body changes.
 
 ## Database setup and checks
 
-The backend connects directly through Psycopg. Development empty-volume init
-runs `schema.sql` then `seed.sql`; production runs schema only. Compose starts Uvicorn without running or
+The backend connects directly through Psycopg. Empty-volume initialization runs
+`schema.sql` then `seeds/010-users.sql` in both modes, provisioning only the
+approved admin. Development also runs `seeds/020-demo-meters.sql`; production
+never seeds meters or history. Existing volumes do not replay these files.
+Compose starts Uvicorn without running or
 mounting numbered migrations. Integration checks no longer apply migrations.
 Run checks only inside a dedicated verification environment with an explicitly
 isolated `MONITOR_DATABASE_URL` and initialized schema, never the current DB.
@@ -106,19 +109,20 @@ Task 078 left running containers on their previous image. The user subsequently
 rebuilt the backend; Task 079 confirmed the removed settings file was absent.
 
 The image command does not install/upgrade SQL or create a database. Production
-Compose keeps fresh-schema-only PostgreSQL and SMTP egress. Uvicorn trusts proxy
+Compose keeps private PostgreSQL and SMTP egress. Uvicorn trusts proxy
 headers only from the private web subnet;
 the production gateway supplies its configured canonical Host/HTTPS scheme and
 removes client forwarding headers. Keep the trusted CIDR aligned with Compose
 IPAM if adapting the network after a collision check. Production monthly reminders
 are forced off pending separate activation, regardless of any local cutoff.
-Task 077 keeps exactly development and production Compose files. From `software/`,
-run `docker compose -f prod.docker-compose.yaml up --build`. Production fixes
-frontend loopback HTTP80/TLS443 and backend `127.0.0.1:8000:8000`; the database
-stays unpublished. Development also fixes backend8000, so run one mode at a time.
-The browser uses same-origin `/api` through Nginx; port8000 supports local checks.
-No backend-port variable or external proxy network is required. See the
-[local setup and deferred VPS reference](../nginx/README.md); live deployment remains Ticket
+There are exactly development and production Compose files. From `software/`,
+run `docker compose -f prod.docker-compose.yaml up --build` after shared-proxy
+setup. Production exposes neither backend nor database on host ports. Its
+frontend serves HTTP80 privately, joins `roventics_proxy` as `monitor-frontend`
+and has a `127.0.0.1:8082:80` diagnostic binding. The shared Roventics edge handles
+public HTTP80/HTTPS443. The browser uses same-origin `/api` through both proxies;
+only development publishes backend8000. See the
+[production operator guide](../nginx/README.md); live deployment remains Ticket
 57.2. Process health does not validate database/SMTP connectivity. Task 036's image builds and
 disposable production smoke checks passed; see the software README.
 
@@ -128,7 +132,7 @@ Ticket 43 implements the storage and backend policy used by human
 authentication. Any normalized email can receive a challenge. Open signup
 creates a user after correct verification; repeated successful logins reuse it.
 Authorized sharing may provision a regular account first, but cannot authenticate
-it or bypass OTP. Fresh development seeds provision accounts without credentials or
+it or bypass OTP. Fresh seeds provision accounts without credentials or
 sessions: they still require ordinary email OTP verification to sign in.
 
 Codes are random six-digit values with a 10-minute expiry, five attempts, a
