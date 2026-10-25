@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /api
+Disallow: /meters
+
+Sitemap: https://monitor.roventics.com/sitemap.xml

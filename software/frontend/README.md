@@ -532,3 +532,12 @@ Account/sharing integration depends on the relevant Ticket 69 contracts above.
 Acceptance: an approved platform/storage and transfer/conflict design, followed by
 a focused guest-local versus authenticated-account flow and install/open check.
 No caching, sync, mobile implementation or notification expansion is added now.
+
+## Search discovery
+
+The public entry has a descriptive title, summary and sharing metadata. Vite
+copies `public/robots.txt` and `public/sitemap.xml` into the production build.
+The sitemap lists only `https://monitor.roventics.com/`; submit its sitemap URL
+in the verified Search Console property after deployment. Crawling preferences
+exclude the API and meter workspace, but do not replace authentication or
+guarantee indexing. No private records or meter URLs belong in the sitemap.

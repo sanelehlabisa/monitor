@@ -7,6 +7,11 @@ READMEs hold details; historical results stay in work/ and Git.
 
 ## Current contracts
 
+- Task 086 adds public homepage search metadata, robots.txt and a single-URL
+  sitemap through the existing Vite public assets. Private meter records remain
+  authenticated; crawl preferences are not access control. The frontend README
+  records Search Console submission after deployment.
+
 - FastAPI uses explicit Psycopg SQL, not an ORM. React/Vite/Material UI is the
   mobile-friendly frontend. Development uses software/dev.docker-compose.yaml
   and ignored software/.env. Never print/commit secrets or private records.
