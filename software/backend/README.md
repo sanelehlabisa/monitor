@@ -2,7 +2,7 @@
 
 FastAPI REST service with a reusable application factory, direct environment
 reads and a process-only health endpoint. Core settings use the `MONITOR_` prefix;
-SMTP settings use the approved Job Talk-style names in [the single template](../.env.example).
+SMTP settings use the installation's existing names in [the single template](../.env.example).
 
 ## Runtime settings
 
@@ -728,3 +728,22 @@ Shared reference: 450 kWh 30 days earlier, a 300 kWh purchase 15 days earlier
 and 300 kWh now imply `(450 + 300 - 300) / 30 = 15 kWh/day`. At that instant:
 300 kWh available, 20 days remaining, 450 kWh total 30-day use and only 150 kWh
 additional purchase. Retain this distinction without adding a total-usage API field.
+
+
+## Ticket 68.6: Bounded remembered sessions
+
+Plan only: `modules/sessions.py` currently sets a fixed 30-day lifetime and
+`endpoints/auth.py` always sets persistent expiry. Reuse those modules, the
+existing session table, OTP verification schema and logout path. Add a typed
+remember choice with no new table/index/service. Confirmed checked policy:
+3-day absolute expiry; unchecked session cookie plus proposed 24-hour server cap.
+The unchecked policy is finalized in the implementation prompt.
+
+Keep random opaque tokens, digest-only storage, Secure/HttpOnly/SameSite and
+host/path cookie scope, server expiry/revocation, trusted-origin checks, OTP
+abuse controls and per-request user/member authorization. Persistent-cookie and server
+expiry must agree; no automatic extension. Do not rewrite existing sessions.
+Use existing checks/manual verification for both options, expiry, logout,
+invalid/revoked tokens and unauthorized requests; no new test files by default.
+[OWASP session guidance](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
+informs these constraints; durations are product choices, not OWASP-prescribed values.

@@ -1,25 +1,16 @@
 # Task NNN: Short title
 
-## Aim
+## Outcome
+One clear result.
 
-One sentence describing the outcome.
+## Questions and answers
+Material uncertainty and the user's answers, or "No unresolved questions."
 
-## Clarifications
+## Scope and reuse
+Small changes and existing files/functions to reuse.
 
-- Question: Answer.
+## Verification
+Smallest useful checks and their limits.
 
-## Change
-
-- Small, specific change.
-
-## Reuse
-
-- Existing file, function, or pattern to reuse.
-
-## Verify
-
-- Check or test that proves the change works.
-
-## Out of scope
-
-- Work intentionally excluded from this task.
+## Exclusions
+Work outside this task.

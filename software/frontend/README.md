@@ -242,9 +242,8 @@ backend's assumed 10 kWh/day rate. Two or more valid readings replace the assump
 with that meter's measured usage. No balance shows "Not enough data"; inconsistent
 history stays unavailable. Existing add/edit/delete refreshes update all estimates.
 
-Future UI may take inspiration from the sibling Switch dashboard's compact cards,
-clear primary actions and mobile sizing, but Monitor stays a native React/Material
-UI implementation. Task 014 uses those principles and a local copy of the
+Keep compact layouts, clear primary actions and mobile sizing in the native
+React/Material UI implementation. Task 014 uses those principles and a local copy of the
 approved circular Roventics robot logo. Development browser requests use relative
 `/api` URLs through Vite's proxy to the backend; cookies never enter browser
 storage or page text.
@@ -514,24 +513,94 @@ Four desktop/390/320px captures cover calendar/unavailable layouts; western
 timezone, month rollover/resume, read-only recovery and stale responses are
 verified without real API requests. Task-owned verification resources are cleaned.
 
-### Ticket 68: Future installation and guest/local-only use
+### Ticket 68: Guest web onboarding
 
-After personal/external web-usage evidence (56/67), scope a minimal installable
-experience. Guest/local-only mobile use needs no login and keeps records in local
-device storage; account storage and shared meters require login and server authorization.
-This is a future mode, not permission to bypass the current app's authentication
-or store session credentials in local storage.
+Task 089 is planning only. Current inspection found no browser persistence layer;
+all account meter/ledger endpoints are authenticated. Recommend a small dedicated
+guest path that reuses existing components and a small meter/ledger storage
+boundary. Guest operations use local storage; signed-in operations call existing
+APIs. Keep server access checks. Login is optional for account storage; there is
+no separate post-login copy screen. The user confirmed that Log in and save to
+account saves existing local meter/history after successful email verification.
 
-Choose the platform and persistence approach in that ticket; no PWA framework,
-native framework, store release or new service is committed here. Decide local
-data durability/loss, guest-to-account transfer, duplicates/conflict handling,
-multi-device synchronization, connectivity/stale-estimate behaviour and
-notifications before implementation. Never present a stale estimate as fresh.
-Account/sharing integration depends on the relevant Ticket 69 contracts above.
+| Existing code | Reuse or constraint |
+| --- | --- |
+| `src/App.tsx` | Currently restores `/api/me`, then shows LoginPage or account screens. Add a small guest entry branch; preserve returning sessions and meter deep links. |
+| `src/routes/meters/components/ForecastPanel.tsx` | Accepts a forecast object; reuse for guest results. |
+| `src/routes/meters/components/LedgerPanel.tsx` | Callback-driven balance/top-up forms/history; reuse with local callbacks. |
+| `src/lib/api.ts`, `src/lib/dateTime.ts` | Reuse output shapes and UTC/local display rules; keep credentials in existing HTTP-only sessions. |
+| `../backend/app/modules/forecasting.py` | Python Decimal/UTC reference; validate a narrow browser equivalent against the existing results. |
+| `../backend/app/endpoints/ledger.py` | Authenticated dashboard reads scoped stored history. Keep it authenticated. |
 
-Acceptance: an approved platform/storage and transfer/conflict design, followed by
-a focused guest-local versus authenticated-account flow and install/open check.
-No caching, sync, mobile implementation or notification expansion is added now.
+**68.1 design decision.** Recommend guest data and calculations stay in-browser.
+A public stateless forecast endpoint would reuse Python but transmit the inputs
+and add a public validation/abuse surface; do not label that design local-only.
+Do not add anonymous server meters, authentication bypasses or a new backend.
+Homepage offers Use without logging in. In the guest workspace show Log in and
+save to account; hide that prompt when authenticated. Reuse meter/ledger operation
+names/shapes with local or API implementations, not a generic storage framework.
+Start with one guest meter. Fresh/returning
+guest use must not depend on a successful session lookup. Preserve protected
+account deep links and ensure account data is never copied into the guest store.
+
+**68.2 calculation acceptance.** Match the existing backend using fixed reference
+cases: no balance -> Not enough data; one balance -> labelled 10 kWh/day starting
+assumption; valid intervals -> measured meter use; inconsistent/future/duplicate
+history -> unavailable, never hidden by default. Include top-up interval boundaries,
+zero consumption, depleted balance, fractional days and rounding (0.001 kWh,
+0.000001 kWh/day, 0.01 days). Keep strictly-next UTC 1st, actual 28/29/30/31-day
+planning month, monthly requirement versus additional top-up and local run-out
+display. Choose the smallest arithmetic approach that passes parity in 68.1;
+do not silently accept materially different JavaScript rounding or add a model.
+
+**68.3 storage and UI acceptance.** A small versioned/namespaced local document
+and helper is the initial persistence candidate; validate input on save/load.
+Do not introduce a storage framework or sync engine. Recalculate after add/edit/
+delete, refresh and resuming an old tab. Show Saved on this browser, Clear local
+data with confirmation, and a short browser-data-loss note. Handle unavailable,
+full or corrupt storage without saying an unsaved record is saved or deleting it
+silently; keep a usable in-memory estimate when persistence is unavailable.
+Decide a simple conflict rule for multiple tabs in the same browser. No guest
+history in API calls, query strings, logs or analytics. Local storage is not
+encrypted account protection: another person using this browser profile may see it.
+
+Browser storage can persist across ordinary sessions but can be blocked or cleared,
+and private-mode data is temporary; see [MDN localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage)
+and [storage limits](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria).
+No claim of permanent storage or full offline app support. Account storage remains
+optional; do not force login just because a local history becomes older.
+
+**68.4 storage/account acceptance.** Use local operations while logged out;
+switch new operations to the backend only for a verified session. Reuse email
+OTP; hide the guest account-saving prompt after login, with no extra Copy screen.
+That explicit flow saves the existing local meter/history after successful OTP,
+without another copy action. Retain local originals; show online success only
+after server confirmation and offer recovery on failure. Current API operations
+are not an atomic import: define duplicate/retry/partial-success reconciliation
+in 68.1 before implementation. Use a new account meter, with no overwrite of
+existing/shared meters, silent import on ordinary login or continuous sync.
+A failed/expired account session must not cause account records/drafts to be
+silently saved as guest data. Keep the draft and require recovery or deliberate
+guest entry. Logout/account switching never copies account data into local storage.
+Preserve current shared/admin routes, cookies and authorization.
+
+**68.6 remembered login.** One unchecked-by-default "Keep me signed in" checkbox
+in the existing email flow; confirmed checked duration is 3 days. Do not
+add a wizard, expose the token to JavaScript or put it in browser storage.
+Retain guest access after session expiry/failure. Check remembered return,
+logout, expiry and account switching, including shared/admin views. Server
+expiration remains authoritative; unchecked login does not promise browser-close logout.
+
+**65 acceptance before 57.3 deployment.** Check desktop/phone guest first result,
+local reload and clear, private/blocked/full/corrupt-storage recovery, add/edit/delete,
+rollover/resume, login failure/retry/logout, returning account users, admin/shared
+meters and protected direct links. Inspect requests to prove guest ledger stays
+local until the chosen login-and-save flow verifies the session. Check complete
+history save, failure/retry and no repeated import. Keep the small layout;
+no onboarding wizard or mandatory tour.
+
+**68.5 later.** Native/PWA installation, app-cache/offline reopening, background
+sync and new notification mechanisms need evidence from 67; they are not release gates.
 
 ## Search discovery
 

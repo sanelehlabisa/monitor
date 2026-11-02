@@ -189,3 +189,14 @@ The [root roadmap](../../README.md) owns stable IDs and priority; the
 Keep separate reminder preferences/claims, digest-only security and occurrence
 times. Add no tables/triggers/procedures without need. Cleanup does not authorize
 a live transition/reset, sharing activation, seed replay or future feature.
+
+
+## Ticket 68.1: Storage contract review
+
+Guest browser storage keeps meter names and balance/top-up domain records;
+authenticated users keep using this backend/schema. Do not mirror auth, membership
+or reminder tables in local storage. Review only actual API/shape barriers to a
+small local/API storage boundary. No new index/table is planned. Preserve existing
+primary/unique/FK constraints, session authorization and live data. Any demonstrated
+schema simplification needs its own approved, data-preserving scope; this ticket
+does not drop indexes, reset volumes or rewrite the database.

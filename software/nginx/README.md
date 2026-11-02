@@ -1,7 +1,6 @@
 # Production Nginx and shared HTTPS
 
-Monitor uses the same deployment pattern as Job Talk. The existing Roventics
-Nginx owns public HTTP80/HTTPS443 and Certbot certificates. Monitor's frontend
+The existing public Nginx owns public HTTP80/HTTPS443 and Certbot certificates. Monitor's frontend
 serves HTTP80 on the shared `roventics_proxy` network as `monitor-frontend`, with
 an optional loopback diagnostic port `127.0.0.1:8082`. Its backend and database
 have no published ports. The frontend proxies `/api` to the private backend.
@@ -51,19 +50,19 @@ data volume to force seeding; inspect an existing account separately if needed.
 
 ## 2. Deploy the shared proxy route
 
-Task 083 adds Monitor-only maps and server blocks to the sibling
-`roventics/nginx/nginx.conf`; existing company and Job Talk blocks are unchanged.
-Deploy that repository change as well as Monitor. The equivalent standalone
+The public edge needs the Monitor hostname/upstream route. Preserve its other
+virtual hosts and certificate settings; route configuration belongs to the edge
+operator, not this application's runtime. The equivalent standalone
 [Monitor fragment](monitor-edge.conf.example) is provided for comparison; do not
 append it a second time or replace the shared configuration with it.
 
 The route uses the existing `/etc/letsencrypt/live/roventics.com/` certificate and
-`/var/www/certbot` webroot, matching Job Talk. Confirm those files already exist
+`/var/www/certbot` webroot. Confirm those files already exist
 and are mounted in the shared proxy. Existing certificates allow Nginx to load
 the new HTTP challenge route before the certificate covers Monitor. Public
 Monitor HTTPS is not ready until its hostname is included in that certificate.
 
-From the deployed **Roventics repository**, build and validate only its proxy:
+In the public edge's deployment directory, validate and reload only that proxy:
 
 ```sh
 docker compose -f docker-compose.yaml build nginx
@@ -75,25 +74,16 @@ docker compose -f docker-compose.yaml up -d --no-deps nginx
 Both Monitor upstream hops use runtime Docker DNS, so Monitor being absent does
 not prevent shared Nginx startup. Normal HTTP requests redirect to HTTPS; the
 ACME path is served from the existing webroot. Check the HTTP challenge route
-and that the company website and Job Talk still work.
+without changing other virtual hosts.
 
 ## 3. Extend the existing certificate
 
 Inspect `sudo certbot certificates`. If its `roventics.com` certificate already
 covers Monitor, skip issuance. Otherwise preserve **every existing domain** and
-add `monitor.roventics.com`. For the three existing names in the checked-in
-proxy, the command is below; include any additional names shown by Certbot:
-
-```sh
-sudo certbot certonly --webroot -w /var/www/certbot \
-  --cert-name roventics.com --expand \
-  -d roventics.com -d www.roventics.com -d jobtalk.roventics.com \
-  -d monitor.roventics.com
-
-docker exec roventics-nginx-1 nginx -t
-# Only after validation succeeds:
-docker exec roventics-nginx-1 nginx -s reload
-```
+add `monitor.roventics.com`. Have the edge operator expand the actual existing lineage using its current
+webroot, retaining every SAN shown by Certbot and adding Monitor. Do not replace
+the domain list with Monitor alone. Validate the actual edge's Nginx configuration
+before reload, and verify the resulting certificate covers this hostname.
 
 Use the actual certificate/container names if the live installation differs.
 Reuse its current renewal timer and validated Nginx reload hook; do not add a

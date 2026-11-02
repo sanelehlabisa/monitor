@@ -4,6 +4,9 @@ Active V1 path: manual balance/top-up kWh entry -> FastAPI -> PostgreSQL ->
 deterministic forecast -> Material UI dashboard. Hardware and OCR are not active
 dependencies.
 
+The owner reports the current deployed release working on 1 November 2026. Task
+089 plans guest web onboarding next; it does not change runtime behavior.
+
 ## Components
 
 - [Backend](backend/README.md): authentication, meter ledger APIs and forecasting.
@@ -40,7 +43,7 @@ docker compose -f prod.docker-compose.yaml up --build
 
 Production has three services and no Mailpit. Its frontend serves internal HTTP80
 and joins the external `roventics_proxy` network as `monitor-frontend`, matching
-Job Talk's shared-proxy pattern. The existing Roventics Nginx handles public
+the existing shared-proxy contract. The existing Roventics Nginx handles public
 HTTP80 redirects, HTTPS443 and certificates. Monitor publishes only a private
 frontend diagnostic port at `127.0.0.1:8082`; backend and database ports remain
 unpublished. No launcher, profile, binding variable or extra Compose file is needed.
@@ -170,7 +173,7 @@ Schema installation and upgrades are not performed by the image command. See the
 component READMEs for the runtime boundaries.
 
 Task 070 added [prod.docker-compose.yaml](prod.docker-compose.yaml) and a shared
-HTTPS design under Ticket 57.1. Task 083 restores Job Talk-style shared proxy
+HTTPS design under Ticket 57.1. Task 083 restores the existing shared proxy
 wiring after the historical local-only iterations. The [operator guide](nginx/README.md)
 covers the required external `roventics_proxy` network, Monitor route and shared
 certificate coverage. Task 072 consolidated the template into one
@@ -295,13 +298,72 @@ trusted links to the existing app routes. Links retain ordinary login and meter
 access checks; no new authentication channel, notification service or magic token.
 Implementation detail/acceptance is in the backend README.
 
-### Ticket 68: Future Mobile and Local-Only Use
+### Ticket 68: Guest web onboarding
 
-Extend the existing future installable-app ticket rather than creating a
-duplicate. Guest device-local records need no login; account storage/sharing
-requires login. Decide platform, data transfer/sync and notification behavior
-in that future ticket after usage evidence. No framework selection, mobile
-implementation or public unauthenticated server storage is approved now.
+Promote browser guest use now; retain native/PWA installation as later 68.5.
+The current deployed release still requires email login. The proposed first guest
+release starts with one local meter and the existing kWh balance/top-up entry
+pattern. Do not require a meter serial number, email or personal details to try it.
+
+**68.1 - Small storage contract (first).** Reuse meter/ledger shapes behind a
+small set of storage functions: local browser data when logged out, existing
+API when signed in. Keep components/calculations reusable; no storage framework
+or duplicate app. Review current API/SQL only to identify real coupling; a
+browser store needs domain fields, not replicas of auth/reminder tables.
+No new indexes/tables or schema rewrite for storage selection. Record any
+demonstrated blocker before proposing a separate data-preserving DB change.
+Confirmed: Log in and save uploads the existing guest meter/history after verified
+email login, in that same flow without a separate transfer screen. Settle the small
+retry/reconciliation rule in the design; done when this contract is approved.
+
+**68.2 - Browser forecast parity (after 68.1).** Implement the existing deterministic
+formula in one small frontend module for private local guest inputs. Use shared
+example inputs/reference outputs from Python; don't replace the live backend
+model or add ML. Match default/measured/unavailable states, rounding and UTC month
+rules before connecting UI. Detailed cases live in the frontend README.
+
+**68.3 - Guest workspace and records (after 68.2).** Reuse forecast and ledger
+components for balance/top-up add/edit/delete, immediate recalculation and browser
+storage according to 68.1. Show clear persistence/unavailable states and a local
+clear action. Done when first result, reload, storage failure and data-change
+flows work without sending guest ledger information to the server.
+
+**68.4 - Login and storage routing (after 68.3).** Homepage offers Use without
+logging in alongside email login. A guest-only Log in and save to account prompt
+leads through existing OTP and disappears when signed in. Guest operations use
+local storage; authenticated operations use the backend through the same small
+meter/ledger boundary. Do not add a separate Copy to account step.
+The user confirmed that this explicit action saves existing local meter/history
+after successful OTP. Keep local originals and report online success only after
+the server confirms the writes. Cover duplicate/retry/partial success in that
+same flow, saving into a new account meter without overwriting existing/shared
+meters. Ordinary login does not import guest data implicitly. No automatic two-way
+synchronization or repeated import on every login.
+Failed authenticated writes must not silently fall back to a local store;
+preserve the draft and show recovery. Logout must not copy account data into
+the guest store. Verify login/expiry/logout, storage choice and member/admin access.
+
+**68.6 - Keep me signed in (after 68.4).** Add one unchecked-by-default option
+to email login. Current runtime always issues a 30-day persistent session;
+replace that policy only in this approved implementation slice. Confirmed checked
+lifetime: 3 days. Unchecked: browser-session cookie with
+a short server-enforced absolute lifetime (proposed 24 hours; settle in the prompt).
+Use the existing opaque random token/digest table and cookie flow; no new auth
+table, refresh-token service or browser-stored credential. Persistent-cookie and server
+expiration must agree; no silent indefinite extension. Preserve secure HTTP-only,
+SameSite, host/path scope, origin/CSRF checks, OTP limits and logout revocation.
+Existing sessions keep their recorded expiry unless separately approved.
+Verify remembered return, expiry/revocation, unchecked behavior, rejected origins
+and guest usability after an expired session; reuse existing checks/manual flows.
+Browser session restoration is not guaranteed logout; server expiry is authoritative.
+Backend/frontend detail lives in their READMEs.
+
+**68.5 - Later installation/mobile.** Revisit PWA/native packaging, offline app
+loading, synchronization and notifications only after pilot evidence. Browser-local
+data does not imply that first load or offline reopening already works.
+
+After 68.4 and 68.6: Ticket 65 reviews guest and existing account usability, 57.3 deploys,
+then 67.1 recruits and 67.2 observes. Existing users/data/authentication are preserved.
 
 ### Ticket 66: Offline Per-Meter Forecast Research
 
@@ -364,6 +426,22 @@ validated accuracy without real comparisons. Can begin with 67 after 57.
 
 ### Ticket 57: Web Deployment
 
+Current status: the owner reports the existing deployment working (1 November
+2026); 57.2 records that report. The older preparation evidence below remains
+historical, not a claim that deployment is still waiting to begin. No new VPS
+inspection or security certification is claimed by Task 089.
+
+**57.3 - Deploy the guest iteration (after 68.1–68.4, 68.6 and 65).** Reuse existing Compose,
+domains, Nginx/certificates and environment. Review the exact release before
+operator deployment; preserve users, meter history, roles and other sites. Verify
+fresh browser guest entry/result/local reload with no guest-ledger network upload
+before the explicit authenticated save, successful history saving/retry after OTP,
+email login/logout, current admin/shared-meter permissions and protected deep links.
+Record release/version and a simple application rollback path that preserves
+records; no new backup service or database reset. Done when the deployed iteration
+passes these focused flows; don't infer this from a local build alone.
+
+
 Task 071's [local browser/security-readiness results](../agents/work/071-browser-security-readiness/changes.md)
 record four passed real desktop/mobile functional groups and passing bounded
 API auth/access checks using synthetic accounts/captured mail. NOT READY for
@@ -381,8 +459,8 @@ pass locally. The candidate can proceed to review and separately approved live
 57.2 setup/HTTPS/SMTP acceptance. Inspect the actual shared edge's patch status;
 no whole-image security certification or public-provider acceptance is implied.
 
-Task 083 prepares `monitor.roventics.com` using Job Talk's shared Nginx/Certbot
-pattern: Monitor serves private HTTP80 and joins `roventics_proxy`; the shared
+Task 083 prepares `monitor.roventics.com` using the existing shared Nginx/Certbot
+route: Monitor serves private HTTP80 and joins `roventics_proxy`; the shared
 edge supplies public HTTPS. The active guide covers certificate coverage without
 dropping existing names. No VPS, DNS, certificate issuance or live data changes
 are executed by this repository preparation; preserve the existing sites.
@@ -392,10 +470,9 @@ are executed by this repository preparation; preserve the existing sites.
   integration and certificate issuance/renewal instructions. See the
   [operator guide](nginx/README.md); no VPS verification is claimed. Task 083 adds
   the approved admin seed to fresh production setup and keeps demo data dev-only.
-- 57.2: later approved live DNS/proxy/certificate deployment, real SMTP/OTP
-  request/login/logout and meter/ledger/forecast smoke checks, member/admin
-  isolation and restart persistence. Confirm actual VPS state and preserve
-  existing sites, certificate names, environments and data before changes.
+- 57.2: initial release deployed by the owner and reported working. Preserve
+  that installation; its historical checklist is not a new instruction to
+  reconfigure DNS, certificates or data. Verify changed flows under 57.3.
 - Production monthly automation requires a separate explicit fixed activation
   cutoff; never copy the local Mailpit cutoff. No public Mailpit/database/debug
   endpoints, startup seed replay/role promotion or automatic existing-volume upgrades.
@@ -404,15 +481,30 @@ are executed by this repository preparation; preserve the existing sites.
   deployment prerequisite. No new backup work in this PoC scope; preserve existing
   recovery artifacts. Live deployment/external mail need separate approval.
 
-### Ticket 67: External User Testing
+### Ticket 67: Monitor beta recruitment and one-month observation
 
-After 57 and 65/66 readiness, invite 3-5 consenting internet users; personal
-testing 56 runs alongside it. Record onboarding completion, repeat reading
-entries, usefulness, errors/confusion, requests and continued usage over a
-declared pilot period. State estimates/limitations, keep records private and
-summarise findings without committing identifiable household data.
-Acceptance: a small cohort feedback summary and prioritised fixes. Free testers
-are usability evidence, not proof of commercial demand.
+**67.1 - Final Reddit post/repost (after 57.3 and 65).** Prepare a short post and
+small screenshot/demo explaining kWh inputs, estimates, guest-local versus account
+storage, limitations and one feedback/contact route. Check current rules in the
+chosen community, identify the creator honestly and invite about 3-5 volunteers.
+Review before posting; creating this ticket does not send messages or publish.
+Done when the agreed post is published and the small cohort/feedback route is ready.
+
+**67.2 - Observe roughly 30 days (from cohort start).** At entry, note voluntarily
+reported first-estimate success/time and confusing steps. Offer a short weekly
+check-in on repeat entries, estimate usefulness, storage loss and problems. At
+about day 30, summarise findings and choose a small next change, continue or stop.
+Collect consented, non-identifying notes; never collect guest history for analytics or
+silently add analytics/session replay. There is no default ability to track local
+users' return visits; report observation gaps honestly. Aggregate existing account
+usage only within an agreed privacy scope, without raw records/emails in Git.
+Done when the dated summary covers participation, repeat use (where volunteered),
+usefulness, issues and prioritised fixes. Recruitment is not evidence of demand.
+
+Personal validation 56 runs alongside, comparing volunteered real observations
+with saved predictions and intervening top-ups. Keep synthetic examples separate.
+Forecast research 66 and two-way sync do not gate the beta. The confirmed local-to-
+account save flow must pass 68.4 before deployment.
 
 Usability/identity/PWA detail is in the frontend README; deterministic validation
 detail is in the backend README. Purchase costs and cost estimates remain
