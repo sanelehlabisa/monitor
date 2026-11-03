@@ -4,8 +4,9 @@ Active V1 path: manual balance/top-up kWh entry -> FastAPI -> PostgreSQL ->
 deterministic forecast -> Material UI dashboard. Hardware and OCR are not active
 dependencies.
 
-The owner reports the current deployed release working on 1 November 2026. Task
-089 plans guest web onboarding next; it does not change runtime behavior.
+The owner reports the deployed email-login release working. Task 092 now adds
+local guest use in source; it has not been deployed. Guest history stays in the
+browser; existing account operations continue through the API.
 
 ## Components
 
@@ -301,36 +302,42 @@ Implementation detail/acceptance is in the backend README.
 ### Ticket 68: Guest web onboarding
 
 Promote browser guest use now; retain native/PWA installation as later 68.5.
-The current deployed release still requires email login. The proposed first guest
-release starts with one local meter and the existing kWh balance/top-up entry
-pattern. Do not require a meter serial number, email or personal details to try it.
+The deployed release still requires email login. Task 092 implements one local
+guest meter with the existing kWh balance/top-up entry pattern and predictions.
+No meter serial number, email or personal details are needed to try it.
 
-**68.1 - Small storage contract (first).** Reuse meter/ledger shapes behind a
+**68.1 - Small storage contract (implemented for guest use).** Reuse meter/ledger shapes behind a
 small set of storage functions: local browser data when logged out, existing
 API when signed in. Keep components/calculations reusable; no storage framework
 or duplicate app. Review current API/SQL only to identify real coupling; a
 browser store needs domain fields, not replicas of auth/reminder tables.
 No new indexes/tables or schema rewrite for storage selection. Record any
 demonstrated blocker before proposing a separate data-preserving DB change.
-Confirmed: Log in and save uploads the existing guest meter/history after verified
+Confirmed: the chosen account-saving flow uploads guest meter/history after verified
 email login, in that same flow without a separate transfer screen. Settle the small
-retry/reconciliation rule in the design; done when this contract is approved.
+retry/reconciliation rule under 68.4 before implementing account saving.
 
-**68.2 - Browser forecast parity (after 68.1).** Implement the existing deterministic
+**68.2 - Browser forecast parity (implemented).** Implement the existing deterministic
 formula in one small frontend module for private local guest inputs. Use shared
 example inputs/reference outputs from Python; don't replace the live backend
 model or add ML. Match default/measured/unavailable states, rounding and UTC month
 rules before connecting UI. Detailed cases live in the frontend README.
 
-**68.3 - Guest workspace and records (after 68.2).** Reuse forecast and ledger
+**68.3 - Guest workspace and records (implemented).** Reuse forecast and ledger
 components for balance/top-up add/edit/delete, immediate recalculation and browser
 storage according to 68.1. Show clear persistence/unavailable states and a local
 clear action. Done when first result, reload, storage failure and data-change
 flows work without sending guest ledger information to the server.
 
-**68.4 - Login and storage routing (after 68.3).** Homepage offers Use without
-logging in alongside email login. A guest-only Log in and save to account prompt
-leads through existing OTP and disappears when signed in. Guest operations use
+Task 092 uses a small versioned browser document and integer-unit forecast
+function; no dependencies/schema changes. Build, 44 existing frontend checks,
+215 Python-reference vectors and nine isolated browser groups pass. Storage
+failure recovery, desktop/phone flows and account navigation are covered;
+this is not a live deployment or external-SMTP test.
+
+**68.4 - Login and storage routing (after 68.3).** Task 093 gives home one Log in
+button; `/login` offers email or guest. Integrate the chosen account-saving flow
+through email OTP without adding routine login-to-save copy. Guest operations use
 local storage; authenticated operations use the backend through the same small
 meter/ledger boundary. Do not add a separate Copy to account step.
 The user confirmed that this explicit action saves existing local meter/history

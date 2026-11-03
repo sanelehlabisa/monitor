@@ -6,13 +6,14 @@ import {
   CssBaseline,
   Stack,
   ThemeProvider,
-  Typography,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { LoginPage, type LoginStep } from './routes/login/LoginPage';
+import { HomePage } from './routes/home/HomePage';
+import { GuestPage } from './routes/guest/GuestPage';
 import { MeterSearch } from './routes/meters/components/MeterSearch';
 import { MeterSection } from './routes/meters/components/MeterSection';
 import { ForecastPanel } from './routes/meters/components/ForecastPanel';
@@ -73,7 +74,7 @@ function ledgerFailure(error: unknown, action: string): string {
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState<LoginStep>('email');
+  const [step, setStep] = useState<LoginStep>('choose');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [notice, setNotice] = useState('');
@@ -105,7 +106,10 @@ export default function App() {
   const meterListVersion = useRef(0);
   const reloadOnReturn = useRef(false);
   const rolloverRefresh = useRef('');
+  const sessionVersion = useRef(0);
   const meterCount = unfilteredMeters.length;
+  const guestPath = /^\/guest\/?$/.test(meterPath);
+  const loginPath = /^\/login\/?$/.test(meterPath);
 
   function listInView(query = '', view = adminMeterView) {
     return listMeters(query, !user?.is_admin || view === 'mine');
@@ -125,15 +129,16 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    const version = sessionVersion.current;
     getCurrentUser()
       .then((currentUser) => {
-        if (active) setUser(currentUser);
+        if (active && version === sessionVersion.current) setUser(currentUser);
       })
       .catch(() => {
-        if (active) setError('Monitor could not be reached. Please try again.');
+        if (active && version === sessionVersion.current) setError('Monitor could not be reached. Please try again.');
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && version === sessionVersion.current) setLoading(false);
       });
     return () => {
       active = false;
@@ -170,7 +175,7 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    if (isMeterListPath(meterPath) && meterPath !== '/meters') {
+    if ((isMeterListPath(meterPath) && meterPath !== '/meters') || guestPath || loginPath) {
       window.history.replaceState(null, '', '/meters');
       setMeterPath('/meters');
       return;
@@ -250,6 +255,7 @@ export default function App() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (step === 'choose') return;
     setBusy(true);
     setError('');
     setNotice('');
@@ -259,7 +265,10 @@ export default function App() {
         setStep('code');
         setNotice('If the address can receive email, a sign-in code was sent.');
       } else {
-        setUser(await verifyOtp(email, code));
+        const signedIn = await verifyOtp(email, code);
+        sessionVersion.current += 1;
+        setUser(signedIn);
+        setLoading(false);
         setCode('');
       }
     } catch (requestError) {
@@ -293,6 +302,24 @@ export default function App() {
     setError('');
   }
 
+  function navigateEntry(path: '/' | '/login' | '/guest') {
+    window.history.pushState(null, '', path);
+    setMeterPath(path);
+    setStep('choose');
+    setCode('');
+    setNotice('');
+    setError('');
+  }
+
+  function handleEntryBack() {
+    if (loginPath && step !== 'choose') {
+      setStep('choose');
+      setCode('');
+      setNotice('');
+      setError('');
+    } else navigateEntry(guestPath ? '/login' : '/');
+  }
+
   async function handleLogout() {
     setBusy(true);
     setError('');
@@ -303,7 +330,7 @@ export default function App() {
       setUser(null);
       navigateToMeter(null);
       setAdminMeterView('mine');
-      setStep('email');
+      setStep('choose');
       setEmail('');
     } catch {
       setError('Sign out failed. Please try again.');
@@ -646,12 +673,16 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Container maxWidth={user ? 'lg' : 'xs'}>
+      <Container maxWidth={user || guestPath ? 'lg' : isMeterListPath(meterPath) ? 'sm' : 'xs'}>
         <Box component="main" sx={{ minHeight: '100vh', py: { xs: 3, sm: 4 } }}>
           <Stack spacing={3}>
-            <Navigation user={user} busy={busy || meterBusy || ledgerBusy} onLogout={handleLogout}
-              onBack={!isMeterListPath(meterPath) ? () => navigateToMeter(null) : undefined} />
-            {loading ? (
+            <Navigation user={user} publicPage={!user && (guestPath || loginPath)} busy={busy || meterBusy || ledgerBusy} onLogout={handleLogout}
+              onBack={user && !isMeterListPath(meterPath) ? () => navigateToMeter(null)
+                : !user && (guestPath || loginPath) ? handleEntryBack : undefined} />
+            {!user && isMeterListPath(meterPath) && (
+              <HomePage onLogin={() => navigateEntry('/login')} />
+            )}
+            {!user && guestPath ? <GuestPage /> : loading && !loginPath && !isMeterListPath(meterPath) ? (
               <Box sx={{ display: 'grid', minHeight: 240, placeItems: 'center' }}>
                 <CircularProgress aria-label="Loading your session" color="inherit" />
               </Box>
@@ -737,7 +768,7 @@ export default function App() {
                   />
                 )}
               </MeterSection>
-            ) : (
+            ) : !isMeterListPath(meterPath) ? (
               <LoginPage
                 busy={busy}
                 code={code}
@@ -745,20 +776,15 @@ export default function App() {
                 error={error}
                 notice={notice}
                 onChangeEmail={handleChangeEmail}
+                onEmailLogin={() => { setStep('email'); setError(''); }}
+                onGuest={() => navigateEntry('/guest')}
                 onCodeChange={setCode}
                 onEmailChange={setEmail}
                 onResend={handleResend}
                 onSubmit={handleSubmit}
                 step={step}
               />
-            )}
-            <Stack component="footer" spacing={1}>
-              <Box component="a" href="https://roventics.com" target="_blank" rel="noopener noreferrer" aria-label="Visit Roventics"
-                sx={{ alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 0.75, color: 'common.black', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
-                <Box component="img" src="/roventics-logo.png" alt="Roventics logo" width={24} height={24} sx={{ display: 'block' }} />
-                <Typography component="span" variant="caption">by Roventics</Typography>
-              </Box>
-            </Stack>
+            ) : null}
           </Stack>
         </Box>
       </Container>

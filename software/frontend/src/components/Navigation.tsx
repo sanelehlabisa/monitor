@@ -9,13 +9,14 @@ type NavigationProps = {
   busy: boolean;
   onLogout: () => void;
   onBack?: () => void;
+  publicPage?: boolean;
 };
 
-export function Navigation({ user, busy, onLogout, onBack }: NavigationProps) {
+export function Navigation({ user, busy, onLogout, onBack, publicPage = false }: NavigationProps) {
   return (
     <Box component={user ? 'nav' : 'header'} aria-label={user ? 'Main navigation' : undefined}
       sx={{ display: 'grid', alignItems: 'center', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', gap: 1 }}>
-      {user && onBack && (
+      {(user || publicPage) && onBack && (
         <Button disabled={busy} onClick={onBack} size="small" startIcon={<ArrowBackIcon />}
           sx={{ gridColumn: 1, gridRow: 1, justifySelf: 'start', textTransform: 'none' }}>Back</Button>
       )}

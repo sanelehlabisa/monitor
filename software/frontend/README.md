@@ -5,6 +5,16 @@ management and manual kWh history. It restores cookie sessions through
 `/api/me`, supports email/code/resend/logout, and lets a signed-in user add,
 list, select, rename and delete nickname-only software meters.
 
+Task 093 gives home one Log in button; `/login` offers Log in with email or
+Use without logging in. Task 092 adds `/guest`: one local meter with
+the same record/forecast panels, add/edit/delete, rename, reload/resume and clear.
+Guest history is stored under `monitor.guest.v1`; no ledger API requests are made.
+Account import/login-and-save and three-day remembered login remain future slices.
+
+Task 095 adds a concise product introduction and three uses on home, covering
+estimated balance, days remaining and monthly purchase planning. HomePage uses
+existing blue/teal tokens, light surfaces and a wider responsive home container.
+
 The following describes the current UI. Task 059 makes stored DB roles active;
 Task 063 implements the shared backend; Task 064 applied its safe DB transition.
 After the initial health timeout/diagnostic, the user started the full stack.
@@ -63,6 +73,7 @@ and their existing components are grouped without a new routing dependency:
 ```text
 src/
   App.tsx, main.tsx
+  routes/home/HomePage.tsx
   routes/login/LoginPage.tsx
   routes/meters/MetersPage.tsx, MeterDetailsPage.tsx, meterRoute.ts
   routes/meters/components/MeterSection.tsx, MeterSearch.tsx
@@ -73,9 +84,9 @@ src/
 ```
 
 API/date/route-helper tests live beside those helpers; `App.test.tsx` retains the
-existing screen assertions. Login is still the unauthenticated view at the
-requested URL, not a new `/login` route. Page keys, form resets, appearance and
-request behavior are unchanged. The old mixed screen files have no re-export
+existing screen assertions. Task 093 adds the public `/login` choice route;
+protected meter links retain their requested URL and offer the login choices.
+Restored sessions still use account routes. The old mixed screen files have no re-export
 shims; their committed originals remain recoverable from Git history.
 
 ## Docker targets
@@ -134,7 +145,7 @@ Task 044's combined branding stays: a 48px logo above the Monitor name in the
 centre, with both navigation controls vertically centred against that block.
 Equal flexible side columns keep branding centred even without Back.
 Login/session loading retain centred stacked branding without navigation controls.
-The company artwork stays in the footer; the old title/Admin badge remain absent.
+Task 096 removes the company footer artwork and credit from the app.
 
 Selecting a meter uses `/meters/<uuid>`. Direct links and reload restore the
 authorised meter, including after email login; browser Back/Forward and the Back
@@ -408,10 +419,8 @@ removes the former 42px account icon. Task 045 refines the system font, shades,
 corners and focus styling as described above. Task 046 changes layout only; the stacked header,
 manual forms, history and behaviour remain.
 
-Task 082 removes the manual-kWh/hardware note. The footer keeps the 24px Roventics
-logo plus black by Roventics text (Task 048). Its https://roventics.com link opens
-a new tab with noopener/noreferrer, preserving the current meter. The Monitor identity is
-primary; company artwork does not determine the app palette.
+Task 082 removes the manual-kWh/hardware note. Task 096 removes the company footer
+logo, credit and link for the public beta. The app presents its Monitor identity.
 
 Verification includes 31 frontend checks, the TypeScript/Vite production build
 and four grouped browser checks across 18 desktop/390px/320px views. Those
@@ -515,13 +524,15 @@ verified without real API requests. Task-owned verification resources are cleane
 
 ### Ticket 68: Guest web onboarding
 
-Task 089 is planning only. Current inspection found no browser persistence layer;
-all account meter/ledger endpoints are authenticated. Recommend a small dedicated
-guest path that reuses existing components and a small meter/ledger storage
-boundary. Guest operations use local storage; signed-in operations call existing
-APIs. Keep server access checks. Login is optional for account storage; there is
-no separate post-login copy screen. The user confirmed that Log in and save to
-account saves existing local meter/history after successful email verification.
+Task 092 implements 68.1–68.3. `routes/guest/GuestPage.tsx` reuses existing meter,
+forecast and ledger panels; `localMeter.ts` validates/loads/writes a versioned
+browser document; `forecast.ts` mirrors the Python model with integer units and
+UTC milliseconds. It matches 215 reference vectors, including rounding and calendar
+boundaries; run-out timestamps agree within one millisecond. No new dependencies.
+All account meter/ledger endpoints remain authenticated. Guest operations use
+local storage; signed-in operations call existing APIs. Login is optional for account storage; there is
+no separate post-login copy screen. The user confirmed that the account-saving
+flow saves existing local meter/history after successful email verification.
 
 | Existing code | Reuse or constraint |
 | --- | --- |
@@ -532,18 +543,18 @@ account saves existing local meter/history after successful email verification.
 | `../backend/app/modules/forecasting.py` | Python Decimal/UTC reference; validate a narrow browser equivalent against the existing results. |
 | `../backend/app/endpoints/ledger.py` | Authenticated dashboard reads scoped stored history. Keep it authenticated. |
 
-**68.1 design decision.** Recommend guest data and calculations stay in-browser.
+**68.1 design adopted.** Guest data and calculations stay in-browser.
 A public stateless forecast endpoint would reuse Python but transmit the inputs
 and add a public validation/abuse surface; do not label that design local-only.
 Do not add anonymous server meters, authentication bypasses or a new backend.
-Homepage offers Use without logging in. In the guest workspace show Log in and
-save to account; hide that prompt when authenticated. Reuse meter/ledger operation
+Home has one Log in button; `/login` offers email or guest use. Do not add an
+inline login-to-save promotion in the guest workspace. Reuse meter/ledger operation
 names/shapes with local or API implementations, not a generic storage framework.
 Start with one guest meter. Fresh/returning
 guest use must not depend on a successful session lookup. Preserve protected
 account deep links and ensure account data is never copied into the guest store.
 
-**68.2 calculation acceptance.** Match the existing backend using fixed reference
+**68.2 calculation acceptance (passed).** Match the existing backend using fixed reference
 cases: no balance -> Not enough data; one balance -> labelled 10 kWh/day starting
 assumption; valid intervals -> measured meter use; inconsistent/future/duplicate
 history -> unavailable, never hidden by default. Include top-up interval boundaries,
@@ -553,14 +564,16 @@ planning month, monthly requirement versus additional top-up and local run-out
 display. Choose the smallest arithmetic approach that passes parity in 68.1;
 do not silently accept materially different JavaScript rounding or add a model.
 
-**68.3 storage and UI acceptance.** A small versioned/namespaced local document
-and helper is the initial persistence candidate; validate input on save/load.
+**68.3 storage and UI acceptance (passed).** A small versioned/namespaced local document
+and helper validate input on save/load. Other-tab changes are detected by storage
+events and compare-before-write; a stale tab keeps edits in memory and asks for
+reload. This is not a concurrent synchronization engine.
 Do not introduce a storage framework or sync engine. Recalculate after add/edit/
-delete, refresh and resuming an old tab. Show Saved on this browser, Clear local
-data with confirmation, and a short browser-data-loss note. Handle unavailable,
+delete, refresh and resuming an old tab. Keep Clear local data with confirmation;
+Task 093 removes routine storage status/row and promotional copy. Handle unavailable,
 full or corrupt storage without saying an unsaved record is saved or deleting it
 silently; keep a usable in-memory estimate when persistence is unavailable.
-Decide a simple conflict rule for multiple tabs in the same browser. No guest
+Keep the simple conflict rule for multiple tabs in the same browser. No guest
 history in API calls, query strings, logs or analytics. Local storage is not
 encrypted account protection: another person using this browser profile may see it.
 
@@ -572,7 +585,7 @@ optional; do not force login just because a local history becomes older.
 
 **68.4 storage/account acceptance.** Use local operations while logged out;
 switch new operations to the backend only for a verified session. Reuse email
-OTP; hide the guest account-saving prompt after login, with no extra Copy screen.
+OTP through the login choice route, with no extra Copy screen or routine save promotion.
 That explicit flow saves the existing local meter/history after successful OTP,
 without another copy action. Retain local originals; show online success only
 after server confirmation and offer recovery on failure. Current API operations
@@ -601,6 +614,11 @@ no onboarding wizard or mandatory tour.
 
 **68.5 later.** Native/PWA installation, app-cache/offline reopening, background
 sync and new notification mechanisms need evidence from 67; they are not release gates.
+
+Task 093 verification: build and all 44 existing checks pass. Four isolated browser
+groups cover home/choice routing, Back, guest persistence and clean copy, OTP login
+while session restore is pending, stale-restore protection, private meter links,
+storage failure warnings and 1280/390/320px layouts. Session duration is unchanged.
 
 ## Search discovery
 

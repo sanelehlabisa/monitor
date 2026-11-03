@@ -123,7 +123,7 @@ export function ForecastPanel({ forecast, loading }: ForecastPanelProps) {
               }
               note={
                 forecast.run_out_at === null
-                  ? 'No run-out at observed use'
+                  ? forecast.remaining_days === null ? 'No run-out at observed use' : 'Run-out date exceeds calendar range'
                   : `Predicted run-out ${localDateDisplay(forecast.run_out_at)}`
               }
             />

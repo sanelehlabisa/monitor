@@ -80,22 +80,21 @@ describe('Monitor authentication UI', () => {
     expect(busy.match(/<button\b[^>]*disabled=""/g)).toHaveLength(2);
   });
 
-  it('renders Monitor identity and the separate Roventics credit without claiming data exists', () => {
+  it('renders Monitor identity and the public entry action', () => {
     const markup = renderToStaticMarkup(<App />);
 
     expect(markup).toContain('src="/monitor-logo.png"');
     expect(markup).toContain('alt="Monitor logo"');
     expect(markup).toContain('width="48"');
-    expect(markup).toContain('src="/roventics-logo.png"');
-    expect(markup).toContain('href="https://roventics.com"');
-    expect(markup).toContain('rel="noopener noreferrer"');
-    expect(markup).toContain('by Roventics');
+    expect(markup).not.toContain('src="/roventics-logo.png"');
+    expect(markup).not.toContain('by Roventics');
     expect(markup).toContain('#005aae');
     expect(markup).toContain('#ffffff');
     expect(markup).toContain('Segoe UI');
     expect(markup).toContain('system-ui');
     expect(markup).not.toContain('Roventics Monitor');
-    expect(markup).toContain('Loading your session');
+    expect(markup).toContain('>Log in</button>');
+    expect(markup).not.toContain('Loading your session');
   });
 
   it('renders the email and code steps as one compact flow', () => {

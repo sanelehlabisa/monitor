@@ -193,6 +193,8 @@ a live transition/reset, sharing activation, seed replay or future feature.
 
 ## Ticket 68.1: Storage contract review
 
+Task 092's guest slice required no database/schema changes.
+
 Guest browser storage keeps meter names and balance/top-up domain records;
 authenticated users keep using this backend/schema. Do not mirror auth, membership
 or reminder tables in local storage. Review only actual API/shape barriers to a

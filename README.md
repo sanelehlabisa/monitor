@@ -3,12 +3,12 @@
 Plan prepaid electricity use with simple kWh calculations. Record balances and
 top-ups to estimate current balance, days remaining, run-out and monthly needs.
 
-The deployed app currently uses email login. Next: local browser use without
-an account, with optional login for account storage and access from another
-device. Guests use local storage; signed-in users use the backend. The homepage
-will offer Use without logging in. Log in and save to account will save the
-existing guest meter/history after email verification, then hide the guest prompt.
-Local saving cannot guarantee recovery after browser data is cleared.
+Home has one Log in button. The next page offers email login or Use without
+logging in for one local guest meter, with balance/top-up history and forecasts.
+Signed-in users keep using the backend.
+Local saving cannot guarantee recovery after browser data is cleared. This change
+is not deployed yet; the existing deployment still uses email login.
+Account saving is the next slice, followed by three-day remembered login.
 
 ## Development
 
@@ -20,9 +20,9 @@ React, Material UI, FastAPI, PostgreSQL and direct SQL.
 
 | Order | Ticket | Title |
 | --- | --- | --- |
-| 1 | 68.1 | Guest flow design |
-| 2 | 68.2 | Local forecast calculation |
-| 3 | 68.3 | Local records and workspace |
+| Done | 68.1 | Guest flow design |
+| Done | 68.2 | Local forecast calculation |
+| Done | 68.3 | Local records and workspace |
 | 4 | 68.4 | Login and storage routing |
 | 5 | 68.6 | Three-day remembered login |
 | 6 | 65 | Phone and desktop usability |
