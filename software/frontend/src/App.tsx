@@ -6,6 +6,7 @@ import {
   CssBaseline,
   Stack,
   ThemeProvider,
+  Typography,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useEffect, useRef, useState } from 'react';
@@ -785,6 +786,13 @@ export default function App() {
                 step={step}
               />
             ) : null}
+            <Stack component="footer" spacing={1}>
+              <Box component="a" href="https://roventics.com" target="_blank" rel="noopener noreferrer" aria-label="Visit Roventics"
+                sx={{ alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 0.75, color: 'common.black', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                <Box component="img" src="/roventics-logo.png" alt="Roventics logo" width={24} height={24} sx={{ display: 'block' }} />
+                <Typography component="span" variant="caption">by Roventics</Typography>
+              </Box>
+            </Stack>
           </Stack>
         </Box>
       </Container>

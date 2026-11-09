@@ -145,7 +145,7 @@ Task 044's combined branding stays: a 48px logo above the Monitor name in the
 centre, with both navigation controls vertically centred against that block.
 Equal flexible side columns keep branding centred even without Back.
 Login/session loading retain centred stacked branding without navigation controls.
-Task 096 removes the company footer artwork and credit from the app.
+Task 097 restores the original linked Roventics logo and credit below the app.
 
 Selecting a meter uses `/meters/<uuid>`. Direct links and reload restore the
 authorised meter, including after email login; browser Back/Forward and the Back
@@ -419,8 +419,8 @@ removes the former 42px account icon. Task 045 refines the system font, shades,
 corners and focus styling as described above. Task 046 changes layout only; the stacked header,
 manual forms, history and behaviour remain.
 
-Task 082 removes the manual-kWh/hardware note. Task 096 removes the company footer
-logo, credit and link for the public beta. The app presents its Monitor identity.
+Task 082 removes the manual-kWh/hardware note. Task 097 restores the original
+company footer logo, credit and link at the owner's request. Monitor branding remains.
 
 Verification includes 31 frontend checks, the TypeScript/Vite production build
 and four grouped browser checks across 18 desktop/390px/320px views. Those
@@ -625,6 +625,9 @@ storage failure warnings and 1280/390/320px layouts. Session duration is unchang
 The public entry has a descriptive title, summary and sharing metadata. Vite
 copies `public/robots.txt` and `public/sitemap.xml` into the production build.
 The sitemap lists only `https://monitor.roventics.com/`; submit its sitemap URL
-in the verified Search Console property after deployment. Crawling preferences
-exclude the API and meter workspace, but do not replace authentication or
-guarantee indexing. No private records or meter URLs belong in the sitemap.
+in the verified Search Console property after deployment. Production Nginx adds
+a canonical Link header only to the public homepage, redirects /index.html to /,
+and sends X-Robots-Tag: noindex for workspace, login and other nonpublic routes.
+The meter shell is crawlable so search engines can read noindex; all private data
+still requires authentication. The API remains disallowed in robots.txt.
+No private records or meter URLs belong in the sitemap. Indexing is not guaranteed.

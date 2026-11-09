@@ -86,8 +86,10 @@ describe('Monitor authentication UI', () => {
     expect(markup).toContain('src="/monitor-logo.png"');
     expect(markup).toContain('alt="Monitor logo"');
     expect(markup).toContain('width="48"');
-    expect(markup).not.toContain('src="/roventics-logo.png"');
-    expect(markup).not.toContain('by Roventics');
+    expect(markup).toContain('src="/roventics-logo.png"');
+    expect(markup).toContain('by Roventics');
+    expect(markup).toContain('href="https://roventics.com"');
+    expect(markup).toContain('aria-label="Visit Roventics"');
     expect(markup).toContain('#005aae');
     expect(markup).toContain('#ffffff');
     expect(markup).toContain('Segoe UI');

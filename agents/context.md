@@ -58,4 +58,6 @@ checks and 1280/390/320px walkthrough pass. Root README owns priorities;
 component READMEs own detail. Task 096 removes the company footer and prepares
 the beta handoff. The user approved Git publication on 3 November 2026;
 VPS rollout is the next operator step.
-Next work: 097.
+Task 097 restores the original company logo credit and improves homepage canonical
+and nonpublic noindex headers, without changing account flows or landing copy.
+Next work: 098.
