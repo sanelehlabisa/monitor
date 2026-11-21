@@ -1,9 +1,10 @@
 # Market-research pipeline
 
 Local workspace for a planned Python tool finding public business contacts at
-student accommodation providers, property managers and landlords. Task 099
-implements offline setup only. The first milestone will produce one contacts CSV
-with short, factual context. Collection and outreach require their approved tasks.
+student accommodation providers, property managers and landlords. Workspace
+setup and resumable resource collection are implemented. The first milestone
+will produce one contacts CSV with short, factual context. Document readers,
+enrichment and outreach remain separate tasks.
 
 ## Workspace and privacy
 
@@ -13,7 +14,7 @@ when dependencies are added.
 Split helpers only when useful. No application imports, production dependencies,
 database, queue, browser automation, vector store or agent framework.
 
-Workspace layout; contacts, crawl state and environments are later additions:
+Workspace layout; the contacts CSV and environment are later additions:
 
 ```text
 market-research/
@@ -26,6 +27,7 @@ market-research/
   data/
     contacts.csv
     crawl_state.json
+    crawl.lock
     evidence/
   drafts/
   logs/
@@ -62,24 +64,90 @@ It never overwrites existing files. Checks report counts, not URLs.
 
 `--check` checks directories, temporary write access and seed syntax without
 network access. It returns 0 on success, 1 for missing/invalid workspace inputs;
-invalid command options return 2. No crawl, DNS/robots check, extraction, CSV
-creation or model inference is implemented in this slice.
+invalid command options return 2. This mode makes no crawl, DNS, robots or model
+request. It does not create the final CSV.
 
 Use `--help` for options. `--seeds` and `--data-dir` must resolve inside this
 experiment, including through existing links/junctions. An alternative private
-seed file can be selected with `--seeds data/seed_urls.txt`. Future crawl defaults
+seed file can be selected with `--seeds data/seed_urls.txt`. Crawl defaults
 are depth 2, 50 pages per seed, 200 requests per run, 15-second request timeout
-and a 1-second delay. These settings are validated/displayed now and will govern
-actual requests only after 71.2 is implemented.
+and a 1-second delay, plus 5 MiB per resource. Robots requests, redirects and
+failed request attempts consume the total request budget.
+
+## Crawl and resume
+
+From the repository root:
+
+```sh
+# First run only; refuses to replace an existing checkpoint.
+python software/research/market-research/pipeline.py --crawl --max-requests 5
+
+# Continue saved work with a fresh per-run budget.
+python software/research/market-research/pipeline.py --resume --max-requests 5
+```
+
+The local Task 100 smoke checkpoint already exists, so use `--resume` here.
+The seed file must match that checkpoint. Use another private `--data-dir` for
+a different batch instead of deleting existing evidence/state.
+
+Initial scope is exact seed hostnames plus their `www` equivalents, without
+implicitly allowing every subdomain. Add a related host with repeatable
+`--allow-host provider.example`. External links remain recorded with reason
+`scope` until allowed. Raise `--max-depth` to release depth-limited branches.
+Page/request counters reset on each run; completed URLs stay deduplicated.
+Redirects add no graph depth, are capped at five hops, and cannot downgrade HTTPS.
+Cycles and alternate parent links are retained without repeated resource fetches.
+
+The crawler checks public DNS addresses and connects to a checked address, using
+normal hostname/certificate verification for HTTPS. It uses direct connections
+to standard HTTP80/HTTPS443, without environment proxies or authentication.
+Timeouts cover socket operations/body reading; OS DNS resolution can take longer.
+HTML text, links and email candidates are extracted without running scripts.
+Bounded non-HTML downloads are retained for the later document-reader ticket.
+
+Robots rules include wildcard/end matches, longest-path selection and merged
+matching user-agent groups. Successful policies are cached privately for up to
+24 hours. Per-host waits and Retry-After backoffs survive resume. Waits over
+30 seconds leave work deferred instead of blocking the process for a long sleep.
+Each resource gets at most two failed attempts across runs. Restrictions, errors,
+unsupported encodings and oversized files remain recorded; they are not bypassed.
+
+State uses temporary-file replacement and an exclusive `crawl.lock`. Normal exit
+and Ctrl+C release the lock. After a hard crash, first confirm no writer remains
+before manually removing that exact stale lock. Invalid state is preserved for
+manual recovery. Raw files and extraction JSON use generated hash filenames under
+`data/evidence/`; no final contacts CSV is created yet.
+
+Task 100's five-attempt public smoke fetched one HTML page and saved 76 resources:
+72 pending and three failures (one unavailable robots response and two robots
+redirect-loop outcomes). This verifies a bounded run, not coverage of every seed.
+Private source URLs, emails and page contents stay out of Git and terminal reports.
+
+### Access findings and limits
+
+Only four of the 16 seed URLs were attempted: one fetched and three failed at
+robots checking. The other 12 seeds are pending solely because of the request
+budget. Most seeds remain untested; these results cannot establish that most
+sites are inaccessible. The recorded errors do not yet establish their root cause.
+`robots_unavailable` can conceal different network/HTTP failures, while the two
+`robots_redirect_loop` outcomes need their actual response chains checked.
+
+Exact seed outcomes are recorded privately in `data/task100-access-review.json`;
+the source checkpoint/evidence remain intact. Follow-up 71.2.1 comes before
+document readers or a broad collection run. No additional requests were made
+while recording this review.
 
 ## First milestone — Tickets 71.1–71.7
 
 After individually approved slices, the user can enter several seeds, run one
 Python command and obtain unique contacts with traceable context. Stop for review
-before survey work or outreach. Ticket 71.1 is complete; the rest remain open.
+before survey work or outreach. Tickets 71.1 and 71.2 are complete; the rest remain open.
 Task 099's approved
 [workspace prompt](../../../agents/work/099-market-research-workspace/prompt.md)
 covers setup only. The owner's seed file is already present for 71.2.
+The approved [crawler prompt](../../../agents/work/100-resumable-research-crawler/prompt.md)
+covers 71.2; [results](../../../agents/work/100-resumable-research-crawler/changes.md)
+record isolated checks and the bounded public run.
 
 ## Traversal and reading
 
@@ -111,7 +179,7 @@ Agree any needed OCR or additional parser before implementing it.
   seed, request timeout and delay. Use ordinary Python libraries where practical.
 - Check ignored paths using fictional inputs, without any network request.
 
-### 71.2 — Resumable link traversal
+### 71.2 — Resumable link traversal (complete)
 
 Depends on 71.1.
 
@@ -131,6 +199,19 @@ Depends on 71.1.
   blocked until the relevant limit changes. Deduplicate nodes without losing
   discovery paths. Check cycles, shared targets, paused branches, resume,
   restrictions and a successful local/manual run.
+
+### 71.2.1 — Crawl access diagnostics (next)
+
+- Inspect the three recorded failures with private HTTP status/redirect-chain
+  and network-error details. Distinguish site restrictions, unavailable robots,
+  transport errors and crawler defects; do not infer the cause from a generic label.
+- Preserve current state, evidence and the private seed review. Keep diagnosis
+  details private and report aggregate seed coverage separately from discovered links.
+- Use synthetic responses first. After prompt approval, run one bounded seed-only
+  review of at most 32 request attempts, including robots/redirects. Stop and report
+  untested seeds if the budget ends. No restriction bypass or unlimited retries.
+- Fix only demonstrated crawler defects, then document accessible/failed/untested
+  seeds and remaining limits before document-reading work or a broad crawl.
 
 ### 71.3 — PDF and document reading
 

@@ -71,7 +71,18 @@ data. Traverse all discovered in-scope links with cycle detection and retained
 queues at limits; record unsupported formats rather than claiming they were read.
 Task 099 / 71.1 implements offline --init/--check in one standard-library
 pipeline.py. Private folders exist; the owner's links.txt is the default and
-has 16 syntax-valid entries, preserved byte-for-byte. Crawling/model calls are
-not implemented yet. The owner requests the installed small Qwen (~1.3B) for
+has 16 syntax-valid entries, preserved byte-for-byte. The owner requests small Qwen (~1.3B) for
 71.5; confirm its actual identifier then. Existing forecasting stays in place.
-Next research slice: 71.2 resumable traversal. Next work prompt: 100.
+Research plan/workspace published on master as 1b233b4 at the user's request.
+Task 100 / 71.2 adds --crawl/--resume in the same standard-library script:
+seed hosts/www initially, explicit extra hosts, deduplicated graph/parent links,
+retained deferred branches, bounded requests, private atomic state/evidence and
+a single writer. Public-IP pinning, TLS verification, robots rules and persisted
+rate waits apply. No document reader, final CSV or model call yet.
+Isolated checks pass. The approved five-attempt smoke fetched one HTML page:
+76 discovered, 72 pending, three robots-access failures recorded. Private state
+is at data/crawl_state.json and seed bytes are preserved. No full crawl was run.
+Only four of 16 seeds were attempted (one fetched, three robots-stage failures);
+12 seeds are request-budget pending, not known failures. Root causes are unverified.
+Private per-seed review: data/task100-access-review.json. Next is 71.2.1 access
+diagnostics before 71.3 readers; the next prompt is 101.

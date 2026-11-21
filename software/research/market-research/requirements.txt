@@ -1,1 +1,1 @@
-# Task 099 uses only the Python standard library. No packages to install yet.
+# This research script uses only the Python standard library. No packages to install yet.
