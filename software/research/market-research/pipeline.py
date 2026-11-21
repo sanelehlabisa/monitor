@@ -38,6 +38,37 @@ class CrawlStop(Exception):
     """A safe reason to defer/stop a resource, without exposing its URL."""
 
 
+def error_kind(error: BaseException) -> str:
+    if isinstance(error, CrawlStop):
+        return str(error)
+    if isinstance(error, ssl.SSLCertVerificationError):
+        return "tls_verification_error"
+    if isinstance(error, ssl.SSLError):
+        return "tls_error"
+    if isinstance(error, socket.gaierror):
+        return "dns_error"
+    if isinstance(error, TimeoutError):
+        return "timeout"
+    if isinstance(error, http.client.HTTPException):
+        return "http_protocol_error"
+    return "network_error" if isinstance(error, OSError) else "invalid_response"
+
+
+def redirect_target(url: str, headers: dict[str, str]) -> str:
+    location = headers.get("location", "").strip()
+    if not location:
+        raise CrawlStop("redirect_missing_location")
+    try:
+        target = normalize_url(location, url)
+    except ValueError:
+        raise CrawlStop("redirect_invalid_location") from None
+    if target == url:
+        raise CrawlStop("redirect_self")
+    if urlsplit(url).scheme == "https" and urlsplit(target).scheme != "https":
+        raise CrawlStop("https_downgrade")
+    return target
+
+
 def normalize_url(value: str, base: str = "") -> str:
     value = urljoin(base, value.strip())
     if any(ord(character) < 33 or ord(character) == 127 for character in value):
@@ -230,7 +261,9 @@ def request_resource(url: str, timeout: float, limit: int) -> tuple[int, dict[st
         if parsed.scheme == "https":
             connection.sock = ssl.create_default_context().wrap_socket(connection.sock, server_hostname=host)
         path = parsed.path + ("?" + parsed.query if parsed.query else "")
-        connection.request("GET", path, headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity", "Connection": "close"})
+        # Preserve the URI authority after connecting the manually wrapped socket.
+        connection.request("GET", path, headers={"Host": parsed.netloc, "User-Agent": USER_AGENT,
+                                                  "Accept-Encoding": "identity", "Connection": "close"})
         with http.client.HTTPResponse(connection.sock, method="GET") as response:
             response.begin()
             headers = {key.lower(): value for key, value in response.getheaders()}
@@ -264,8 +297,9 @@ class Fetcher:
         self.policies: dict[str, RobotPolicy | str] = {}
         self.next_request_at = next_request_at
         self.robots = robots
+        self.trace: list[dict[str, Any]] = []
 
-    def request(self, url: str, delay: float = 0.0, limit: int | None = None) -> tuple[int, dict[str, str], bytes]:
+    def request(self, url: str, delay: float = 0.0, limit: int | None = None, stage: str = "resource") -> tuple[int, dict[str, str], bytes]:
         if self.requests >= self.args.max_requests:
             raise CrawlStop("request_budget")
         host = urlsplit(url).hostname or ""
@@ -278,11 +312,16 @@ class Fetcher:
         if wait > 0:
             time.sleep(wait)
         self.requests += 1
+        event: dict[str, Any] = {"url": url, "stage": stage, "outcome": "interrupted"}
         try:
             result = request_resource(url, self.args.request_timeout, limit or self.args.max_bytes)
             status, headers, _ = result
+            event.update(http_status=status, outcome=f"http_{status}")
+            if status in {301, 302, 303, 307, 308}:
+                event["location"] = headers.get("location", "")[:2048]
             if status in {429, 503}:
                 retry = headers.get("retry-after", "")
+                event["retry_after"] = retry[:100]
                 until = time.time() + 60
                 try:
                     until = time.time() + int(retry) if retry.isdigit() else parsedate_to_datetime(retry).timestamp()
@@ -290,7 +329,16 @@ class Fetcher:
                     pass
                 self.next_request_at[host] = max(self.next_request_at.get(host, 0.0), until)
             return result
+        except (CrawlStop, OSError, ValueError, http.client.HTTPException) as error:
+            event.update(error_class=type(error).__name__, outcome=error_kind(error))
+            if isinstance(error, OSError) and error.errno is not None:
+                event["error_code"] = error.errno
+            if isinstance(error, ssl.SSLCertVerificationError):
+                event["verify_code"] = getattr(error, "verify_code", None)
+                event["verification_error"] = getattr(error, "verify_message", "")[:256]
+            raise
         finally:
+            self.trace.append(event)
             self.last[host] = time.monotonic()
             self.next_request_at[host] = max(self.next_request_at.get(host, 0.0), time.time() + max(self.args.delay, delay))
 
@@ -308,12 +356,9 @@ class Fetcher:
                     if current in seen:
                         raise CrawlStop("robots_redirect_loop")
                     seen.add(current)
-                    status, headers, body = self.request(current, limit=512 * 1024)
+                    status, headers, body = self.request(current, limit=512 * 1024, stage="robots")
                     if status in {301, 302, 303, 307, 308}:
-                        target = normalize_url(headers.get("location", ""), current)
-                        if urlsplit(current).scheme == "https" and urlsplit(target).scheme != "https":
-                            raise CrawlStop("https_downgrade")
-                        current = target
+                        current = redirect_target(current, headers)
                         continue
                     if status in {404, 410}:
                         self.policies[origin] = RobotPolicy([])
@@ -322,16 +367,17 @@ class Fetcher:
                     elif status in {401, 403}:
                         self.policies[origin] = RobotPolicy([("/", False)])
                     else:
-                        raise CrawlStop("robots_unavailable")
+                        raise CrawlStop(f"robots_http_{status}")
                     break
                 else:
                     raise CrawlStop("robots_redirect_limit")
             except CrawlStop as error:
-                if str(error) == "request_budget":
+                reason = str(error)
+                if reason in {"request_budget", "scope", "rate_deferred"}:
                     raise
-                self.policies[origin] = str(error)
-            except (OSError, ValueError, http.client.HTTPException):
-                self.policies[origin] = "robots_unavailable"
+                self.policies[origin] = "robots_" + reason if reason.startswith("redirect_") else reason
+            except (OSError, ValueError, http.client.HTTPException) as error:
+                self.policies[origin] = "robots_" + error_kind(error)
             policy = self.policies[origin]
             if isinstance(policy, RobotPolicy):
                 self.robots[origin] = {"rules": policy.rules, "delay": policy.delay, "checked_at": time.time()}
@@ -406,6 +452,11 @@ def load_state(path: Path) -> dict[str, Any]:
                 if not isinstance(node[key], list) or not all(isinstance(link, str) and link in state["nodes"] for link in node[key]):
                     raise ValueError
             if node["status"] == "redirect" and len(node["links"]) != 1:
+                raise ValueError
+            history = node.get("diagnostics", [])
+            if (not isinstance(history, list) or len(history) > MAX_ATTEMPTS
+                or any(not isinstance(record, dict) or not isinstance(record.get("requests"), list)
+                       or len(record["requests"]) > MAX_REDIRECTS + 2 for record in history)):
                 raise ValueError
             if node["status"] == "pending" and node["attempts"] >= MAX_ATTEMPTS:
                 node.update(status="failed", reason="attempt_limit")
@@ -544,6 +595,8 @@ def crawl(args: argparse.Namespace, data: Path, seeds_path: Path) -> int:
                 url, root = selected
                 node = state["nodes"][url]
                 previous_attempts = node["attempts"]
+                trace_start = len(fetcher.trace)
+                request_start = fetcher.requests
                 processed.add(url)
                 try:
                     policy = fetcher.policy(url)
@@ -559,9 +612,7 @@ def crawl(args: argparse.Namespace, data: Path, seeds_path: Path) -> int:
                     status, headers, body = fetcher.request(url, delay=policy.delay)
                     node["http_status"] = status
                     if status in {301, 302, 303, 307, 308}:
-                        target = normalize_url(headers.get("location", ""), url)
-                        if urlsplit(url).scheme == "https" and urlsplit(target).scheme != "https":
-                            raise CrawlStop("https_downgrade")
+                        target = redirect_target(url, headers)
                         seen = {url}
                         cursor = target
                         while cursor in state["nodes"]:
@@ -587,15 +638,20 @@ def crawl(args: argparse.Namespace, data: Path, seeds_path: Path) -> int:
                     reason = str(error)
                     if reason in {"request_budget", "scope", "rate_deferred"}:
                         node.update(status="pending", reason=reason, attempts=previous_attempts)
-                    elif reason in {"non_public_target", "nonstandard_port", "resource_too_large", "encoded_response_unsupported", "redirect_loop", "https_downgrade"}:
+                    elif reason in {"non_public_target", "nonstandard_port", "resource_too_large", "encoded_response_unsupported", "redirect_loop", "redirect_self", "https_downgrade"}:
                         node.update(status="blocked", reason=reason)
                     else:
                         node["attempts"] = previous_attempts + 1
                         node.update(status="failed", reason=reason)
                 except (OSError, ValueError, http.client.HTTPException) as error:
                     node["attempts"] = previous_attempts + 1
-                    node.update(status="failed", reason=type(error).__name__)
+                    node.update(status="failed", reason=error_kind(error))
                 finally:
+                    record = {"observed_at": time.time(), "attempt": node["attempts"],
+                              "status": node["status"], "reason": node["reason"],
+                              "request_count": fetcher.requests - request_start,
+                              "requests": fetcher.trace[trace_start:][-MAX_REDIRECTS - 2:]}
+                    node["diagnostics"] = (node.get("diagnostics", []) + [record])[-MAX_ATTEMPTS:]
                     save_state(state_path, state)
         except KeyboardInterrupt:
             interrupted = True

@@ -38,7 +38,7 @@ Preserve current email accounts, sharing and admin access.
 
 - **56 — Personal validation:** compare real entries with saved estimates.
 - **70 — Reminder emails:** login HTML is complete; reminder HTML remains.
-- **71.1–71.11 — Market research:** access diagnostics next, then document readers.
+- **71.1–71.11 — Market research:** access review recorded; document readers next.
   CSV first, survey/outreach later. [Plan](software/research/market-research/README.md).
 - **66.1–66.5 — Forecast research:** datasets, plots, simulator, evaluation,
   then integration only if justified. [Research](software/backend/research/forecasting/README.md).

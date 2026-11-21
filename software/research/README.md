@@ -6,7 +6,8 @@ generated files inside that experiment and excluded from Git.
 
 - [Market research](market-research/README.md): planned local contact discovery,
   context enrichment and a single contacts CSV. Offline setup and resumable
-  crawling are ready; access diagnostics precede document readers and LM Studio.
+  crawling/access diagnostics are ready. The live review has unresolved access
+  outcomes; document readers and LM Studio remain planned.
 - [Forecasting](../backend/research/forecasting/README.md): existing isolated
   simulator, retained in its current location.
 

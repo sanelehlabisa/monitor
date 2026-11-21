@@ -82,7 +82,18 @@ rate waits apply. No document reader, final CSV or model call yet.
 Isolated checks pass. The approved five-attempt smoke fetched one HTML page:
 76 discovered, 72 pending, three robots-access failures recorded. Private state
 is at data/crawl_state.json and seed bytes are preserved. No full crawl was run.
-Only four of 16 seeds were attempted (one fetched, three robots-stage failures);
-12 seeds are request-budget pending, not known failures. Root causes are unverified.
-Private per-seed review: data/task100-access-review.json. Next is 71.2.1 access
-diagnostics before 71.3 readers; the next prompt is 101.
+Task 100/findings were published on master as 38c2409. Task 101 adds bounded
+private diagnostics and distinct redirect/network outcomes. Its one approved
+seed-only review used 16 of 32 allowed attempts: all 16 seeds reviewed, five
+downloaded (four HTML, one PDF), nine robots self-redirect failures, one TLS
+verification failure and one target HTTP403. Full graph: 348 nodes, 332 pending.
+Private reports: data/task100-access-review.json and data/task101-access-review.json;
+the original state, seeds and old evidence are preserved. Retry counts remain.
+Missing-Location misclassification and an HTTPS Host-authority mismatch were
+fixed with synthetic proof. The Host fix followed the live batch; its effect on
+self-redirects is unverified. No second batch: explicit approval is needed for a
+bounded recheck before a broad crawl. A saved PDF is available for 71.3 readers.
+The owner authorized Task 101 commit/push and deferred access fixes. Private
+links.failed.txt records all 11 failed/restricted seeds with observed reasons;
+seeds/state/reports are unchanged. Proceed with saved documents only, without
+retrying those URLs. No final contacts CSV/model call yet. Next prompt: 102.

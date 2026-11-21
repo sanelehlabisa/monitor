@@ -123,25 +123,51 @@ Task 100's five-attempt public smoke fetched one HTML page and saved 76 resource
 redirect-loop outcomes). This verifies a bounded run, not coverage of every seed.
 Private source URLs, emails and page contents stay out of Git and terminal reports.
 
+Each processed node keeps its two latest bounded diagnostic records. They contain
+request stage, HTTP status, redirect Location, network error class and outcome.
+TLS verification errors retain the verification code/message privately. No cookies,
+response bodies or source URLs are printed in the console summary.
+
 ### Access findings and limits
 
-Only four of the 16 seed URLs were attempted: one fetched and three failed at
-robots checking. The other 12 seeds are pending solely because of the request
-budget. Most seeds remain untested; these results cannot establish that most
-sites are inaccessible. The recorded errors do not yet establish their root cause.
-`robots_unavailable` can conceal different network/HTTP failures, while the two
-`robots_redirect_loop` outcomes need their actual response chains checked.
+Task 100 reached four of 16 seed URLs, so its initial three error labels did not
+establish whether most seeds had access problems. That baseline remains private
+in `data/task100-access-review.json`.
 
-Exact seed outcomes are recorded privately in `data/task100-access-review.json`;
-the source checkpoint/evidence remain intact. Follow-up 71.2.1 comes before
-document readers or a broad collection run. No additional requests were made
-while recording this review.
+Task 101 reviewed all 16 seeds in one seed-only batch of 16 request attempts
+(maximum 32). Five seeds were downloaded: four HTML resources and one PDF awaiting
+a reader. Nine seeds failed because their robots URL redirected to itself, one
+failed TLS certificate verification, and one target returned HTTP 403. These are
+observed outcomes for seed URLs, not proof of permanent site inaccessibility.
+The 348-node graph still has 332 pending links; depth-zero review did not crawl them.
+
+Two crawler defects were demonstrated with synthetic responses/wire captures.
+Missing redirect Location is now distinguished from self/cyclic redirects.
+The HTTPS Host header now matches the normalized URL authority, avoiding an
+unnecessary :443 added by the underlying HTTP connection class. This second fix
+was made after the live batch; its effect on the nine self-redirects is unverified.
+A separate bounded recheck is needed before attributing these redirects to the sites
+or starting a broad collection run. TLS/restriction checks remain enforced.
+
+Exact old/current outcomes and request diagnostics are in ignored
+`data/task101-access-review.json`, with the fix timing recorded. The original
+checkpoint snapshot is `data/task101-state-before.json`. Seeds, the Task 100
+review and pre-existing evidence were preserved byte-for-byte. Existing retry
+counters were not reset and no second live batch was run.
+
+The owner has deferred access fixes for now. Private `links.failed.txt` contains
+the 11 failed/restricted seed URLs, with comments distinguishing nine robots
+self-redirects, one TLS failure and one HTTP403. The list records pre-Host-fix
+observations, not confirmed robots.txt bans. It is ignored by Git and can be used
+for later manual review. It is a follow-up list, not an automatic crawler filter;
+the next document-reading task is offline and will not retry these URLs.
 
 ## First milestone — Tickets 71.1–71.7
 
 After individually approved slices, the user can enter several seeds, run one
 Python command and obtain unique contacts with traceable context. Stop for review
-before survey work or outreach. Tickets 71.1 and 71.2 are complete; the rest remain open.
+before survey work or outreach. Tickets 71.1, 71.2 and access review 71.2.1 are
+complete within their scopes; document readers and later steps remain open.
 Task 099's approved
 [workspace prompt](../../../agents/work/099-market-research-workspace/prompt.md)
 covers setup only. The owner's seed file is already present for 71.2.
@@ -200,7 +226,12 @@ Depends on 71.1.
   discovery paths. Check cycles, shared targets, paused branches, resume,
   restrictions and a successful local/manual run.
 
-### 71.2.1 — Crawl access diagnostics (next)
+### 71.2.1 — Crawl access diagnostics (complete)
+
+The approved [Task 101 prompt](../../../agents/work/101-crawl-access-diagnostics/prompt.md)
+and [results](../../../agents/work/101-crawl-access-diagnostics/changes.md) record
+the diagnostic changes, live outcomes and post-review header fix. Remote behavior
+after that fix remains unverified; no additional batch is authorized by this result.
 
 - Inspect the three recorded failures with private HTTP status/redirect-chain
   and network-error details. Distinguish site restrictions, unavailable robots,
