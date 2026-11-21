@@ -1,2 +1,4 @@
 # Research-only PDF-from-bytes reader; no optional extras.
 pypdf==7.1.1
+# Research-only phone validation and international formatting.
+phonenumbers==9.0.44

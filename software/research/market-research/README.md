@@ -1,20 +1,20 @@
 # Market-research pipeline
 
-Local workspace for a planned Python tool finding public business contacts at
-student accommodation providers, property managers and landlords. Workspace
-setup, resumable collection and in-memory HTML/plain-text/PDF extraction are
-implemented. The first milestone will produce one contacts CSV with short,
-factual context. Contact refinement, LM Studio and outreach remain later tasks.
+Local Python tool collecting public emails and phone numbers for market research.
+One bounded command extracts HTML/plain-text/PDF contacts, follows permitted links
+and updates private `data/contacts.csv`. Context uses explicit source evidence
+and optional local LM Studio. Sending is not implemented.
 
 ## Workspace and privacy
 
 Use this folder for the whole experiment. One typed `pipeline.py` provides the
-entrypoint. `requirements.txt` pins the research-only `pypdf==7.1.1` reader;
-HTML/plain text and setup/check modes use the standard library. Use the local `.venv/`.
+entrypoint. `requirements.txt` pins research-only `pypdf==7.1.1` and
+`phonenumbers==9.0.44` for parsing and phone validation. Setup/check modes use the
+standard library. Use the local `.venv/`.
 Split helpers only when useful. No application imports, production dependencies,
 database, queue, browser automation, vector store or agent framework.
 
-Workspace layout; the contacts CSV and environment are later additions:
+Private workspace layout:
 
 ```text
 market-research/
@@ -26,14 +26,19 @@ market-research/
   .venv/
   data/
     contacts.csv
+    blocked_urls.csv
     crawl_state.json
     crawl.lock
+    contacts.lock
+    enrichment.json
     evidence/
   drafts/
   logs/
 ```
 
-`data/contacts.csv` is the sole contact register. Crawl state stores URL progress
+The canonical `data/contacts.csv` is the sole contact register, with one email
+or phone method per row, even with a different checkpoint `--data-dir`.
+`data/blocked_urls.csv` is a separate source-access audit, not a contact register. Crawl state stores URL progress
 and resource/extraction status, not a second contact database. Keep useful extracted
 text, source evidence and summaries privately. The crawler extracts directly
 from bounded response bytes and saves extracted JSON, without new original
@@ -62,7 +67,7 @@ python -m venv .venv
 ```
 
 On Linux/macOS use `.venv/bin/python`. Setup/check modes also work without the
-PDF dependency. Paths resolve relative to the script regardless of the calling
+research dependencies. Paths resolve relative to the script regardless of the calling
 folder. The owner's existing `links.txt` is the
 default input; it has 16 entries passing syntax checks. Initialization creates
 missing private folders and only creates a comment-only seed template if absent.
@@ -76,7 +81,8 @@ request. It does not create the final CSV.
 Use `--help` for options. `--seeds` and `--data-dir` must resolve inside this
 experiment, including through existing links/junctions. An alternative private
 seed file can be selected with `--seeds data/seed_urls.txt`. Crawl defaults
-are depth 2, 50 pages per seed, 200 requests per run, 15-second request timeout
+are depth 2, 50 page attempts per seed and hostname/www pair, 200 requests per
+run, 15-second request timeout
 and a 1-second delay, plus 5 MiB per resource. PDF work is limited to 100 pages,
 1,000,000 text characters, bounded decoded streams and a 15-second between-page
 budget. Individual parser calls are not pre-empted. `--max-pages` and
@@ -92,21 +98,24 @@ From this research folder with its virtual environment:
 .venv/Scripts/python.exe pipeline.py --crawl --max-requests 5
 
 # Continue saved work with a fresh per-run budget.
-.venv/Scripts/python.exe pipeline.py --resume --max-requests 5
+.venv/Scripts/python.exe pipeline.py --resume --max-requests 30 --max-pages-per-seed 10 --max-pages-per-domain 10
 ```
 
 The local Task 100 smoke checkpoint already exists, so use `--resume` here.
 The seed file must match that checkpoint. Use another private `--data-dir` for
 a different batch instead of deleting existing evidence/state.
-Already-fetched legacy nodes are not automatically reprocessed when readers
-change. New responses use the new extraction path; use a separate private batch
-when an explicitly authorized re-fetch is needed.
+Stored extracted JSON under `data/**/evidence/` is reused on each run without
+network access. Older text may omit invisible tel links; this does not claim
+full historical phone coverage. Already-fetched nodes are never silently
+refetched. A separate explicitly authorized batch is needed for a re-fetch.
 
 Initial scope is exact seed hostnames plus their `www` equivalents, without
 implicitly allowing every subdomain. Add a related host with repeatable
 `--allow-host provider.example`. External links remain recorded with reason
 `scope` until allowed. Raise `--max-depth` to release depth-limited branches.
 Page/request counters reset on each run; completed URLs stay deduplicated.
+`--max-pages-per-domain` shares a cap between a hostname and its www alias,
+including multiple seeds on that host. It does not infer all sibling subdomains.
 Redirects add no graph depth, are capped at five hops, and cannot downgrade HTTPS.
 Cycles and alternate parent links are retained without repeated resource fetches.
 
@@ -114,9 +123,9 @@ The crawler checks public DNS addresses and connects to a checked address, using
 normal hostname/certificate verification for HTTPS. It uses direct connections
 to standard HTTP80/HTTPS443, without environment proxies or authentication.
 Timeouts cover socket operations/body reading; OS DNS resolution can take longer.
-HTML text, links and email candidates are extracted without running scripts.
+HTML text, links and contact methods are extracted without running scripts.
 Each successful response is dispatched to HTML, plain text or PDF extraction in
-memory. Titles, text, email candidates with nearby/page evidence and discovered
+memory. Titles, text, email/phone methods with nearby/page evidence and discovered
 URLs share one result shape. PDF annotations and text URLs feed the same graph.
 Readers do not fetch their own source again or require a saved input file.
 
@@ -137,8 +146,12 @@ unsupported encodings and oversized files remain recorded; they are not bypassed
 State uses temporary-file replacement and an exclusive `crawl.lock`. Normal exit
 and Ctrl+C release the lock. After a hard crash, first confirm no writer remains
 before manually removing that exact stale lock. Invalid state is preserved for
-manual recovery. Raw files and extraction JSON use generated hash filenames under
-`data/evidence/`; no final contacts CSV is created yet.
+manual recovery. Extraction JSON uses generated hash filenames under `data/evidence/`. Existing
+raw captures are preserved, but no new original documents are saved. A second
+experiment-level `contacts.lock` protects the canonical CSV across batches.
+CSV writes are atomic and detect external edits; do not edit it during a run.
+Malformed headers/identities or failed writes stop without resetting the CSV.
+A resource is marked complete only after its contacts are saved.
 
 Task 100's five-attempt public smoke fetched one HTML page and saved 76 resources:
 72 pending and three failures (one unavailable robots response and two robots
@@ -192,13 +205,87 @@ It created no raw-document copies and retried no manual-review URL. Results are
 private in `data/task102-live/` and `data/task102-verification.json`; original
 seeds, checkpoint, reports and existing captures passed hash-preservation checks.
 
+## Import manually saved files
+
+Put saved `.pdf`, `.html`, `.htm` or `.txt` files in an experiment-local input
+folder such as `links.failed/`. From this research folder:
+
+```sh
+# Extract to the same data/contacts.csv and retain inputs.
+.venv/Scripts/python.exe pipeline.py --import-dir links.failed --no-lm
+
+# Remove each fully processed input after verified evidence/CSV saving.
+.venv/Scripts/python.exe pipeline.py --import-dir links.failed --delete-imported --no-lm
+```
+
+Local mode makes no web requests and never follows embedded links or asset
+folders. It processes regular files directly inside the selected directory.
+Existing byte/page/text limits apply. Links, remote shares and protected
+source/output directories are rejected. Optional loopback enrichment can be
+used by omitting `--no-lm`; source fallback works independently.
+
+Unique filename matches from the seed/failed URL lists keep the original source
+URL. Otherwise provenance is the actual local `file:` URI with an empty source
+domain. The CSV schema and stable pair-based IDs stay unchanged. Local path/hash,
+page context and source title are saved privately; titles never imply identity.
+
+`--delete-imported` is explicit. Complete extraction, verified stored contact
+pairs/evidence and an unchanged input are required before individual deletion.
+Partial, textless, encrypted, malformed, oversized or challenge files stay for
+review, as do unsupported files and directories. Fully readable files without
+contacts can be removed after their evidence is verified. No raw-file backup is
+created; extracted JSON remains in `data/evidence/`. The input folder stays.
+
+Exact paths, hashes, source mapping and cleanup results are in ignored
+`data/local_imports.json`. A verified pre-deletion record survives interrupted
+cleanup; a retry re-extracts any remaining current file and deduplicates its
+contacts. Changed files are never removed using an old record. Persistence
+failures stop cleanup, and failed deletions leave the input for review. Web
+checkpoints, `links.failed.txt` and blocked-source records are not changed by
+manual import. Local success does not establish permission for web retries.
+
+## Current verification
+
+After owner review, 54 email rows with domains ending in `.ac.za` were removed
+manually. Current CSV: **2,142 contacts (643 emails, 1,499 phones)**. Retained rows,
+IDs and phone records are unchanged. This is a one-time data cleanup; the
+crawler has no new exclusion feature. Future batches must honor this preference.
+The private removal audit is `data/task103-academic-email-removal.json`. The
+import/web counts below are historical results before this cleanup.
+
+Task 103's approved
+[local-import extension](../../../agents/work/103-contact-methods-and-csv/local-import-prompt.md)
+adds saved HTML/PDF/plain-text sources to the same CSV, with optional verified
+per-file cleanup. See the local import instructions above.
+
+The local extension passed 33 focused checks and imported all seven supplied
+PDFs completely (111 pages). Verified persistence preceded removal of each input.
+It added 2,087 contacts: the CSV now contains 2,196 unique rows (697 emails,
+1,499 phones), preserving all 109 prior records and 36 protected files. Zero
+errors or web/model requests. The input folder is empty; extracted evidence and
+private cleanup audit remain. The figures below describe the earlier web batch.
+
+Task 103 passed 58 direct checks and one live batch using 20 of 30 allowed
+requests: 109 unique contacts (50 emails, 59 phones), one known blocked source,
+zero new errors and all 11 manual deferrals preserved. PDFs contributed through
+stored evidence; no new PDF was fetched in that run. 479 URLs remain queued at
+scope/domain limits. The local model endpoint was unavailable, so actual
+inference remains unverified; context came from source excerpts. Unknown identity
+fields remain blank. Offline replay preserved all contact IDs without requests.
+See the [Task 103 results](../../../agents/work/103-contact-methods-and-csv/changes.md).
+
 ## First milestone — Tickets 71.1–71.7
 
-After individually approved slices, the user can enter several seeds, run one
+After the approved collection work, the user can enter several seeds, run one
 Python command and obtain unique contacts with traceable context. Stop for review
 before survey work or outreach. Tickets 71.1, 71.2 and access review 71.2.1 are
 complete within their scopes. Ticket 71.3 now covers HTML/plain-text/PDF responses;
-contact context, enrichment, cleanup and CSV remain open.
+phone extraction, contact context, optional enrichment, cleanup and CSV are
+implemented by Task 103.
+The [Task 103 prompt](../../../agents/work/103-contact-methods-and-csv/prompt.md)
+groups 71.3.1 and 71.4–71.7 into one collection-only implementation milestone.
+The owner approved implementation. Review the generated CSV before starting any
+survey/drafting/sending work. Real contact data stays out of Git.
 Task 099's approved
 [workspace prompt](../../../agents/work/099-market-research-workspace/prompt.md)
 covers setup only. The owner's seed file is already present for 71.2.
@@ -224,8 +311,7 @@ The implemented flow is fetch URL → detect response type → extract informati
 memory → save useful results and continue through discovered links. The response
 still transfers over the network; an original file saved to disk is not required.
 Use small format handlers with a shared result shape, initially HTML, plain text
-and PDF. Results contain source URL/type, explicit title, extracted text, email candidates,
-links and extraction status. Do not hardcode a particular file or URL.
+and PDF. Results contain source URL/type, explicit title, extracted text, independent email/phone methods, links and extraction status. Do not hardcode a particular file or URL.
 
 Record unsupported, encrypted, textless, oversized, partial or failed extraction
 explicitly. Add readers for other encountered formats as small later changes;
@@ -303,11 +389,23 @@ for checks and scope limits.
 - Check response limits, unsupported/malformed/textless/encrypted resources,
   missing readers and partial extraction. No repeated fetch loop, OCR or guessed facts.
 
-### 71.4 — Evidence-based context
+### 71.3.1 — Email and phone methods (implemented)
 
-Depends on 71.3.
+- Extend visible HTML/contact text, mailto/tel links, PDF text/URI annotations
+  and plain-text responses to collect both public contact types. Keep nearby
+  evidence and source/page association for each method independently.
+- Default unqualified phone numbers to South Africa where credible; respect
+  explicit foreign prefixes. Prefer E.164 such as +27821234567. Clearly labelled
+  uncertain numbers retain their original in notes rather than a guessed area code.
+- Ignore unrelated dates, prices, IDs and other numeric values. Never merge an
+  email and phone into a guessed person record, even for the same organisation.
+- Keep existing in-memory extraction, private results and manual deferrals.
 
-- Capture the exact email-bearing page/PDF URL, source domain, title, nearby
+### 71.4 — Evidence-based context (implemented)
+
+Depends on 71.3.1.
+
+- Capture the exact contact-bearing page/PDF URL, source domain, title, nearby
   heading/paragraph and explicit name, organisation, role and location.
 - Leave unknown fields blank. A Gmail/Outlook/Yahoo address does not identify
   its organisation; use the source context instead.
@@ -316,68 +414,119 @@ Depends on 71.3.
 - Review fictional and approved public examples for ambiguous names and multiple
   contacts. Do not infer roles or locations from unrelated nearby text.
 
-### 71.5 — Required LM Studio enrichment
+### 71.5 — Optional LM Studio enrichment (implemented)
 
 Depends on 71.4.
 
-- LM Studio is already installed; inspect the available local model/hardware.
-  This stage is required, not an optional ticket. Use its local
-  OpenAI-compatible API with an explicitly selected lightweight instruction model.
+- The latest refocus makes enrichment optional, superseding the earlier required
+  stage. Use the loopback-only OpenAI-compatible API when enabled/available.
+  The local server was unavailable during verification; real inference is unverified.
   The owner has LM Studio open and requests a small Qwen model, approximately
   1.3B parameters. Confirm the actual installed model identifier and size before
   selecting it; do not guess a model name. No download or cloud service is assumed.
 - Submit only the relevant bounded excerpt. Expect validated JSON with
   `name`, `organisation`, `role`, `location`, `details`; details is one short
   sentence. Keep unknowns empty and reject unsupported claims.
-- Also produce short source-linked summaries of readable collected documents
-  for the owner's review. Chunk long text only as needed, retaining evidence and
-  distinguishing missing facts. These private summaries are not another contact CSV.
+- Keep source-linked contact excerpts in private evidence and validated cache.
+  Whole-document summaries are deferred; the current scope is contact enrichment.
 - Treat retrieved text as untrusted data, never commands. The model has no tools
   or authority to send messages. Bound response size, timeouts and retries.
 - If offline, invalid or unavailable, keep crawling and preserve deterministic
-  context, but mark enrichment pending/failed and resume it later. Never report
-  fallback text as model output or consider this ticket complete without a
-  successful local-model run. Check factual summaries, invented fields, malformed
-  responses, outage recovery and enrichment resume.
+  context with unknown fields empty; mark enrichment unavailable/pending without
+  blocking CSV output. Never label fallback text as model output. Ground fields
+  against the relevant source, and verify success, unavailable and malformed-output
+  paths. Do not download models or use a cloud service implicitly.
 
-### 71.6 — Contact cleanup
+### 71.6 — Contact cleanup (implemented)
 
-Depends on 71.5.
+Depends on 71.4. Enrichment does not gate validation/output.
 
-- Normalize email casing/whitespace, validate syntax, exclude obvious placeholders
-  and deduplicate by normalized email before persistence.
+- Normalize email casing/whitespace, validate syntax and exclude placeholders.
+- Normalize/validate credible phone candidates; retain original/uncertainty notes
+  when necessary. Deduplicate independently by (contact_type, contact_value).
 - Prefer clearly published business/research contacts. Do not treat publication
   as permission to send mail. Optional DNS checks must not reject on transient
   lookup failures; no SMTP mailbox probing.
-- Keep the strongest source context for repeated contacts; conflicting nonempty
+- Keep the strongest associated source context for repeated contact methods; conflicting nonempty
   fields require review rather than guessing. Check malformed, repeated,
   free-mail and placeholder examples.
 
-### 71.7 — Restartable contacts CSV
+### 71.7 — Restartable contacts CSV (implemented)
 
 Depends on 71.6. This completes the first milestone.
 
-Use exactly one canonical CSV, initially with these columns:
+The canonical CSV has exactly these columns:
 
 ```text
-id,email,name,organisation,role,location,details,source_url,source_domain,status,email_sent,sent_at,response_status,notes
+id,contact_type,contact_value,name,organisation,role,location,details,source_url,source_domain,status,contacted,contacted_at,response_status,notes
 ```
 
-- Assign stable sequential integer IDs to new unique emails; never renumber
-  existing rows. Start with `status=new`, `email_sent=false`, empty `sent_at`
-  and `response_status`.
-- Upsert by normalized email. Fill missing context but preserve manual edits,
-  notes and all sending/response fields. Offer stronger conflicting context for
-  review instead of overwriting it. Never reset a sent/suppressed contact.
+- Assign stable sequential integer IDs to new unique method pairs; never renumber
+  existing rows. Use contact_type=email/phone and normalized contact_value. Start
+  with `status=new`, `contacted=false`, empty `contacted_at` and `response_status`.
+- Upsert by (contact_type, contact_value), independently across methods. Fill
+  missing context but preserve manual edits, notes and all contacted/response
+  fields. Offer conflicting nonempty context for review. Never reset a contacted
+  or suppressed row. No guessed email/phone association or organisation-based merge.
 - Use UTF-8, CSV quoting and same-folder temporary-file replacement. Preserve the
   original on malformed input/write failure and keep only one process writing.
   Handle spreadsheet formula characters safely without silently changing facts.
 - Save contacts before checkpointing a page complete so interruption can replay
-  it safely. Print counts only for pages, PDFs, emails, new contacts, duplicates
-  and errors. Logs/state remain private.
+  it safely. All real batches update the same canonical data/contacts.csv even
+  when their crawl checkpoint uses a different --data-dir. Keep one writer.
+- Add a shared per-domain page budget, bounded logs and explicit access/anti-bot
+  handling alongside existing limits. Do not bypass restrictions. Record actual
+  blocked sources privately in data/blocked_urls.csv with url,reason,seed_url.
+  Keep temporary rate deferrals and unverified/network errors distinct from bans.
+- Print the requested aggregate summary below. A small owner-requested generated
+  CSV preview is shown separately; bulk/private records never go into Git.
 - Verify several approved seeds, restart, duplicate discovery, manual edits,
-  existing sent/response rows and interrupted writes. Present aggregate results
-  and a local review location, never contact records in Git.
+  existing contacted/response rows and interrupted writes. Deliver a clean local
+  CSV and three to five generated sample rows before proceeding to outreach.
+
+```text
+Pages visited:
+PDFs processed:
+Emails found:
+Phone numbers found:
+Unique contacts added:
+Duplicates skipped:
+Blocked URLs:
+Errors:
+```
+
+## Contact register and local enrichment
+
+Each normalized `(contact_type, contact_value)` gets a stable ID. New rows have
+`status=new`, `contacted=false` and empty contact/response timestamps. Repeated
+sources fill blank fields; nonempty manual/status/contact fields are preserved.
+Conflicting named facts and additional sources go into notes. No email/phone
+matching or organisation inference from domains occurs. Phone validation defaults
+to ZA; clearly labelled ambiguous local forms keep an uncertainty note. Numeric
+IDs, prices and dates are filtered. Syntax/number validity does not verify that
+an address or telephone is active or establish permission for outreach.
+
+Use `--no-lm` for source-only context. Otherwise the script tries
+`http://127.0.0.1:1234/v1` once, prefers an advertised small Qwen model and falls
+back if unavailable. `--lm-model` selects another installed identifier;
+`--lm-url` only accepts loopback HTTP. There is no model download, cloud request,
+tool use or automatic server restart. `--max-lm-requests` defaults to 20 including
+discovery; `--lm-timeout` defaults to 15 seconds. Only title, method and up to 600
+nearby characters reach the model. Successful source-grounded strings are cached
+privately in `data/enrichment.json`. Unsupported facts/invalid JSON are rejected.
+Details use short source phrases rather than unverified paraphrases. Unknowns
+stay blank; source excerpts are not labelled as model summaries.
+
+Robots/access denials, explicit challenge pages and stated scraping prohibitions
+are logged in `data/blocked_urls.csv` (`url,reason,seed_url`). No evasion is used.
+Temporary rate limits remain pending; TLS/network errors and redirect defects
+are distinct from site blocks. `links.failed.txt` is always honored.
+
+The eight summary labels above report this run. Contact finds include reused
+extractions, duplicates count repeated discoveries, and blocked URLs include
+known access blocks in the checkpoint. Pages visited counts resource responses,
+including redirects; robot requests only consume the total request budget.
+The pending queue remains visible; a bounded run is not complete web coverage.
 
 ## Later — separate approval required
 
@@ -391,7 +540,8 @@ Do not publish or distribute it during this ticket.
 
 ### 71.9 — Research email drafts
 
-After 71.8, read the CSV and create private drafts with recipient, subject, body
+After collection/CSV review and 71.8 approval, read email rows from the CSV and
+create private drafts with recipient, subject, body
 and personalization evidence. Write as Sanele, an individual researcher/builder.
 Use real context, a short problem-discovery request and the reviewed survey only
 if supplied. No invented facts or random variations. Manual review only, no sending.
@@ -401,11 +551,11 @@ if supplied. No invented facts or random variations. Manual review only, no send
 Blocked until 71.9 is reviewed, 71.11 is complete and the owner explicitly
 authorizes a sending run and its recipients/content.
 
-- Send only the exact approved drafts to approved contacts. Skip sent and
+- Send only the exact approved drafts to approved email rows. Skip contacted and
   do-not-contact/opted-out rows. Configure a small per-run/daily cap and bounded
   delays for rate control, never filter evasion. No bulk bursts or indefinite retry.
 - Record attempt state in the same CSV before sending. Confirmed success sets
-  `email_sent=true`, UTC `sent_at`, `status=sent`; definite failure sets
+  `contacted=true`, UTC `contacted_at`, `status=sent`; definite failure sets
   `status=send_failed`. Uncertain SMTP/crash outcomes require manual reconciliation
   before retry, because SMTP and CSV updates cannot be atomic.
 - Persist each outcome. Verify stop/resume and failure paths with a local mail

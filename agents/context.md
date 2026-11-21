@@ -60,56 +60,57 @@ the beta handoff. The user approved Git publication on 3 November 2026;
 VPS rollout is the next operator step.
 Task 097 restores the original company logo credit and improves homepage canonical
 and nonpublic noindex headers, without changing account flows or landing copy.
-Task 098 plans market-research Tickets 71.1–71.11 under
-`software/research/market-research/`. Build only separately approved slices:
-resumable link-graph/document discovery, factual context, required local LM Studio, validation,
-then one restartable private contacts CSV. Stop after 71.7 for review; survey,
-drafts, domain readiness and manually approved sending stay later. Inputs and
-generated files remain inside that experiment and are ignored by default.
-LM Studio is already installed; outages leave enrichment pending, preserving raw
-data. Traverse all discovered in-scope links with cycle detection and retained
-queues at limits; record unsupported formats rather than claiming they were read.
-Task 099 / 71.1 implements offline --init/--check in one standard-library
-pipeline.py. Private folders exist; the owner's links.txt is the default and
-has 16 syntax-valid entries, preserved byte-for-byte. The owner requests small Qwen (~1.3B) for
-71.5; confirm its actual identifier then. Existing forecasting stays in place.
-Research plan/workspace published on master as 1b233b4 at the user's request.
-Task 100 / 71.2 adds --crawl/--resume in the same standard-library script:
-seed hosts/www initially, explicit extra hosts, deduplicated graph/parent links,
-retained deferred branches, bounded requests, private atomic state/evidence and
-a single writer. Public-IP pinning, TLS verification, robots rules and persisted
-rate waits apply. No document reader, final CSV or model call yet.
-Isolated checks pass. The approved five-attempt smoke fetched one HTML page:
-76 discovered, 72 pending, three robots-access failures recorded. Private state
-is at data/crawl_state.json and seed bytes are preserved. No full crawl was run.
-Task 100/findings were published on master as 38c2409. Task 101 adds bounded
-private diagnostics and distinct redirect/network outcomes. Its one approved
-seed-only review used 16 of 32 allowed attempts: all 16 seeds reviewed, five
-downloaded (four HTML, one PDF), nine robots self-redirect failures, one TLS
-verification failure and one target HTTP403. Full graph: 348 nodes, 332 pending.
-Private reports: data/task100-access-review.json and data/task101-access-review.json;
-the original state, seeds and old evidence are preserved. Retry counts remain.
-Missing-Location misclassification and an HTTPS Host-authority mismatch were
-fixed with synthetic proof. The Host fix followed the live batch; its effect on
-self-redirects is unverified. No second batch: explicit approval is needed for a
-bounded recheck before a broad crawl. Existing raw captures remain available.
-The owner authorized Task 101 commit/push and deferred access fixes. Private
-links.failed.txt records all 11 failed/restricted seeds with observed reasons;
-seeds/state/reports are unchanged. Do not retry those URLs. No final contacts CSV
-or model call yet. Task 101 was published on master as 6ea68bb.
-The owner rejected Task 102's saved-file/offline prerequisite. Revised 71.3:
-fetch once, detect type and extract in memory during crawling; save useful results,
-provenance and progress, not new raw source files by default. Reuse HTML and add
-small text/PDF handlers; unsupported formats remain explicit. Task 102 implements
-that approved flow in the same script, using lazy pypdf 7.1.1 in the research-only
-.venv. JSON includes title, text, candidate emails/context, links and read status;
-new raw originals are not saved. Legacy captures/state remain preserved.
-Manual links.failed.txt is now enforced before scheduling/requests/redirects,
-without resetting error history. Thirty-seven direct checks pass. The one approved
-five-attempt live check read one PDF and two HTML pages completely: 287 nodes,
-284 pending, zero new raw files or manual-URL retries. Original 16 files' hashes
-passed. Private proof is data/task102-verification.json and data/task102-live/.
-Legacy already-fetched nodes are not automatically reprocessed. No final contact
-CSV/model call yet. The user authorized Task 102 commit/push, then asked to wait
-for a refocus prompt. Do not start another slice or prepare its implementation
-until that direction arrives. Next work number is 103; no prompt is prepared.
+
+## Research collection
+
+`software/research/market-research/` is isolated from the app. Task 103 implements
+one typed pipeline.py: bounded resumable HTML/plain-text/PDF collection, public
+email/phone extraction, ZA-aware normalization and independent pair deduplication.
+Research-only pypdf 7.1.1 and phonenumbers 9.0.44 stay in its local .venv.
+New originals are not saved; old captures, seeds and failed-list history remain.
+
+One canonical private data/contacts.csv has the approved 15 columns and stable
+IDs. Preserve manual/status/contacted/response fields; fill blanks and keep
+conflicting named facts in notes. Atomic writes, external-edit checks and one
+shared contacts.lock protect it across checkpoint directories. Save contacts
+before a page is complete; reuse extracted evidence without refetching. Old text
+cannot reveal previously unrecorded tel hrefs. Unknown identity fields stay blank;
+free-mail domains or page publishers never establish the contact's organisation.
+
+Optional loopback LM Studio gets only bounded contact context; validate five
+string fields against nearby prose, cache successes and fall back on outage,
+invalid output or budget limits. No tools, cloud models or downloads. Small Qwen
+is preferred only when advertised by the local API; its actual installed ID is
+unconfirmed because the server was unavailable. Real inference remains unverified.
+
+Honor robots, TLS/public-IP checks, delays, depth, per-seed/domain/request limits
+and all 11 links.failed.txt deferrals. Log actual restrictions in private
+data/blocked_urls.csv; rate deferrals and transport/redirect errors are distinct.
+Task 103: 58 direct checks; one live run used 20 requests and produced 109 unique
+contacts (50 emails, 59 phones), one known blocked source and zero new errors.
+479 URLs remain queued at scope/domain limits. Real inputs/results stay ignored.
+No app changes, sending, SMTP checks, outreach drafts, service restart or Git
+publication. Task 103's approved local extension adds --import-dir and explicit
+--delete-imported, reusing the same readers/CSV with no web requests. Unique
+seed/failed filename matches retain their URL; unmatched sources use a validated
+local URI and blank domain. Save and verify extracted evidence/contacts, then
+recheck the exact input path/content before individual removal. Keep failed,
+partial, encrypted, textless, challenge and changed inputs. Never remove folders.
+
+Local extension: 33 focused checks and the approved seven-PDF import passed.
+All 111 pages extracted completely; 2,087 contacts added, zero errors, all seven
+inputs verified/removed. The import produced 2,196 unique rows before the owner's academic-email cleanup.
+Prior 109 IDs/fields and 36 protected files remain unchanged. No web/model calls.
+Exact source paths/hashes/cleanup proof are private in data/local_imports.json;
+extracted JSON remains, with no replacement raw archive. The empty links.failed/
+folder stays. Web state, failed URL list and blocked audit are unchanged. Next:
+owner CSV review; later research/outreach still needs its own approval.
+
+Task 103 is complete within its approved scope. Current CSV has 2,142 unique rows (643 emails, 1,499 phones) after the owner
+requested removal of 54 .ac.za email rows. All retained rows/IDs and phone records
+are unchanged. Private removal audit: data/task103-academic-email-removal.json.
+No ingestion-code filter was added; future collection must honor this preference.
+No local inputs remain, and the successful cleanup audit is preserved. The
+configured local LM API at 127.0.0.1:1234 still refuses connections when checked
+outside the sandbox; optional real inference remains unverified. No new crawl
+batch, model/server operation or outreach is authorized by this completed task.
