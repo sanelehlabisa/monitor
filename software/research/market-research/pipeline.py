@@ -8,8 +8,10 @@ from email.utils import parsedate_to_datetime
 import hashlib
 from html.parser import HTMLParser
 import http.client
+from io import BytesIO
 import ipaddress
 import json
+import logging
 import math
 import os
 from pathlib import Path
@@ -32,6 +34,7 @@ USER_AGENT = "MonitorResearchBot/1.0 (+https://monitor.roventics.com/)"
 MAX_ATTEMPTS = 2
 MAX_REDIRECTS = 5
 EMAIL_PATTERN = re.compile(r"[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}", re.I)
+URL_PATTERN = re.compile(r"https?://[^\s<>\"'{}]+", re.I)
 
 
 class CrawlStop(Exception):
@@ -92,7 +95,7 @@ def normalize_url(value: str, base: str = "") -> str:
     return urlunsplit((parsed.scheme, authority, robots_path(path), robots_path(query), ""))
 
 
-def read_seeds(path: Path) -> list[str]:
+def read_seeds(path: Path, allow_empty: bool = False) -> list[str]:
     seeds: list[str] = []
     try:
         with path.open(encoding="utf-8-sig") as source:
@@ -107,7 +110,7 @@ def read_seeds(path: Path) -> list[str]:
                     seeds.append(url)
     except UnicodeError:
         raise ValueError("Seed file must be UTF-8 text.") from None
-    if not seeds:
+    if not seeds and not allow_empty:
         raise ValueError("Seed file has no starting URLs.")
     return seeds
 
@@ -123,6 +126,9 @@ class PageText(HTMLParser):
         self.text: list[str] = []
         self.links: list[str] = []
         self.emails: set[str] = set()
+        self.title: list[str] = []
+        self.in_title = False
+        self.mailto_context: dict[str, str] = {}
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
@@ -130,6 +136,8 @@ class PageText(HTMLParser):
             self.hidden.append(tag)
         if self.hidden:
             return
+        if tag == "title":
+            self.in_title = True
         if tag == "base" and not self.base_seen and values.get("href"):
             try:
                 self.base = normalize_url(values["href"] or "", self.base)
@@ -142,7 +150,10 @@ class PageText(HTMLParser):
         if not href:
             return
         if href.lower().startswith("mailto:"):
-            self.emails.update(match.lower() for match in EMAIL_PATTERN.findall(unquote(href.split("?", 1)[0][7:])))
+            for match in EMAIL_PATTERN.findall(unquote(href.split("?", 1)[0][7:])):
+                email = match.lower()
+                self.emails.add(email)
+                self.mailto_context.setdefault(email, " ".join(" ".join(self.text[-8:]).split())[-250:])
             return
         try:
             url = normalize_url(href, self.base)
@@ -152,6 +163,8 @@ class PageText(HTMLParser):
             pass
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "title":
+            self.in_title = False
         if self.hidden and tag == self.hidden[-1]:
             self.hidden.pop()
         if not self.hidden:
@@ -160,6 +173,8 @@ class PageText(HTMLParser):
     def handle_data(self, data: str) -> None:
         if not self.hidden:
             self.text.append(data)
+            if self.in_title:
+                self.title.append(data)
 
 
 @dataclass
@@ -289,7 +304,7 @@ def request_resource(url: str, timeout: float, limit: int) -> tuple[int, dict[st
 
 
 class Fetcher:
-    def __init__(self, args: argparse.Namespace, hosts: set[str], next_request_at: dict[str, float], robots: dict[str, Any]) -> None:
+    def __init__(self, args: argparse.Namespace, hosts: set[str], next_request_at: dict[str, float], robots: dict[str, Any], deferred: set[str] | None = None) -> None:
         self.args = args
         self.hosts = hosts
         self.requests = 0
@@ -298,8 +313,11 @@ class Fetcher:
         self.next_request_at = next_request_at
         self.robots = robots
         self.trace: list[dict[str, Any]] = []
+        self.deferred = deferred or set()
 
     def request(self, url: str, delay: float = 0.0, limit: int | None = None, stage: str = "resource") -> tuple[int, dict[str, str], bytes]:
+        if url in self.deferred:
+            raise CrawlStop("manual_review")
         if self.requests >= self.args.max_requests:
             raise CrawlStop("request_budget")
         host = urlsplit(url).hostname or ""
@@ -373,7 +391,7 @@ class Fetcher:
                     raise CrawlStop("robots_redirect_limit")
             except CrawlStop as error:
                 reason = str(error)
-                if reason in {"request_budget", "scope", "rate_deferred"}:
+                if reason in {"request_budget", "scope", "rate_deferred", "manual_review"}:
                     raise
                 self.policies[origin] = "robots_" + reason if reason.startswith("redirect_") else reason
             except (OSError, ValueError, http.client.HTTPException) as error:
@@ -495,36 +513,173 @@ def graph_depths(state: dict[str, Any]) -> dict[str, dict[str, int]]:
     return distances
 
 
-def evidence(data: Path, url: str, headers: dict[str, str], body: bytes) -> tuple[dict[str, Any], list[str]]:
+def text_facts(text: str, url: str, page: int | None = None) -> tuple[list[str], list[str], list[dict[str, Any]]]:
+    contexts: dict[str, dict[str, Any]] = {}
+    for match in EMAIL_PATTERN.finditer(text):
+        email = match[0].lower()
+        contexts.setdefault(email, {"email": email, "page": page,
+                                    "context": text[max(0, match.start() - 120):match.end() + 120]})
+    links: list[str] = []
+    for match in URL_PATTERN.finditer(text):
+        try:
+            link = normalize_url(match[0].rstrip(".,;:!)]"), url)
+            if link not in links:
+                links.append(link)
+        except ValueError:
+            pass
+    return sorted(contexts), links, list(contexts.values())
+
+
+def pdf_content(body: bytes, result: dict[str, Any], max_pages: int, max_chars: int, max_bytes: int) -> None:
+    try:
+        from pypdf import Configuration, PdfReader
+    except ImportError:
+        result.update(extraction="reader_unavailable", reason="Install this research folder's requirements.")
+        return
+    logger = logging.getLogger("pypdf")
+    previous_level = logger.level
+    logger.setLevel(logging.CRITICAL + 1)
+    decode_limits = {name: getattr(Configuration, name) for name in
+                     ("zlib_maximum_output_length", "lzw_maximum_output_length", "run_length_maximum_output_length",
+                      "jbig2_maximum_output_length", "brotli_maximum_output_length", "array_based_stream_maximum_output_length")}
+    for name, value in decode_limits.items():
+        setattr(Configuration, name, min(value, max_bytes))
+    try:
+        with PdfReader(BytesIO(body)) as reader:
+            if reader.is_encrypted:
+                result.update(extraction="encrypted")
+                return
+            title = (reader.metadata or {}).get("/Title", "")
+            result["title"] = title[:500] if isinstance(title, str) else ""
+            result["page_count"] = len(reader.pages)
+            result["pages"] = []
+            limited = len(reader.pages) > max_pages
+            if limited:
+                result["reason"] = "page_limit"
+            remaining = max_chars
+            started = time.monotonic()
+            for index in range(min(len(reader.pages), max_pages)):
+                if remaining <= 0 or time.monotonic() - started > 15:
+                    limited = True
+                    result.setdefault("reason", "text_limit" if remaining <= 0 else "reader_time_limit")
+                    break
+                page = reader.pages[index]
+                stream = page.get_contents()
+                if stream is not None and len(stream.get_data()) > max_bytes:
+                    result["pages"].append({"page": index + 1, "text": "", "extraction": "stream_limit"})
+                    limited = True
+                    result.setdefault("reason", "page_stream_limit")
+                    continue
+                text = page.extract_text() or ""
+                limited = limited or len(text) > remaining
+                if len(text) > remaining:
+                    result.setdefault("reason", "text_limit")
+                text = text[:remaining]
+                remaining -= len(text) + 1
+                emails, links, contexts = text_facts(text, result["source_url"], index + 1)
+                references = page.get("/Annots")
+                annotations = references.get_object() if references is not None else []
+                if len(annotations) > 1000:
+                    limited = True
+                    result.setdefault("reason", "annotation_limit")
+                for reference in annotations[:1000]:
+                    action = reference.get_object().get("/A")
+                    uri = action.get_object().get("/URI") if action else None
+                    if not isinstance(uri, str):
+                        continue
+                    if uri.lower().startswith("mailto:"):
+                        emails.extend(match.lower() for match in EMAIL_PATTERN.findall(unquote(uri.split("?", 1)[0][7:])))
+                    else:
+                        try:
+                            links.append(normalize_url(uri, result["source_url"]))
+                        except ValueError:
+                            pass
+                result["pages"].append({"page": index + 1, "text": text})
+                result["emails"].extend(emails)
+                result["links"].extend(links)
+                result["email_contexts"].extend(contexts)
+            result["text"] = "\n".join(page["text"] for page in result["pages"])
+            result["extraction"] = "partial" if limited else ("pdf_text" if result["text"].strip() else "textless")
+            result["complete"] = result["extraction"] == "pdf_text"
+    except Exception as error:
+        # Malformed documents remain per-resource failures rather than aborting the crawl.
+        result.update(extraction="partial" if type(error).__name__ == "LimitReachedError" else "reader_error",
+                      complete=False, reason=type(error).__name__)
+    finally:
+        logger.setLevel(previous_level)
+        for name, value in decode_limits.items():
+            setattr(Configuration, name, value)
+        if "pages" in result:
+            result["text"] = "\n".join(page["text"] for page in result["pages"])[:max_chars]
+        result["emails"] = sorted(set(result["emails"]))
+        result["links"] = list(dict.fromkeys(result["links"]))
+
+
+def extract_content(url: str, headers: dict[str, str], body: bytes, *, max_pages: int = 100,
+                    max_chars: int = 1_000_000, max_bytes: int = 5 * 1024 * 1024) -> dict[str, Any]:
+    """Read one bounded response in memory; no reader fetches or opens a source file."""
     content_type = headers.get("content-type", "application/octet-stream").split(";", 1)[0].strip().lower()
     prefix = body.lstrip()[:100].lower()
     html = content_type in {"text/html", "application/xhtml+xml"} or prefix.startswith((b"<!doctype html", b"<html"))
-    if body.startswith(b"%PDF-"):
+    if body.lstrip().startswith(b"%PDF-"):
         content_type, html = "application/pdf", False
     elif html and content_type not in {"text/html", "application/xhtml+xml"}:
         content_type = "text/html"
-    details: dict[str, Any] = {"source_url": url, "content_type": content_type,
-                               "extraction": "pending_reader", "emails": [], "text": "", "links": []}
+    result: dict[str, Any] = {"source_url": url, "content_type": content_type, "title": "",
+                              "extraction": "unsupported", "complete": False, "text": "",
+                              "emails": [], "links": [], "email_contexts": []}
+    if len(body) > max_bytes:
+        result.update(extraction="partial", reason="response_limit")
+        return result
+    if content_type == "application/pdf":
+        pdf_content(body, result, max_pages, max_chars, max_bytes)
+        return result
+    if not html and not (content_type.startswith("text/") or content_type == "application/json"):
+        return result
+    charset = re.search(r"charset\s*=\s*[\"']?([\w-]+)", headers.get("content-type", ""), re.I)
+    if not charset and html:
+        charset = re.search(r"charset\s*=\s*[\"']?([\w-]+)", body[:4096].decode("ascii", errors="ignore"), re.I)
+    lossless = True
+    try:
+        text = body.decode(charset[1] if charset else "utf-8-sig")
+    except (LookupError, UnicodeError):
+        text = body.decode("utf-8-sig", errors="replace")
+        lossless = False
+    parser: PageText | None = None
     if html:
-        charset = re.search(r"charset\s*=\s*[\"']?([\w-]+)", headers.get("content-type", ""), re.I)
-        try:
-            text = body.decode(charset[1] if charset else "utf-8", errors="replace")
-        except LookupError:
-            text = body.decode("utf-8", errors="replace")
         parser = PageText(url)
         parser.feed(text)
-        visible = " ".join(" ".join(parser.text).split())
-        details.update(extraction="html_text", text=visible, links=parser.links,
-                       emails=sorted(parser.emails | {match.lower() for match in EMAIL_PATTERN.findall(visible)}))
-    name = hashlib.sha256(url.encode()).hexdigest() + "-" + hashlib.sha256(body).hexdigest()[:16]
+        text = " ".join(" ".join(parser.text).split())
+        result["title"] = " ".join(" ".join(parser.title).split())[:500]
+    complete = lossless and len(text) <= max_chars
+    result.update(text=text[:max_chars], complete=complete,
+                  extraction=("html_text" if html else "plain_text") if complete else "partial")
+    if not complete:
+        result["reason"] = "encoding_replacement" if not lossless else "text_limit"
+    emails, links, contexts = text_facts(result["text"], url)
+    if parser is not None:
+        links = list(dict.fromkeys([*parser.links, *links]))
+        for email in parser.emails - set(emails):
+            contexts.append({"email": email, "page": None, "context": parser.mailto_context[email]})
+        emails = sorted(set(emails) | parser.emails)
+    result.update(emails=emails, links=links, email_contexts=contexts)
+    return result
+
+
+def evidence(data: Path, url: str, headers: dict[str, str], body: bytes, **limits: int) -> tuple[dict[str, Any], list[str]]:
+    result = extract_content(url, headers, body, **limits)
+    result["content_sha256"] = hashlib.sha256(body).hexdigest()
     folder = workspace_path(str(data / "evidence"))
-    for suffix, content in [(".bin", body), (".json", json.dumps(details, ensure_ascii=False, indent=2).encode("utf-8"))]:
-        target = workspace_path(str(folder / (name + suffix)))
-        if target.exists() and target.read_bytes() != content:
-            raise ValueError("Existing evidence differs; preserved for manual recovery.")
-        if not target.exists():
-            atomic_write(target, content)
-    return {"content_type": content_type, "extraction": details["extraction"], "evidence": name}, details["links"]
+    content = json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8")
+    name = (hashlib.sha256(url.encode()).hexdigest() + "-" + result["content_sha256"][:16]
+            + "-extracted-v1-" + hashlib.sha256(content).hexdigest()[:16])
+    target = workspace_path(str(folder / (name + ".json")))
+    if target.exists() and target.read_bytes() != content:
+        raise ValueError("Existing extraction differs; preserved for manual recovery.")
+    if not target.exists():
+        atomic_write(target, content)
+    return {"content_type": result["content_type"], "extraction": result["extraction"],
+            "extraction_complete": result["complete"], "evidence": name}, result["links"]
 
 
 def allowed_hosts(seeds: list[str], extras: list[str]) -> set[str]:
@@ -542,6 +697,8 @@ def crawl(args: argparse.Namespace, data: Path, seeds_path: Path) -> int:
     workspace_path(str(data / "evidence")).mkdir(exist_ok=True)
     state_path = workspace_path(str(data / "crawl_state.json"))
     seeds = read_seeds(seeds_path)
+    failed_list = workspace_path("links.failed.txt")
+    deferred = set(read_seeds(failed_list, allow_empty=True)) if failed_list.exists() else set()
     with single_writer(data / "crawl.lock"):
         if args.resume:
             if not state_path.is_file():
@@ -556,7 +713,7 @@ def crawl(args: argparse.Namespace, data: Path, seeds_path: Path) -> int:
             for seed in seeds:
                 add_node(state, seed)
         hosts = allowed_hosts(seeds, args.allow_host)
-        fetcher = Fetcher(args, hosts, state.setdefault("next_request_at", {}), state.setdefault("robots", {}))
+        fetcher = Fetcher(args, hosts, state.setdefault("next_request_at", {}), state.setdefault("robots", {}), deferred)
         pages: Counter[str] = Counter()
         processed: set[str] = set()
         interrupted = False
@@ -565,6 +722,10 @@ def crawl(args: argparse.Namespace, data: Path, seeds_path: Path) -> int:
                 distances = graph_depths(state)
                 selected: tuple[str, str] | None = None
                 for url, node in state["nodes"].items():
+                    if url in deferred:
+                        if node["status"] == "pending":
+                            node["reason"] = "manual_review"
+                        continue
                     if node["status"] in {"fetched", "redirect"} or url in processed:
                         continue
                     if node["status"] == "blocked" and node["reason"] not in {"redirect_limit"}:
@@ -626,7 +787,8 @@ def crawl(args: argparse.Namespace, data: Path, seeds_path: Path) -> int:
                         add_node(state, target, url, node["redirect_hops"] + 1)
                         node.update(status="redirect", reason="", links=[target])
                     elif 200 <= status < 300:
-                        metadata, links = evidence(data, url, headers, body)
+                        metadata, links = evidence(data, url, headers, body, max_pages=args.max_pages,
+                                                   max_chars=args.max_text_chars, max_bytes=args.max_bytes)
                         for link in links:
                             add_node(state, link, url)
                         node.update(metadata, status="fetched", reason="", links=links)
@@ -636,7 +798,7 @@ def crawl(args: argparse.Namespace, data: Path, seeds_path: Path) -> int:
                         node.update(status="failed", reason=f"http_{status}")
                 except CrawlStop as error:
                     reason = str(error)
-                    if reason in {"request_budget", "scope", "rate_deferred"}:
+                    if reason in {"request_budget", "scope", "rate_deferred", "manual_review"}:
                         node.update(status="pending", reason=reason, attempts=previous_attempts)
                     elif reason in {"non_public_target", "nonstandard_port", "resource_too_large", "encoded_response_unsupported", "redirect_loop", "redirect_self", "https_downgrade"}:
                         node.update(status="blocked", reason=reason)
@@ -658,10 +820,12 @@ def crawl(args: argparse.Namespace, data: Path, seeds_path: Path) -> int:
         finally:
             save_state(state_path, state)
         counts = Counter(node["status"] for node in state["nodes"].values())
-        unread = sum(node.get("extraction") == "pending_reader" for node in state["nodes"].values())
+        unread = sum(node["status"] == "fetched" and not node.get("extraction_complete", node.get("extraction") in
+                     {"html_text", "plain_text", "pdf_text"}) for node in state["nodes"].values())
         print(f"Requests this run: {fetcher.requests}; discovered resources: {len(state['nodes'])}.")
         print(f"Fetched: {counts['fetched']}; redirects: {counts['redirect']}; pending: {counts['pending']}; "
-              f"blocked: {counts['blocked']}; failed: {counts['failed']}; awaiting reader: {unread}.")
+              f"blocked: {counts['blocked']}; failed: {counts['failed']}; incomplete extraction: {unread}.")
+        print(f"Manual-review URLs deferred: {sum(url in deferred for url in state['nodes'])}.")
         print("Checkpoint saved. Pending/blocked/failed resources remain recorded; no complete-coverage claim.")
         return 130 if interrupted else 0
 
@@ -699,7 +863,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        epilog="PDF/document readers and LM Studio integration are later tickets.",
+        epilog="HTML, plain text and PDF are read from response bytes; LM Studio enrichment is a later ticket.",
     )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--init", action="store_true", help="create missing private folders and seed template")
@@ -713,6 +877,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-pages-per-seed", type=positive_int, default=50, help="per-seed page attempts each run")
     parser.add_argument("--max-requests", type=positive_int, default=200, help="total request attempts each run, including robots")
     parser.add_argument("--max-bytes", type=positive_int, default=5 * 1024 * 1024, help="maximum bytes per resource")
+    parser.add_argument("--max-pages", type=positive_int, default=100, help="maximum PDF pages read per response")
+    parser.add_argument("--max-text-chars", type=positive_int, default=1_000_000, help="maximum extracted text characters per response")
     parser.add_argument("--request-timeout", type=positive_float, default=15.0, help="request timeout in seconds")
     parser.add_argument("--delay", type=positive_float, default=1.0, help="minimum per-host delay in seconds")
     return parser

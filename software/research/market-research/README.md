@@ -2,15 +2,15 @@
 
 Local workspace for a planned Python tool finding public business contacts at
 student accommodation providers, property managers and landlords. Workspace
-setup and resumable resource collection are implemented. The first milestone
-will produce one contacts CSV with short, factual context. Document readers,
-enrichment and outreach remain separate tasks.
+setup, resumable collection and in-memory HTML/plain-text/PDF extraction are
+implemented. The first milestone will produce one contacts CSV with short,
+factual context. Contact refinement, LM Studio and outreach remain later tasks.
 
 ## Workspace and privacy
 
 Use this folder for the whole experiment. One typed `pipeline.py` provides the
-entrypoint. `requirements.txt` currently has no packages; use a local `.venv/`
-when dependencies are added.
+entrypoint. `requirements.txt` pins the research-only `pypdf==7.1.1` reader;
+HTML/plain text and setup/check modes use the standard library. Use the local `.venv/`.
 Split helpers only when useful. No application imports, production dependencies,
 database, queue, browser automation, vector store or agent framework.
 
@@ -34,9 +34,11 @@ market-research/
 ```
 
 `data/contacts.csv` is the sole contact register. Crawl state stores URL progress
-and resource/extraction status, not a second contact database. Keep fetched
-documents, extracted text and source-linked summaries in private evidence for
-review and reprocessing. Inputs, CSVs, downloads, excerpts, prompts/results, drafts, logs,
+and resource/extraction status, not a second contact database. Keep useful extracted
+text, source evidence and summaries privately. The crawler extracts directly
+from bounded response bytes and saves extracted JSON, without new original
+HTML/PDF/binary copies. Existing captures from earlier tasks stay intact.
+Inputs, CSVs, existing captures, excerpts, prompts/results, drafts, logs,
 temporary files and credentials stay here and out of Git. Logs avoid contact
 details and secrets. Retention/cleanup is manual and documented; never delete
 the working contact register automatically.
@@ -47,17 +49,21 @@ whenever adding output paths. Do not force-add private files or paste records
 into work reports. Ignore rules do not remove previously tracked files or provide
 encryption. Application Docker builds do not include this sibling directory.
 
-## Run offline setup
+## Setup
 
-From the repository root, using Python and its standard library:
+Create the isolated research environment from the repository root:
 
-```sh
-python software/research/market-research/pipeline.py --init
-python software/research/market-research/pipeline.py --check
+```powershell
+cd software/research/market-research
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+.venv/Scripts/python.exe pipeline.py --init
+.venv/Scripts/python.exe pipeline.py --check
 ```
 
-From this folder, use `python pipeline.py --init` or `--check`. Paths resolve
-relative to the script in either case. The owner's existing `links.txt` is the
+On Linux/macOS use `.venv/bin/python`. Setup/check modes also work without the
+PDF dependency. Paths resolve relative to the script regardless of the calling
+folder. The owner's existing `links.txt` is the
 default input; it has 16 entries passing syntax checks. Initialization creates
 missing private folders and only creates a comment-only seed template if absent.
 It never overwrites existing files. Checks report counts, not URLs.
@@ -71,24 +77,30 @@ Use `--help` for options. `--seeds` and `--data-dir` must resolve inside this
 experiment, including through existing links/junctions. An alternative private
 seed file can be selected with `--seeds data/seed_urls.txt`. Crawl defaults
 are depth 2, 50 pages per seed, 200 requests per run, 15-second request timeout
-and a 1-second delay, plus 5 MiB per resource. Robots requests, redirects and
-failed request attempts consume the total request budget.
+and a 1-second delay, plus 5 MiB per resource. PDF work is limited to 100 pages,
+1,000,000 text characters, bounded decoded streams and a 15-second between-page
+budget. Individual parser calls are not pre-empted. `--max-pages` and
+`--max-text-chars` adjust reader limits. Robots requests, redirects and failed
+request attempts consume the total request budget.
 
 ## Crawl and resume
 
-From the repository root:
+From this research folder with its virtual environment:
 
 ```sh
 # First run only; refuses to replace an existing checkpoint.
-python software/research/market-research/pipeline.py --crawl --max-requests 5
+.venv/Scripts/python.exe pipeline.py --crawl --max-requests 5
 
 # Continue saved work with a fresh per-run budget.
-python software/research/market-research/pipeline.py --resume --max-requests 5
+.venv/Scripts/python.exe pipeline.py --resume --max-requests 5
 ```
 
 The local Task 100 smoke checkpoint already exists, so use `--resume` here.
 The seed file must match that checkpoint. Use another private `--data-dir` for
 a different batch instead of deleting existing evidence/state.
+Already-fetched legacy nodes are not automatically reprocessed when readers
+change. New responses use the new extraction path; use a separate private batch
+when an explicitly authorized re-fetch is needed.
 
 Initial scope is exact seed hostnames plus their `www` equivalents, without
 implicitly allowing every subdomain. Add a related host with repeatable
@@ -103,7 +115,17 @@ normal hostname/certificate verification for HTTPS. It uses direct connections
 to standard HTTP80/HTTPS443, without environment proxies or authentication.
 Timeouts cover socket operations/body reading; OS DNS resolution can take longer.
 HTML text, links and email candidates are extracted without running scripts.
-Bounded non-HTML downloads are retained for the later document-reader ticket.
+Each successful response is dispatched to HTML, plain text or PDF extraction in
+memory. Titles, text, email candidates with nearby/page evidence and discovered
+URLs share one result shape. PDF annotations and text URLs feed the same graph.
+Readers do not fetch their own source again or require a saved input file.
+
+Extraction JSON uses content-derived names under `data/evidence/`; different
+limits/results preserve earlier outputs. Original response bytes are not saved.
+Unsupported, encrypted, textless, malformed, partial and missing-reader outcomes
+are explicit and not automatically refetched. A future reprocess may require a
+new authorized request. PDF imports are lazy; missing `pypdf` does not prevent
+other readers from running. No OCR or document scripts are executed.
 
 Robots rules include wildcard/end matches, longest-path selection and merged
 matching user-agent groups. Successful policies are cached privately for up to
@@ -159,15 +181,24 @@ The owner has deferred access fixes for now. Private `links.failed.txt` contains
 the 11 failed/restricted seed URLs, with comments distinguishing nine robots
 self-redirects, one TLS failure and one HTTP403. The list records pre-Host-fix
 observations, not confirmed robots.txt bans. It is ignored by Git and can be used
-for later manual review. It is a follow-up list, not an automatic crawler filter;
-the next document-reading task is offline and will not retry these URLs.
+for later manual review. The crawler now loads it automatically, skips its URLs
+before scheduling and enforces it again before requests/redirects. Original
+failure/retry history is preserved; pending matches show `manual_review`.
+Remove an entry only when its retry is explicitly intended; no counter is reset.
+
+Task 102's isolated live check used five request attempts and extracted one PDF
+and two HTML pages completely, with 287 discovered nodes and 284 still pending.
+It created no raw-document copies and retried no manual-review URL. Results are
+private in `data/task102-live/` and `data/task102-verification.json`; original
+seeds, checkpoint, reports and existing captures passed hash-preservation checks.
 
 ## First milestone — Tickets 71.1–71.7
 
 After individually approved slices, the user can enter several seeds, run one
 Python command and obtain unique contacts with traceable context. Stop for review
 before survey work or outreach. Tickets 71.1, 71.2 and access review 71.2.1 are
-complete within their scopes; document readers and later steps remain open.
+complete within their scopes. Ticket 71.3 now covers HTML/plain-text/PDF responses;
+contact context, enrichment, cleanup and CSV remain open.
 Task 099's approved
 [workspace prompt](../../../agents/work/099-market-research-workspace/prompt.md)
 covers setup only. The owner's seed file is already present for 71.2.
@@ -189,12 +220,18 @@ as in the brief. Confirm external boundaries with the seed file before crawling.
 All reachable paths means all paths within that scope and site restrictions,
 not unrestricted expansion to the whole web.
 
-Detect the resource type at every node. Save allowed fetched files and extract
-text/links using a suitable reader. Start with HTML/PDF; extend the document
-ticket to the text/office formats actually encountered. Record unsupported,
-encrypted, scanned, oversize or failed resources for review rather than calling
-them read. Do not execute downloaded files or promise arbitrary-format reading.
-Agree any needed OCR or additional parser before implementing it.
+The implemented flow is fetch URL → detect response type → extract information in
+memory → save useful results and continue through discovered links. The response
+still transfers over the network; an original file saved to disk is not required.
+Use small format handlers with a shared result shape, initially HTML, plain text
+and PDF. Results contain source URL/type, explicit title, extracted text, email candidates,
+links and extraction status. Do not hardcode a particular file or URL.
+
+Record unsupported, encrypted, textless, oversized, partial or failed extraction
+explicitly. Add readers for other encountered formats as small later changes;
+do not claim arbitrary files are readable. New raw originals are not saved
+by default, so later reprocessing may need another authorized fetch. Existing
+captures are preserved. Embedded scripts and OCR remain out of scope.
 
 ### 71.1 — Local workspace (complete)
 
@@ -244,20 +281,27 @@ after that fix remains unverified; no additional batch is authorized by this res
 - Fix only demonstrated crawler defects, then document accessible/failed/untested
   seeds and remaining limits before document-reading work or a broad crawl.
 
-### 71.3 — PDF and document reading
+### 71.3 — Extract content during crawling (complete)
 
 Depends on 71.2.
 
-- Handle direct PDFs and discovered PDFs using a small text extractor such as
-  PyMuPDF. Confirm actual response type rather than relying on `.pdf` endings.
-- Capture text, emails, URLs, title when available and nearby contact context.
-  Feed relevant links through the same crawler budgets; add size/page limits.
-- Check a text PDF and malformed/scanned documents. Report unavailable text;
-  OCR needs separate agreement. Retain allowed downloads and extracted text in
-  private evidence so readers/enrichment can rerun without fetching again.
-- Inventory actual file types in the seed crawl, then add small readers for
-  relevant text/office documents in reviewed substeps. Every discovered resource
-  has a readable/pending/unsupported/failed status; unsupported does not mean read.
+The [Task 102 prompt](../../../agents/work/102-offline-document-reading/prompt.md)
+was revised and approved. Extraction happens as each crawl response arrives,
+without requiring a saved document or an offline workflow. See the
+[Task 102 results](../../../agents/work/102-offline-document-reading/changes.md)
+for checks and scope limits.
+
+- Reuse HTML parsing and dispatch bounded response bytes to a small suitable
+  reader based on type/signature. Add plain-text/PDF support first, using isolated
+  dependencies where needed; additional encountered formats get small later readers.
+- Extract text, email candidates, links, explicit title and page/nearby context
+  into the same result shape. Queue links through existing crawl budgets.
+- Save useful extracted results/provenance privately, without new original
+  HTML/PDF/binary copies by default. Preserve existing captures and checkpoint data.
+- Honor links.failed.txt without resetting old outcomes; verification was one
+  five-attempt batch using successful seeds only, within the approved scope.
+- Check response limits, unsupported/malformed/textless/encrypted resources,
+  missing readers and partial extraction. No repeated fetch loop, OCR or guessed facts.
 
 ### 71.4 — Evidence-based context
 

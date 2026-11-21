@@ -1,1 +1,2 @@
-# This research script uses only the Python standard library. No packages to install yet.
+# Research-only PDF-from-bytes reader; no optional extras.
+pypdf==7.1.1

@@ -12,7 +12,7 @@ browser; existing account operations continue through the API.
 
 - [Backend](backend/README.md): authentication, meter ledger APIs and forecasting.
 - [Research](research/README.md): isolated experiments; Ticket 71 has offline
-  setup and resumable crawling, with private data excluded from Git.
+  setup, resumable crawling and in-memory extraction, with private data excluded from Git.
 - [Forecast research](backend/research/forecasting/README.md): isolated synthetic
   datasets, plots and a rolling-linear simulator, not an application dependency.
 - [Database](database/README.md): PostgreSQL, Psycopg, fresh SQL bootstrap and

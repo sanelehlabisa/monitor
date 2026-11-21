@@ -92,8 +92,24 @@ the original state, seeds and old evidence are preserved. Retry counts remain.
 Missing-Location misclassification and an HTTPS Host-authority mismatch were
 fixed with synthetic proof. The Host fix followed the live batch; its effect on
 self-redirects is unverified. No second batch: explicit approval is needed for a
-bounded recheck before a broad crawl. A saved PDF is available for 71.3 readers.
+bounded recheck before a broad crawl. Existing raw captures remain available.
 The owner authorized Task 101 commit/push and deferred access fixes. Private
 links.failed.txt records all 11 failed/restricted seeds with observed reasons;
-seeds/state/reports are unchanged. Proceed with saved documents only, without
-retrying those URLs. No final contacts CSV/model call yet. Next prompt: 102.
+seeds/state/reports are unchanged. Do not retry those URLs. No final contacts CSV
+or model call yet. Task 101 was published on master as 6ea68bb.
+The owner rejected Task 102's saved-file/offline prerequisite. Revised 71.3:
+fetch once, detect type and extract in memory during crawling; save useful results,
+provenance and progress, not new raw source files by default. Reuse HTML and add
+small text/PDF handlers; unsupported formats remain explicit. Task 102 implements
+that approved flow in the same script, using lazy pypdf 7.1.1 in the research-only
+.venv. JSON includes title, text, candidate emails/context, links and read status;
+new raw originals are not saved. Legacy captures/state remain preserved.
+Manual links.failed.txt is now enforced before scheduling/requests/redirects,
+without resetting error history. Thirty-seven direct checks pass. The one approved
+five-attempt live check read one PDF and two HTML pages completely: 287 nodes,
+284 pending, zero new raw files or manual-URL retries. Original 16 files' hashes
+passed. Private proof is data/task102-verification.json and data/task102-live/.
+Legacy already-fetched nodes are not automatically reprocessed. No final contact
+CSV/model call yet. The user authorized Task 102 commit/push, then asked to wait
+for a refocus prompt. Do not start another slice or prepare its implementation
+until that direction arrives. Next work number is 103; no prompt is prepared.
