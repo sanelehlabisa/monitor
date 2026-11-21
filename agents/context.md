@@ -60,4 +60,18 @@ the beta handoff. The user approved Git publication on 3 November 2026;
 VPS rollout is the next operator step.
 Task 097 restores the original company logo credit and improves homepage canonical
 and nonpublic noindex headers, without changing account flows or landing copy.
-Next work: 098.
+Task 098 plans market-research Tickets 71.1–71.11 under
+`software/research/market-research/`. Build only separately approved slices:
+resumable link-graph/document discovery, factual context, required local LM Studio, validation,
+then one restartable private contacts CSV. Stop after 71.7 for review; survey,
+drafts, domain readiness and manually approved sending stay later. Inputs and
+generated files remain inside that experiment and are ignored by default.
+LM Studio is already installed; outages leave enrichment pending, preserving raw
+data. Traverse all discovered in-scope links with cycle detection and retained
+queues at limits; record unsupported formats rather than claiming they were read.
+Task 099 / 71.1 implements offline --init/--check in one standard-library
+pipeline.py. Private folders exist; the owner's links.txt is the default and
+has 16 syntax-valid entries, preserved byte-for-byte. Crawling/model calls are
+not implemented yet. The owner requests the installed small Qwen (~1.3B) for
+71.5; confirm its actual identifier then. Existing forecasting stays in place.
+Next research slice: 71.2 resumable traversal. Next work prompt: 100.

@@ -1,0 +1,8 @@
+# Private inputs and generated files are excluded by default, including new names.
+/*
+!/.gitignore
+!/README.md
+
+# Reviewed source allowlist. All inputs and generated files remain private.
+!/pipeline.py
+!/requirements.txt

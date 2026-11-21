@@ -11,6 +11,8 @@ browser; existing account operations continue through the API.
 ## Components
 
 - [Backend](backend/README.md): authentication, meter ledger APIs and forecasting.
+- [Research](research/README.md): isolated experiments; Ticket 71's offline
+  workspace is ready, with private data excluded from Git. Crawling is next.
 - [Forecast research](backend/research/forecasting/README.md): isolated synthetic
   datasets, plots and a rolling-linear simulator, not an application dependency.
 - [Database](database/README.md): PostgreSQL, Psycopg, fresh SQL bootstrap and
