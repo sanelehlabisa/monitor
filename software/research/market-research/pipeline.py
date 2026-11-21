@@ -37,7 +37,11 @@ MAX_ATTEMPTS = 2
 MAX_REDIRECTS = 5
 EMAIL_PATTERN = re.compile(r"[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}", re.I)
 URL_PATTERN = re.compile(r"https?://[^\s<>\"'{}]+", re.I)
-CONTACT_FIELDS = "id contact_type contact_value name organisation role location details source_url source_domain status contacted contacted_at response_status notes".split()
+BASE_CONTACT_FIELDS = "id contact_type contact_value name organisation role location details source_url source_domain status contacted contacted_at response_status notes".split()
+DELIVERY_FIELDS = ["contact_group", "email", "phone", *[
+    f"{channel}_{field}" for channel in ("email", "sms")
+    for field in ("status", "scheduled_at", "sent_at", "attempts", "last_error", "last_attempt_at")]]
+CONTACT_FIELDS = BASE_CONTACT_FIELDS + DELIVERY_FIELDS
 CONTEXT_FIELDS = ("name", "organisation", "role", "location", "details")
 ACCESS_BLOCKS = {"robots_disallow", "site_restriction", "anti_bot_challenge", "stated_access_restriction",
                  "robots_denied", "robots_http_401", "robots_http_403"}
@@ -826,6 +830,30 @@ def load_csv(path: Path, fields: list[str]) -> tuple[list[dict[str, str]], bytes
         raise RegisterError("CSV has an unknown/malformed schema; preserved for manual review.") from None
 
 
+def delivery_defaults(row: dict[str, str]) -> dict[str, str]:
+    defaults = dict.fromkeys(DELIVERY_FIELDS, "")
+    defaults.update(email=row["contact_value"] if row["contact_type"] == "email" else "",
+                    phone=row["contact_value"] if row["contact_type"] == "phone" else "")
+    for channel, kind in (("email", "email"), ("sms", "phone")):
+        defaults[f"{channel}_status"] = "new" if row["contact_type"] == kind else "skipped"
+        defaults[f"{channel}_attempts"] = "0"
+    return defaults
+
+
+def load_contacts(path: Path) -> tuple[list[dict[str, str]], bytes | None]:
+    if not path.exists():
+        return [], None
+    try:
+        with path.open(encoding="utf-8-sig", newline="") as source:
+            header = next(csv.reader(source), [])
+    except (UnicodeError, csv.Error):
+        raise RegisterError("Contact header is malformed; preserved for review.") from None
+    if header == BASE_CONTACT_FIELDS:
+        rows, original = load_csv(path, BASE_CONTACT_FIELDS)
+        return [{**row, **delivery_defaults(row)} for row in rows], original
+    return load_csv(path, CONTACT_FIELDS)
+
+
 def guarded_write(path: Path, content: bytes, original: bytes | None) -> bytes:
     try:
         if (path.read_bytes() if path.exists() else None) != original:
@@ -971,7 +999,7 @@ class ContactRegister:
 
     def __init__(self, folder: Path, args: argparse.Namespace) -> None:
         self.path = folder / "contacts.csv"
-        self.rows, self.original = load_csv(self.path, CONTACT_FIELDS)
+        self.rows, self.original = load_contacts(self.path)
         self.by_pair: dict[tuple[str, str], dict[str, str]] = {}
         ids: set[int] = set()
         for row in self.rows:
@@ -1041,6 +1069,7 @@ class ContactRegister:
             if row is None:
                 row = dict.fromkeys(CONTACT_FIELDS, "")
                 row.update(id=str(self.next_id), contact_type=pair[0], contact_value=pair[1], status="new", contacted="false")
+                row.update(delivery_defaults(row))
                 row.update(source_url=url, source_domain=urlsplit(url).hostname or "")
                 self.rows.append(row)
                 self.by_pair[pair] = row

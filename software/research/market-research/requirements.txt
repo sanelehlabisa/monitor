@@ -2,3 +2,6 @@
 pypdf==7.1.1
 # Research-only phone validation and international formatting.
 phonenumbers==9.0.44
+# Research-only .env parsing and read-only DNS inspection.
+python-dotenv==1.2.4
+dnspython==2.9.2
