@@ -1,0 +1,7 @@
+# Build only reviewed mock source; never copy credentials, inputs or captures.
+**
+!Dockerfile
+!.dockerignore
+!requirements.txt
+!pipeline.py
+!send_due_messages.py

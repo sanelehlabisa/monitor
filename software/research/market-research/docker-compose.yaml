@@ -1,0 +1,42 @@
+name: monitor-research-mocks
+
+services:
+  mailpit:
+    image: axllent/mailpit:v1.31.4@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
+    ports:
+      - "127.0.0.1:8026:8025"
+      - "127.0.0.1:1026:1025"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_DISABLE_WAL: "true"
+      MP_MAX_MESSAGES: "0"
+      MP_SMTP_ALLOWED_RECIPIENTS: '@example\.invalid$$'
+      MP_SMTP_DISABLE_RDNS: "true"
+      MP_DISABLE_VERSION_CHECK: "true"
+      MP_BLOCK_REMOTE_CSS_AND_FONTS: "true"
+      MP_ALLOWED_HOSTS: "127.0.0.1:8026,localhost:8026,127.0.0.1:8025"
+    volumes:
+      - ./data/local-test/compose/mailpit:/data
+    networks: [mocks]
+
+  mock-sms:
+    build: .
+    command: ["python", "send_due_messages.py", "--mock-sms-api", "--mock-sms-bind", "0.0.0.0", "--mock-sms-port", "8080"]
+    ports:
+      - "127.0.0.1:8086:8080"
+    volumes:
+      - ./data/local-test/compose/sms-api:/app/data/local-test/compose/sms-api
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      interval: 5s
+      timeout: 4s
+      retries: 5
+    networks: [mocks]
+
+networks:
+  mocks:
+    # Docker 29 does not publish ports on internal-only bridges.
+    driver: bridge

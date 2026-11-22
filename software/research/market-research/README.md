@@ -4,7 +4,7 @@ Local Python tool collecting public emails and phone numbers for market research
 One bounded command extracts HTML/plain-text/PDF contacts, follows permitted links
 and updates private `data/contacts.csv`. Context uses explicit source evidence
 and optional local LM Studio. Outreach now supports saved schedules, local
-Mailpit email tests and an offline SMS mock. Real delivery is not implemented.
+Mailpit email tests and offline/local HTTP SMS mocks. Real delivery is not implemented.
 
 ## Workspace and privacy
 
@@ -26,6 +26,9 @@ market-research/
   .env.example         # safe research-only template
   pipeline.py
   send_due_messages.py
+  docker-compose.yaml  # separate local capture services
+  Dockerfile
+  .dockerignore
   templates/
     email.txt
     sms.txt
@@ -551,6 +554,7 @@ no production transport or Android adapter exists. No recurring job is installed
 | 71.10.2 | Shared one-pass runner and CSV state | Local-only, verified |
 | 71.10.3 | Initial weekday schedule | 30 emails saved; SMS held |
 | 71.10.5 | Per-channel reporting | Available |
+| 71.10.7 | Isolated Compose capture services | [Task 106 results](../../../agents/work/106-compose-research-mocks/changes.md), verified |
 | 71.10.4 | Production email transport | Later explicit approval |
 | 71.10.6 | Chosen Android gateway/live SMS | Owner selection and separate approval |
 | 71.8 | Survey review after replies | Deferred |
@@ -559,8 +563,8 @@ no production transport or Android adapter exists. No recurring job is installed
 
 - `pipeline.py`: collect/import contact information.
 - `send_due_messages.py`: check saved CSV dates, apply current time/day limits,
-  process local-test outcomes and report, then exit. Setup inspection is an option
-  of this same runner. No separate schedule or helper scripts.
+  process local-test outcomes and report, then exit. Setup inspection and the
+  capture-only SMS server are modes of this runner. No extra Python scripts.
 
 From this research folder:
 
@@ -591,7 +595,9 @@ separate approval. --local-test alone can submit fictional data to Mailpit/SMS
 mock. It requires example.invalid provenance under data/local-test/, rejects real
 CSV/aliases, pins SMTP to 127.0.0.1 and never loads production credentials.
 --channel email|sms|all selects channels; --mailpit-port and --sender affect local
-capture only. --now simulates time for read-only checks/local fictional tests.
+capture only. --mock-sms-port 8086 explicitly selects the loopback HTTP mock;
+without it SMS still uses offline file capture. --now simulates time for
+read-only checks/local fictional tests.
 For a fresh simulation use a new fictional fixture; do not reset completed sent
 state or copy real contacts into test data.
 
@@ -602,31 +608,66 @@ Its private executable/capture artifacts are under data/local-test/. There is no
 global install and no Android software. A future manually started isolated
 Mailpit instance can use the same ports for new fictional tests.
 
-### Run a fresh mock yourself
+### Run the Compose mocks
 
 The saved `data/local-test/ready/contacts.csv` contains five fictional emails and
 five confirmed fictional phone-only groups, all unsent. It is separate from the
 completed demos and the real contact register. No Android gateway is needed.
-Start the existing local Mailpit tool in one terminal from this folder:
+Start Docker Desktop, then run from **this market-research folder**:
 
 ```sh
-./data/local-test/mailpit-1.31.4/mailpit.exe --listen 127.0.0.1:8026 --smtp 127.0.0.1:1026 --smtp-disable-rdns --disable-version-check --smtp-allowed-recipients '@example\.invalid$'
+docker compose -f docker-compose.yaml up -d --build --wait
 ```
 
-Leave that capture terminal open; run this in a second terminal from this folder:
+This separate `monitor-research-mocks` project starts Mailpit and the SMS API.
+It does not start the sender, read either private .env, mount contacts or change
+the app Compose files. Host ports bind only to 127.0.0.1; containers share a
+separate bridge, with no relay/forwarding configured. Docker 29 suppresses port
+publishing on internal-only networks; this bridge does not block outbound traffic.
+The services have no real sending adapter or account credentials. Mailpit accepts only
+`@example.invalid` recipients. The build allowlist excludes inputs and credentials.
+If a port is occupied, stop here and inspect its owner; do not stop another app.
+
+Send the fictional fixture once through both capture services:
 
 ```sh
-.venv/Scripts/python.exe send_due_messages.py --local-test --csv data/local-test/ready/contacts.csv --now 2026-12-01T10:00:00Z
+.venv/Scripts/python.exe send_due_messages.py --local-test --csv data/local-test/ready/contacts.csv --mock-sms-port 8086 --now 2026-12-01T10:00:00Z
 ```
 
 The explicit clock is a Tuesday working-time simulation, so you can test on a
-weekend too. Expected first run: five Mailpit emails and five offline SMS captures;
-second run: zero resends. View emails at http://127.0.0.1:8026 and mock SMS in
-`data/local-test/ready/sms-capture.jsonl`. Stop your capture terminal with Ctrl+C
-when finished. The binary is already available locally; other workspaces need
-an isolated Mailpit instance on these loopback ports. Start Mailpit before the
-first email attempt. Do not reset sent rows for a new test; use a fresh fictional
-fixture instead. The script checks the real clock unless --now is given.
+weekend too. Expected first run: five Mailpit emails and five SMS API captures;
+second run: zero resends. This updates only the fictional CSV. The runner checks
+the real clock unless --now is given. Do not reset sent rows for a new test;
+use a fresh fictional fixture instead.
+
+- Emails: http://127.0.0.1:8026
+- SMS captures: http://127.0.0.1:8086/messages (latest 100; count includes all)
+- SMS health: http://127.0.0.1:8086/health
+
+Ignored captures persist below `data/local-test/compose/{mailpit,sms-api}/`.
+The SMS JSONL file is a local capture, not delivery to a phone. The earlier native
+Mailpit binary and offline captures are retained but are not needed for Compose.
+
+```sh
+# Stop only this mock project; saved captures and CSV state remain.
+docker compose -f docker-compose.yaml down
+```
+
+The SMS API accepts `POST /messages` JSON with `phone`, `message` and
+`source_domain: "example.invalid"`. Optional `outcome` supports `success`,
+`temporary` (503), `permanent` (422), or `uncertain` (capture then drop response).
+It never forwards a message. The client connects directly to 127.0.0.1, ignores
+proxy/gateway environment settings and follows no redirects. Unknown acceptance
+stays `sending` for manual review, rather than automatically retrying. No CORS
+access is enabled; browser-origin submissions are rejected.
+
+Task 106 verified five fictional emails and five HTTP SMS captures, controlled
+rejections, an accepted/disconnected request, date/day caps and zero resends
+after both runner and capture-service restarts (63 checks). Captures persisted.
+The original app containers, Compose/config files and real contact CSV stayed
+unchanged. An interrupted fictional fixture is preserved for manual review after
+a local CSV write error; the sender stopped safely. A later fresh run passed.
+Evidence remains private in `data/task106-verification.json`.
 
 ### Current schedule
 
@@ -698,11 +739,12 @@ HTML execution. Sent/held states remain protected even after you edit a template
 Blank/malformed/missing/oversized templates stop before an attempt is marked.
 The template files are reviewed source; private captures and CSVs remain ignored.
 
-The typed send_sms(phone_number, message) boundary remains an offline mock with
-controlled test errors and no HTTP/Android calls. Future environment key names
-are documented in this folder's .env.example. Configure them only in this
-folder's private .env when a gateway is chosen; no live adapter exists and
-setting a URL cannot activate delivery. Keep two Python source scripts only.
+The typed send_sms(phone_number, message) boundary uses an offline mock by
+default, or the explicit loopback HTTP mock in local-test mode. Neither can
+deliver to a phone. Future environment key names are documented in this folder's
+.env.example. Configure them only in this folder's private .env when a gateway
+is chosen; no live adapter exists and setting a URL cannot activate delivery.
+Keep two Python source scripts only.
 
 ### Reporting and readiness
 

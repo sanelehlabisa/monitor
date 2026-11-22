@@ -1,17 +1,20 @@
 """Check saved CSV send dates; local tests only until real delivery is approved."""
 
 import argparse
-from collections import Counter
+from collections import Counter, deque
 from datetime import date, datetime, time, timedelta, timezone
 from email.message import EmailMessage
 from email.policy import SMTP as SMTP_POLICY
 import hashlib
+import http.client
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os
 from pathlib import Path
 import smtplib
 import re
 import ssl
+import uuid
 from typing import Any, Callable
 
 import phonenumbers
@@ -179,16 +182,148 @@ def append_log(path: Path, event: dict[str, object]) -> None:
 
 
 def send_sms(phone_number: str, message: str, *, capture: Path | None = None,
-             outcome: str = "success") -> str:
-    """Offline mock boundary only. Gateway environment values cannot enable HTTP."""
+             outcome: str = "success", mock_port: int | None = None) -> str:
+    """Offline by default; an explicit port permits only the loopback HTTP mock."""
     if outcome not in {"success", "temporary", "permanent", "uncertain"}:
         raise ValueError("Unknown mock outcome.")
+    if mock_port is not None:
+        return send_sms_local_http(phone_number, message, mock_port, outcome)
     if outcome != "success":
         raise DeliveryError("Local SMS mock: " + outcome, outcome)
     receipt = "mock-" + hashlib.sha256((phone_number + message).encode()).hexdigest()[:20]
     if capture is not None:
         append_log(capture, {"mode": "offline_mock", "receipt": receipt, "phone": phone_number, "message": message})
     return receipt
+
+
+def send_sms_local_http(phone: str, message: str, port: int, outcome: str = "success") -> str:
+    if not 1 <= port <= 65535:
+        raise ValueError("Invalid local SMS mock port.")
+    client = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    submitted = False
+    try:
+        client.connect()
+        submitted = True
+        client.request("POST", "/messages", json.dumps({"phone": phone, "message": message,
+                       "source_domain": "example.invalid", "outcome": outcome}),
+                       {"Content-Type": "application/json"})
+        response = client.getresponse()
+        raw = response.read(4097)
+        if len(raw) > 4096:
+            raise ValueError("Oversized SMS mock response.")
+        result = json.loads(raw)
+        if isinstance(result, dict) and result.get("mode") == "http_mock":
+            receipt = result.get("receipt", "")
+            if response.status == 201 and result.get("accepted") is True and isinstance(receipt, str) and re.fullmatch(r"mock-[0-9a-f]{32}", receipt):
+                return receipt
+            if result.get("accepted") is False and response.status in {400, 403, 404, 413, 415, 422, 503}:
+                raise DeliveryError(f"Local SMS API rejected request ({response.status})",
+                                    "temporary" if response.status == 503 else "permanent")
+        raise DeliveryError("Unconfirmed SMS API acceptance; review mock captures.", "uncertain")
+    except (OSError, http.client.HTTPException, ValueError):
+        raise DeliveryError("Local SMS API connection/response interrupted",
+                            "uncertain" if submitted else "temporary") from None
+    finally:
+        client.close()
+
+
+def serve_mock_sms(port: int = 8086, bind: str = "127.0.0.1") -> None:
+    """Capture-only API; no account configuration, forwarding or real SMS adapter."""
+    if not 1 <= port <= 65535 or bind not in {"127.0.0.1", "0.0.0.0"}:
+        raise ValueError("Invalid SMS mock binding.")
+    capture = workspace_path("data/local-test/compose/sms-api/messages.jsonl")
+    capture.parent.mkdir(parents=True, exist_ok=True)
+
+    class Handler(BaseHTTPRequestHandler):
+        def setup(self) -> None:
+            super().setup()
+            self.connection.settimeout(5)
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass  # Never echo request bodies, phone numbers or arbitrary paths.
+
+        def reply(self, code: int, payload: dict[str, Any]) -> None:
+            content = json.dumps({"mode": "http_mock", **payload}).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(content)
+
+        def allowed(self) -> bool:
+            hosts = {f"{host}:{p}" for host in ("localhost", "127.0.0.1", "mock-sms") for p in (port, 8086)}
+            if self.headers.get("Origin") or self.headers.get("Host") not in hosts:
+                self.reply(403, {"accepted": False, "error": "Local mock clients only."})
+                return False
+            return True
+
+        def do_GET(self) -> None:
+            if not self.allowed():
+                return
+            if self.path == "/health":
+                self.reply(200, {"healthy": True, "real_delivery": False})
+            elif self.path == "/messages":
+                try:
+                    recent: deque[dict[str, Any]] = deque(maxlen=100)
+                    count = 0
+                    if capture.exists():
+                        with capture.open(encoding="utf-8") as source:
+                            for line in source:
+                                recent.append(json.loads(line))
+                                count += 1
+                    self.reply(200, {"count": count, "messages": list(recent)})
+                except (OSError, ValueError):
+                    self.reply(503, {"error": "Capture unavailable; review local files."})
+            else:
+                self.reply(404, {"accepted": False, "error": "Use /health or /messages."})
+
+        def do_POST(self) -> None:
+            if not self.allowed():
+                return
+            if self.path != "/messages":
+                self.reply(404, {"accepted": False, "error": "Use /messages."})
+                return
+            if self.headers.get_content_type() != "application/json":
+                self.reply(415, {"accepted": False, "error": "JSON required."})
+                return
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                if self.headers.get("Transfer-Encoding") or not 0 < size <= 65536:
+                    self.reply(413, {"accepted": False, "error": "Body must be 1-65536 bytes."})
+                    return
+                value = json.loads(self.rfile.read(size))
+                if not isinstance(value, dict) or set(value) - {"phone", "message", "source_domain", "outcome"}:
+                    raise ValueError
+                phone, message, outcome = value.get("phone"), value.get("message"), value.get("outcome", "success")
+                if (value.get("source_domain") != "example.invalid" or not isinstance(phone, str)
+                        or normalize_phone(phone, True)[0] != phone or not isinstance(message, str)
+                        or not message.strip() or "\x00" in message or len(message.encode()) > 32768
+                        or outcome not in {"success", "temporary", "permanent", "uncertain"}):
+                    raise ValueError
+            except (ValueError, TypeError, UnicodeError):
+                self.reply(400, {"accepted": False, "error": "Invalid fictional mock payload."})
+                return
+            if outcome in {"temporary", "permanent"}:
+                self.reply(503 if outcome == "temporary" else 422, {"accepted": False, "error": "Controlled mock rejection."})
+                return
+            receipt = "mock-" + uuid.uuid4().hex
+            try:
+                append_log(capture, {"mode": "http_mock", "receipt": receipt, "phone": phone,
+                                    "message": message, "at": timestamp(datetime.now(UTC))})
+            except OSError:
+                # Partial persistence is possible; do not claim safe rejection/retry.
+                self.reply(500, {"error": "Capture persistence uncertain; review manually."})
+                return
+            if outcome == "uncertain":
+                self.close_connection = True  # Accept then drop the response for restart-safety checks.
+                return
+            self.reply(201, {"accepted": True, "receipt": receipt})
+
+    with HTTPServer((bind, port), Handler) as server:
+        print(f"SMS capture-only API on {bind}:{port}; no real delivery.", flush=True)
+        server.serve_forever()
 
 
 def send_email_local(recipient: str, sender: str, identity: str, port: int,
@@ -283,9 +418,12 @@ def print_counters(result: dict[str, int], mode: str) -> None:
 
 
 def run_local(path: Path, *, port: int = 1026, sender: str = "research@example.invalid",
-              clock: Callable[[], datetime] | None = None, channels: tuple[str, ...] = CHANNELS) -> dict[str, int]:
+              clock: Callable[[], datetime] | None = None, channels: tuple[str, ...] = CHANNELS,
+              sms_port: int | None = None) -> dict[str, int]:
     if not normalize_email(sender) or not 1 <= port <= 65535 or not channels or any(channel not in CHANNELS for channel in channels):
         raise ValueError("Invalid local delivery configuration.")
+    if sms_port is not None and not 1 <= sms_port <= 65535:
+        raise ValueError("Invalid local SMS mock port.")
     clock = clock or (lambda: datetime.now(UTC))
     path = workspace_path(str(path))
     sent_run: Counter[str] = Counter()
@@ -320,7 +458,7 @@ def run_local(path: Path, *, port: int = 1026, sender: str = "research@example.i
                 append_log(path.parent / "attempts.jsonl", event)
                 try:
                     receipt = (send_email_local(row["email"], sender, row["id"], port, template=(subject, email_body)) if channel == "email"
-                               else send_sms(row["phone"], sms_body, capture=path.parent / "sms-capture.jsonl"))
+                               else send_sms(row["phone"], sms_body, capture=path.parent / "sms-capture.jsonl", mock_port=sms_port))
                 except DeliveryError as error:
                     row[f"{channel}_last_error"] = str(error)[:300]
                     if error.kind == "uncertain":
@@ -468,13 +606,24 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--report", action="store_true", help="read-only totals")
     mode.add_argument("--local-test", action="store_true", help="fictional CSV under data/local-test/ only")
     mode.add_argument("--check-setup", action="store_true", help="read-only SMTP/TLS/DNS checks, no login/mail")
+    mode.add_argument("--mock-sms-api", action="store_true", help="run a capture-only SMS HTTP service")
     parser.add_argument("--csv", default="data/contacts.csv", help="saved dates/state; never allocates schedules")
     parser.add_argument("--channel", choices=("all", *CHANNELS), default="all")
     parser.add_argument("--mailpit-port", type=int, default=1026)
+    parser.add_argument("--mock-sms-port", type=int, help="explicit loopback SMS API port; otherwise offline mock")
+    parser.add_argument("--mock-sms-bind", choices=("127.0.0.1", "0.0.0.0"), default="127.0.0.1",
+                        help="server binding only; Compose publishes exclusively on loopback")
     parser.add_argument("--sender", default="research@example.invalid", help="local-test From header only")
     parser.add_argument("--now", help="aware simulation timestamp for local tests/read-only checks")
     args = parser.parse_args(argv)
     try:
+        if args.mock_sms_api:
+            if args.now:
+                raise ValueError("Server mode uses the real clock.")
+            serve_mock_sms(8086 if args.mock_sms_port is None else args.mock_sms_port, args.mock_sms_bind)
+            return 0
+        if args.mock_sms_port is not None and not args.local_test:
+            raise ValueError("SMS HTTP transport is only available for fictional --local-test runs.")
         if args.check_setup:
             if args.now:
                 raise ValueError("--now is only for reports/local fixtures.")
@@ -484,7 +633,7 @@ def main(argv: list[str] | None = None) -> int:
         channels = CHANNELS if args.channel == "all" else (args.channel,)
         if args.local_test:
             run_local(path, port=args.mailpit_port, sender=args.sender,
-                      clock=(lambda: fixed) if fixed else None, channels=channels)
+                      clock=(lambda: fixed) if fixed else None, channels=channels, sms_port=args.mock_sms_port)
             return 0
         store = ContactFile(path)
         now = fixed or datetime.now(UTC)

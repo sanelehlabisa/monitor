@@ -8,6 +8,9 @@
 !/pipeline.py
 !/requirements.txt
 !/send_due_messages.py
+!/docker-compose.yaml
+!/Dockerfile
+!/.dockerignore
 
 # Reviewed fixed-message templates only; other generated files stay private.
 !/templates/

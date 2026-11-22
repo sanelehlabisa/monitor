@@ -64,6 +64,21 @@ and nonpublic noindex headers, without changing account flows or landing copy.
 
 ## Research collection
 
+Task 106 / roadmap 71.10.7 is implemented after approval: independent Compose
+Mailpit (8026 web/1026 SMTP) and SMS HTTP mock (8086), all host bindings loopback.
+Both services are healthy and left running. Two Python scripts remain; the runner
+has a capture-server mode and explicit --mock-sms-port for fictional local tests.
+63 checks passed: actual captures, failures/uncertain holds, limits, restart
+persistence and zero resends. App containers/files, both .env files, canonical
+contacts and the owner's ready fixture are unchanged. Captures/results stay ignored.
+Docker 29 suppressed publishing on an internal-only bridge; the separate bridge
+permits local access but does not block outbound traffic. No forwarding/real
+adapter or credentials exist in the mocks. A fictional interrupted CSV is held
+after a write error; preserve it for manual review, never reset automatically.
+Next: review independent SMTP credentials/sender/DKIM/DMARC before separately
+approving production email. Android/live SMS remains deferred. Task 105 is
+published on master as f6c6917. The owner has authorized Task 106 publication.
+
 Task 103 collection is complete, preserved in master commit e4a7ff1.
 `software/research/market-research/pipeline.py` is isolated from the app. It
 supports bounded resumable HTML/plain-text/PDF crawling and local saved-file
@@ -111,8 +126,9 @@ contact_group is manually confirmed only; no person inference from sources.
 SMS needs a confirmed complete phone-only group and mobile-capable number type.
 Any group email has priority even if failed/not due; sent/contacted/replied groups
 block further initial contact. No automatic channel fallback or follow-up. Preserve
-all phone rows and fixed exact templates. The SMS boundary is offline-only; future
-gateway env keys cannot enable HTTP. No Android software was installed/configured.
+all phone rows and fixed templates. SMS defaults to offline capture; Task 106
+adds explicit loopback HTTP mock access only. Future gateway env keys cannot
+activate real delivery. No Android software was installed/configured.
 
 A shared contacts lock plus guarded atomic writes save sending/attempt state
 before submission. Unknown acceptance stays sending for manual review, never
@@ -162,8 +178,8 @@ Python. Sent/held states never reset after edits. Still two Python files.
 13 focused checks plus new actual Mailpit/offline SMS capture pass (five/five,
 restart zero); the owned capture process was stopped. A fresh unsent fictional
 five-email/five-SMS fixture is ready at data/local-test/ready/contacts.csv.
-Start local Mailpit first; the README gives both commands and a weekday --now
-simulation. No Android gateway needed for mocks. Real CSV is unchanged and real
+Start the independent Compose mocks; the README gives the commands and a weekday
+--now simulation. No Android gateway needed. Real CSV is unchanged and real
 delivery remains disabled. Private results: data/task105-template-*.json.
 
 Research-config isolation: nine focused checks verify the exact config path,
