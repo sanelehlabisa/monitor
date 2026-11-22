@@ -1,10 +1,11 @@
-"""Check saved CSV send dates; local tests only until real delivery is approved."""
+"""Send due CSV contacts using research .env, at most five per channel/day."""
 
 import argparse
 from collections import Counter, deque
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.policy import SMTP as SMTP_POLICY
+from email.utils import format_datetime
 import hashlib
 import http.client
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -16,6 +17,7 @@ import re
 import ssl
 import uuid
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 import phonenumbers
 
@@ -27,8 +29,46 @@ UTC = timezone.utc
 LOCAL = timezone(timedelta(hours=2), "Africa/Johannesburg")
 CHANNELS = ("email", "sms")
 STATUSES = {"new", "scheduled", "sending", "sent", "failed", "skipped"}
-DAILY_CAP, MAX_ATTEMPTS = 6, 3
+DAILY_CAP, MAX_ATTEMPTS = 5, 3
 Row = dict[str, str]
+
+
+def mock_smtp(values: dict[str, str]) -> bool:
+    return values.get("SMTP_HOST", "").lower() in {"127.0.0.1", "localhost", "::1"}
+
+
+def validate_smtp(values: dict[str, str]) -> None:
+    try:
+        port = int(values.get("SMTP_PORT", "0"))
+    except ValueError:
+        raise ValueError("SMTP_PORT must be a number.") from None
+    host = values.get("SMTP_HOST", "")
+    if (not host or (not mock_smtp(values) and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]*", host))
+            or not 1 <= port <= 65535 or values.get("SMTP_SECURE") not in {"true", "false"}):
+        raise ValueError("Set a valid SMTP_HOST, SMTP_PORT and SMTP_SECURE in research .env.")
+    if not mock_smtp(values) and not (values.get("SMTP_USER") and values.get("SMTP_PASSWORD")):
+        raise ValueError("Non-loopback SMTP requires this research account's username/password and verified TLS.")
+
+
+def load_config() -> dict[str, str]:
+    from dotenv import dotenv_values
+    values = {k: v or "" for k, v in dotenv_values(WORKSPACE / ".env", interpolate=False).items()}
+    validate_smtp(values)
+    if not normalize_email(values.get("RESEARCH_EMAIL_FROM", "")) or not values.get("CONTACTS_CSV"):
+        raise ValueError("Set RESEARCH_EMAIL_FROM and CONTACTS_CSV in market-research/.env.")
+    return values
+
+
+def sms_mock_port(values: dict[str, str]) -> int | None:
+    value = values.get("SMS_GATEWAY_URL", "")
+    if not value:
+        return None
+    parsed = urlsplit(value)
+    if (parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
+            or parsed.path != "/messages" or parsed.username or parsed.password or parsed.query or parsed.fragment
+            or parsed.port is None or not 1 <= parsed.port <= 65535):
+        raise ValueError("SMS is mock-only: use a loopback http://host:port/messages URL or leave it blank.")
+    return parsed.port
 
 
 def load_templates(folder: Path | None = None) -> tuple[str, str, str]:
@@ -76,12 +116,6 @@ def parse_timestamp(value: str) -> datetime | None:
 def local_day(value: str) -> date | None:
     parsed = parse_timestamp(value)
     return parsed.astimezone(LOCAL).date() if parsed else None
-
-
-def working(now: datetime) -> bool:
-    local = now.astimezone(LOCAL)
-    return (local.weekday() < 5
-            and time(9, 30) <= local.time().replace(second=0, microsecond=0, tzinfo=None) <= time(15, 30))
 
 
 def validate_rows(rows: list[Row]) -> None:
@@ -328,20 +362,39 @@ def serve_mock_sms(port: int = 8086, bind: str = "127.0.0.1") -> None:
 
 def send_email_local(recipient: str, sender: str, identity: str, port: int,
                      *, template: tuple[str, str] | None = None) -> str:
-    if not normalize_email(sender) or normalize_email(recipient) != recipient or not recipient.endswith(".invalid") or not 1 <= port <= 65535:
-        raise ValueError("Only validated fictional recipients and local SMTP ports are allowed.")
+    return send_email(recipient, sender, identity,
+                      {"SMTP_HOST": "127.0.0.1", "SMTP_PORT": str(port), "SMTP_SECURE": "false"}, template=template)
+
+
+def send_email(recipient: str, sender: str, identity: str, values: dict[str, str],
+               *, template: tuple[str, str] | None = None) -> str:
+    validate_smtp(values)
+    local = mock_smtp(values)
+    if (not normalize_email(sender) or normalize_email(recipient) != recipient
+            or (local and not recipient.endswith(".invalid"))):
+        raise ValueError("Invalid email address; loopback SMTP accepts fictional recipients only.")
     subject, body = template or load_templates()[:2]
     message = EmailMessage()
     message["From"], message["To"], message["Subject"] = sender, recipient, subject
+    message["Date"] = format_datetime(datetime.now(UTC))
     digest = hashlib.sha256((identity + recipient + subject + body).encode()).hexdigest()[:24]
     receipt = f"<research-{digest}@{sender.rsplit('@', 1)[1]}>"
     message["Message-ID"] = receipt
     message.set_content(body)
-    client = smtplib.SMTP(timeout=10)
+    client: smtplib.SMTP | None = None
     stage = "connect"
     try:
-        client.connect("127.0.0.1", port)
+        # Supply host at construction so TLS hostname/SNI verification uses it.
+        client = (smtplib.SMTP_SSL(values["SMTP_HOST"], int(values["SMTP_PORT"]), timeout=10, context=ssl.create_default_context())
+                  if values["SMTP_SECURE"] == "true" else smtplib.SMTP(values["SMTP_HOST"], int(values["SMTP_PORT"]), timeout=10))
         client.ehlo_or_helo_if_needed()
+        if not local:
+            if values["SMTP_SECURE"] == "false":
+                if not client.has_extn("starttls"):
+                    raise DeliveryError("SMTP requires STARTTLS; credentials were not submitted.", "permanent")
+                client.starttls(context=ssl.create_default_context())
+                client.ehlo()
+            client.login(values["SMTP_USER"], values["SMTP_PASSWORD"])
         for command, value in ((client.mail, sender), (client.rcpt, recipient)):
             code, _ = command(value)
             if not 200 <= code < 300:
@@ -354,15 +407,20 @@ def send_email_local(recipient: str, sender: str, identity: str, port: int,
     except smtplib.SMTPResponseException as error:
         code = error.smtp_code
         raise DeliveryError(f"SMTP rejected ({code})", "temporary" if 400 <= code < 500 else "permanent") from None
+    except ssl.SSLError:
+        raise DeliveryError("SMTP TLS connection failed; no downgrade permitted.", "uncertain" if stage == "data" else "permanent") from None
+    except UnicodeError:
+        raise DeliveryError("SMTP text/credential encoding failed.", "uncertain" if stage == "data" else "permanent") from None
     except (OSError, smtplib.SMTPException):
-        raise DeliveryError("Local SMTP connection interrupted", "uncertain" if stage == "data" else "temporary") from None
+        raise DeliveryError("SMTP connection interrupted", "uncertain" if stage == "data" else "temporary") from None
     finally:
         # A failed QUIT must never turn confirmed DATA acceptance into a resend.
-        try:
-            client.quit()
-        except (OSError, smtplib.SMTPException):
-            pass
-        client.close()
+        if client is not None:
+            try:
+                client.quit()
+            except (OSError, smtplib.SMTPException):
+                pass
+            client.close()
 
 
 def require_test_csv(path: Path, rows: list[Row]) -> None:
@@ -377,8 +435,8 @@ def require_test_csv(path: Path, rows: list[Row]) -> None:
 
 def due(row: Row, channel: str, rows: list[Row], now: datetime) -> bool:
     scheduled = parse_timestamp(row[f"{channel}_scheduled_at"])
-    return (working(now) and row[f"{channel}_status"] in {"new", "scheduled"} and scheduled is not None
-            and scheduled <= now
+    return (row[f"{channel}_status"] in {"new", "scheduled"} and scheduled is not None
+            and scheduled.astimezone(LOCAL).date() <= now.astimezone(LOCAL).date()
             and int(row[f"{channel}_attempts"]) < MAX_ATTEMPTS
             and local_day(row[f"{channel}_last_attempt_at"]) != now.astimezone(LOCAL).date()
             and not held_reason(row, channel, rows))
@@ -417,26 +475,28 @@ def print_counters(result: dict[str, int], mode: str) -> None:
         print(f"{label}: {result[label]}")
 
 
-def run_local(path: Path, *, port: int = 1026, sender: str = "research@example.invalid",
+def run_messages(path: Path, *, port: int = 1026, sender: str = "research@example.invalid",
               clock: Callable[[], datetime] | None = None, channels: tuple[str, ...] = CHANNELS,
-              sms_port: int | None = None) -> dict[str, int]:
+              sms_port: int | None = None, smtp: dict[str, str] | None = None) -> dict[str, int]:
     if not normalize_email(sender) or not 1 <= port <= 65535 or not channels or any(channel not in CHANNELS for channel in channels):
         raise ValueError("Invalid local delivery configuration.")
     if sms_port is not None and not 1 <= sms_port <= 65535:
         raise ValueError("Invalid local SMS mock port.")
+    local = smtp is None or mock_smtp(smtp)
+    if smtp is not None:
+        validate_smtp(smtp)
+    if not local and (clock is not None or "sms" in channels):
+        raise ValueError("Configured real SMTP uses the actual clock and email only; live SMS is unavailable.")
     clock = clock or (lambda: datetime.now(UTC))
     path = workspace_path(str(path))
     sent_run: Counter[str] = Counter()
     failed_run: Counter[str] = Counter()
     with single_writer(workspace_path("data/contacts.lock")):
         store = ContactFile(path)
-        require_test_csv(path, store.rows)
-        now = clock()
-        if not working(now):
-            result = counters(store.rows, now)
-            print("Nothing due outside working hours or on weekends.")
-            print_counters(result, "LOCAL TEST / SMS MOCK ONLY")
-            return result
+        if local:
+            require_test_csv(path, store.rows)
+        elif not path.samefile(workspace_path("data/contacts.csv")):
+            raise ValueError("Real SMTP requires CONTACTS_CSV=data/contacts.csv; mock state cannot be used for live mail.")
         subject, email_body, sms_body = load_templates()
         for channel in channels:
             if channel not in CHANNELS:
@@ -444,7 +504,7 @@ def run_local(path: Path, *, port: int = 1026, sender: str = "research@example.i
             ordered = due_candidates(store.rows, channel, clock())
             for row in ordered:
                 now = clock()
-                if not working(now) or day_usage(store.rows, channel, now) >= DAILY_CAP:
+                if day_usage(store.rows, channel, now) >= DAILY_CAP:
                     break
                 if not due(row, channel, store.rows, now):
                     continue
@@ -457,8 +517,12 @@ def run_local(path: Path, *, port: int = 1026, sender: str = "research@example.i
                 event: dict[str, object] = {"id": row["id"], "channel": channel, "at": timestamp(now), "state": "sending"}
                 append_log(path.parent / "attempts.jsonl", event)
                 try:
-                    receipt = (send_email_local(row["email"], sender, row["id"], port, template=(subject, email_body)) if channel == "email"
-                               else send_sms(row["phone"], sms_body, capture=path.parent / "sms-capture.jsonl", mock_port=sms_port))
+                    if channel == "sms":
+                        receipt = send_sms(row["phone"], sms_body, capture=path.parent / "sms-capture.jsonl", mock_port=sms_port)
+                    elif smtp is None:
+                        receipt = send_email_local(row["email"], sender, row["id"], port, template=(subject, email_body))
+                    else:
+                        receipt = send_email(row["email"], sender, row["id"], smtp, template=(subject, email_body))
                 except DeliveryError as error:
                     row[f"{channel}_last_error"] = str(error)[:300]
                     if error.kind == "uncertain":
@@ -481,8 +545,11 @@ def run_local(path: Path, *, port: int = 1026, sender: str = "research@example.i
                 store.save()
                 append_log(path.parent / "attempts.jsonl", event)
         result = counters(store.rows, clock(), sent_run, failed_run)
-        print_counters(result, "LOCAL TEST / SMS MOCK ONLY")
+        print_counters(result, "MAILPIT / SMS MOCK" if local else "CONFIGURED SMTP / SMS DISABLED")
         return result
+
+
+run_local = run_messages  # Existing local walkthroughs share the same state machine.
 
 
 def txt_records(name: str) -> dict[str, object]:
@@ -549,11 +616,10 @@ def readiness_blockers(report: dict[str, Any]) -> list[str]:
 
 
 def check_setup() -> int:
-    from dotenv import dotenv_values
-    values = dotenv_values(WORKSPACE / ".env", interpolate=False)
-    required = ("RESEARCH_EMAIL_FROM", "SMTP_HOST", "SMTP_PORT", "SMTP_SECURE")
-    if any(not values.get(key) for key in required):
-        raise ValueError("Missing explicit sender/SMTP settings in market-research/.env; no app fallback or secrets printed.")
+    values = load_config()
+    if mock_smtp(values):
+        print("Mailpit configuration selected; fictional CSV only. No authentication or mail submitted.")
+        return 0
     sender = normalize_email(values["RESEARCH_EMAIL_FROM"] or "")
     port = int(values["SMTP_PORT"] or "0")
     secure = (values["SMTP_SECURE"] or "").lower()
@@ -566,10 +632,10 @@ def check_setup() -> int:
               "config_source": "software/research/market-research/.env",
               "smtp_host": values["SMTP_HOST"], "smtp_port": port,
               "credentials_present": bool(values.get("SMTP_USER") and values.get("SMTP_PASSWORD")),
-              "sender_authorization": "unverified; no authentication or production test message permitted",
+              "sender_authorization": "unverified; this inspection performs no authentication or sending",
               "tls": inspect_tls(values["SMTP_HOST"] or "", port, secure == "true"),
               "dns": inspect_dns(sender.rsplit("@", 1)[1], selector),
-              "production_enabled": False,
+              "smtp_delivery_implemented": True,
               "notes": ["Published policies are not proof of alignment, valid authorization or actual DKIM signing.",
                         "Review all unverified/missing policies and sender permission before production approval."]}
     report["blockers"] = readiness_blockers(report)
@@ -579,7 +645,7 @@ def check_setup() -> int:
     print("TLS: " + report["tls"]["status"])
     for label, result in report["dns"].items():
         print(label.upper() + ": " + result["status"])
-    print("Sender authorization/actual signing unverified; production remains disabled. No mail submitted.")
+    print("Sender authorization/actual signing unverified. This inspection submitted no mail.")
     return 0
 
 
@@ -604,10 +670,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--report", action="store_true", help="read-only totals")
+    mode.add_argument("--preview", action="store_true", help="read-only due selection, no delivery")
     mode.add_argument("--local-test", action="store_true", help="fictional CSV under data/local-test/ only")
     mode.add_argument("--check-setup", action="store_true", help="read-only SMTP/TLS/DNS checks, no login/mail")
     mode.add_argument("--mock-sms-api", action="store_true", help="run a capture-only SMS HTTP service")
-    parser.add_argument("--csv", default="data/contacts.csv", help="saved dates/state; never allocates schedules")
+    parser.add_argument("--csv", help="override .env CONTACTS_CSV; never allocates schedules")
     parser.add_argument("--channel", choices=("all", *CHANNELS), default="all")
     parser.add_argument("--mailpit-port", type=int, default=1026)
     parser.add_argument("--mock-sms-port", type=int, help="explicit loopback SMS API port; otherwise offline mock")
@@ -622,29 +689,38 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("Server mode uses the real clock.")
             serve_mock_sms(8086 if args.mock_sms_port is None else args.mock_sms_port, args.mock_sms_bind)
             return 0
-        if args.mock_sms_port is not None and not args.local_test:
-            raise ValueError("SMS HTTP transport is only available for fictional --local-test runs.")
         if args.check_setup:
             if args.now:
                 raise ValueError("--now is only for reports/local fixtures.")
             return check_setup()
-        path = workspace_path(args.csv)
         fixed = parse_timestamp(args.now) if args.now else None
         channels = CHANNELS if args.channel == "all" else (args.channel,)
         if args.local_test:
+            if not args.csv:
+                raise ValueError("The explicit --local-test walkthrough requires --csv.")
+            path = workspace_path(args.csv)
             run_local(path, port=args.mailpit_port, sender=args.sender,
                       clock=(lambda: fixed) if fixed else None, channels=channels, sms_port=args.mock_sms_port)
             return 0
-        store = ContactFile(path)
-        now = fixed or datetime.now(UTC)
-        print_counters(counters(store.rows, now), "READ-ONLY REPORT" if args.report else "CSV DATE CHECK / REAL DELIVERY DISABLED")
-        if not args.report:
-            if not working(now):
-                print("Nothing due outside working hours or on weekends.")
-            for channel in channels:
-                selected = due_candidates(store.rows, channel, now)
-                print(f"Due {channel} contacts now: {len(selected)}; IDs: {', '.join(row['id'] for row in selected) or '-'}")
-            print("Dates come only from the CSV. Real delivery still requires separate approval.")
+        if args.mock_sms_port is not None:
+            raise ValueError("Normal sending reads SMS_GATEWAY_URL from research .env.")
+        values = load_config()
+        path = workspace_path(args.csv or values["CONTACTS_CSV"])
+        if args.report or args.preview:
+            store = ContactFile(path)
+            now = fixed or datetime.now(UTC)
+            print_counters(counters(store.rows, now), "READ-ONLY REPORT" if args.report else "READ-ONLY PREVIEW")
+            if args.preview:
+                for channel in channels:
+                    print(f"Due {channel} contacts: {len(due_candidates(store.rows, channel, now))}")
+            return 0
+        if not mock_smtp(values):
+            if args.channel == "sms":
+                raise ValueError("Live SMS needs a selected gateway/API; only email delivery is implemented.")
+            channels = ("email",)
+        run_messages(path, sender=values["RESEARCH_EMAIL_FROM"], smtp=values, channels=channels,
+                     sms_port=sms_mock_port(values) if mock_smtp(values) and "sms" in channels else None,
+                     clock=(lambda: fixed) if fixed else None)
         return 0
     except (OSError, ValueError) as error:
         print(f"Outreach stopped: {error}")

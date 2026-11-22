@@ -855,13 +855,20 @@ def load_contacts(path: Path) -> tuple[list[dict[str, str]], bytes | None]:
 
 
 def guarded_write(path: Path, content: bytes, original: bytes | None) -> bytes:
-    try:
-        if (path.read_bytes() if path.exists() else None) != original:
-            raise RegisterError("CSV changed outside this run; preserved. Close other editors before resuming.")
-        atomic_write(path, content)
-    except OSError:
-        raise RegisterError("CSV could not be saved; existing file preserved. Check access before resuming.") from None
-    return content
+    for attempt in range(3):
+        try:
+            if (path.read_bytes() if path.exists() else None) != original:
+                raise RegisterError("CSV changed outside this run; preserved. Close other editors before resuming.")
+            atomic_write(path, content)
+            return content
+        except PermissionError:
+            if attempt < 2:
+                time.sleep(0.1)
+                continue
+            break
+        except OSError:
+            break
+    raise RegisterError("CSV could not be saved; existing file preserved. Check access before resuming.") from None
 
 
 def safe_cell(value: str) -> str:

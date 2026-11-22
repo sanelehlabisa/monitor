@@ -7,11 +7,11 @@ generated files inside that experiment and excluded from Git.
 - [Market research](market-research/README.md): bounded, resumable public email/phone
   discovery and saved-file import; one private CSV with source context and optional
   loopback LM Studio.
-  Access restrictions and manual deferrals remain enforced. Task 105 provides
-  fixed messages and verified local SMTP/SMS-mock tests. Two source scripts cover
-  collection and CSV-controlled due delivery/reporting; production is disabled
-  pending separate approval. Task 106 adds a separate Compose stack for Mailpit
-  and a local SMS HTTP capture, without changing app services/configuration.
+  Access restrictions and manual deferrals remain enforced. Two source scripts
+  cover collection and configured CSV sending/reporting. Task 108 reads its own
+  .env: Mailpit/fictional data by default, real SMTP after owner configuration,
+  hard five/day/channel and no hour/weekday gate. Live SMS needs a chosen gateway.
+  The separate Compose capture stack does not change app services/configuration.
 - [Forecasting](../backend/research/forecasting/README.md): existing isolated
   simulator, retained in its current location.
 

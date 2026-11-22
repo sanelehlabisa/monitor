@@ -3,8 +3,8 @@
 Local Python tool collecting public emails and phone numbers for market research.
 One bounded command extracts HTML/plain-text/PDF contacts, follows permitted links
 and updates private `data/contacts.csv`. Context uses explicit source evidence
-and optional local LM Studio. Outreach now supports saved schedules, local
-Mailpit email tests and offline/local HTTP SMS mocks. Real delivery is not implemented.
+and optional local LM Studio. The sender supports configured real SMTP, Mailpit
+defaults and offline/local HTTP SMS mocks. Live SMS needs a chosen gateway.
 
 ## Workspace and privacy
 
@@ -258,8 +258,11 @@ manual import. Local success does not establish permission for web retries.
 ## Current verification
 
 After owner review, 54 email rows with domains ending in `.ac.za` were removed
-manually. Current CSV: **2,142 contacts (643 emails, 1,499 phones)**. Retained rows,
-IDs and phone records are unchanged. This is a one-time data cleanup; the
+manually. After Task 107 cleanup, the current CSV has **1,560 contacts
+(643 emails, 917 phones)**. Three leading email slashes were cleaned; 582 phone
+entries with an unambiguous same-source email were merged into existing email
+rows, preserving numbers/context in notes. Email IDs and delivery history remain.
+These are one-time data cleanups; the
 crawler has no new exclusion feature. Future batches must honor this preference.
 The private removal audit is `data/task103-academic-email-removal.json`. The
 import/web counts below are historical results before this cleanup.
@@ -539,251 +542,162 @@ known access blocks in the checkpoint. Pages visited counts resource responses,
 including redirects; robot requests only consume the total request budget.
 The pending queue remains visible; a bounded run is not complete web coverage.
 
-## Local email and SMS scheduling
-
-[Task 105 results](../../../agents/work/105-local-email-scheduling/changes.md):
-51 direct checks plus actual isolated Mailpit/offline-SMS capture pass.
-The two-script correction also passes 27 focused regression checks. Research
-sender: **sanele.hlabisa@roventics.com**. Real email/SMS delivery is disabled;
-no production transport or Android adapter exists. No recurring job is installed.
+## Sending email and mock SMS
 
 | Roadmap | Work | State |
 | --- | --- | --- |
-| 71.11 | SMTP/TLS and DNS readiness | Checked; production blockers below |
-| 71.9 / 71.10.1 | Fixed messages, local capture/mock | Verified |
-| 71.10.2 | Shared one-pass runner and CSV state | Local-only, verified |
-| 71.10.3 | Initial weekday schedule | 30 emails saved; SMS held |
-| 71.10.5 | Per-channel reporting | Available |
-| 71.10.7 | Isolated Compose capture services | [Task 106 results](../../../agents/work/106-compose-research-mocks/changes.md), verified |
-| 71.10.4 | Production email transport | Later explicit approval |
-| 71.10.6 | Chosen Android gateway/live SMS | Owner selection and separate approval |
-| 71.8 | Survey review after replies | Deferred |
+| 71.9 / 71.10.1–2 / 71.10.5 | Templates, state and reporting | Verified |
+| 71.10.3 | Initial saved schedule | 30 email reservations; SMS held |
+| 71.10.7 | Compose capture services | Task 106 complete |
+| 71.12 | Source-confirmed contact cleanup | Task 107 applied |
+| 71.10.4 | Configured SMTP and five/day cap | Task 108 verified |
+| 71.11 | Sender/TLS/DNS readiness | Provider/signing remain unverified |
+| 71.10.6 / 71.8 | Chosen live SMS gateway / survey | Later |
 
-### Two scripts only
+Two Python scripts remain: `pipeline.py` collects/imports; `send_due_messages.py`
+sends, reports and serves the local SMS mock. There is one delivery/state loop,
+no separate scheduler, daemon or settings module.
 
-- `pipeline.py`: collect/import contact information.
-- `send_due_messages.py`: check saved CSV dates, apply current time/day limits,
-  process local-test outcomes and report, then exit. Setup inspection and the
-  capture-only SMS server are modes of this runner. No extra Python scripts.
+### Run
 
-From this research folder:
-
-```sh
-# Normal invocation checks the existing CSV and shows the contacts due now.
-.venv/Scripts/python.exe send_due_messages.py
-
-# Optional read-only views and configuration inspection.
-.venv/Scripts/python.exe send_due_messages.py --report
-.venv/Scripts/python.exe send_due_messages.py --check-setup
-
-# Completed fictional demo: rerunning produces zero resends.
-.venv/Scripts/python.exe send_due_messages.py --local-test --csv data/local-test/demo/contacts.csv --now 2026-12-01T10:00:00Z
-```
-
-The CSV is authoritative. Set `email_scheduled_at` or `sms_scheduled_at` in it
-using aware UTC timestamps, such as `2026-11-23T07:30:00+00:00` (09:30 local).
-For eligible new/scheduled contacts, setting the date is enough; no separate
-status edit is needed. Clearing it holds the contact. Future dates wait; saved
-dates <= now are due when weekday/hours, priority and daily capacity allow.
-There is **no fixed experiment expiration** and no runtime schedule allocation.
-A missed November date may run on a later allowed weekday without rewriting it.
-Existing timestamps are never changed by the runner. Outside allowed hours or on
-weekends it reports nothing due and exits.
-
-Default invocation checks/selects only; real delivery remains disabled pending
-separate approval. --local-test alone can submit fictional data to Mailpit/SMS
-mock. It requires example.invalid provenance under data/local-test/, rejects real
-CSV/aliases, pins SMTP to 127.0.0.1 and never loads production credentials.
---channel email|sms|all selects channels; --mailpit-port and --sender affect local
-capture only. --mock-sms-port 8086 explicitly selects the loopback HTTP mock;
-without it SMS still uses offline file capture. --now simulates time for
-read-only checks/local fictional tests.
-For a fresh simulation use a new fictional fixture; do not reset completed sent
-state or copy real contacts into test data.
-
-Mailpit was tested as a checksum-verified standalone v1.31.4 binary because Docker
-was unavailable. It bound only 127.0.0.1:8026/1026, allowed fictional recipients,
-had no relay/forwarding, version checks or reverse DNS, and was stopped afterward.
-Its private executable/capture artifacts are under data/local-test/. There is no
-global install and no Android software. A future manually started isolated
-Mailpit instance can use the same ports for new fictional tests.
-
-### Run the Compose mocks
-
-The saved `data/local-test/ready/contacts.csv` contains five fictional emails and
-five confirmed fictional phone-only groups, all unsent. It is separate from the
-completed demos and the real contact register. No Android gateway is needed.
-Start Docker Desktop, then run from **this market-research folder**:
+From this market-research folder, with Docker Desktop running:
 
 ```sh
 docker compose -f docker-compose.yaml up -d --build --wait
+.venv/Scripts/python.exe send_due_messages.py
 ```
 
-This separate `monitor-research-mocks` project starts Mailpit and the SMS API.
-It does not start the sender, read either private .env, mount contacts or change
-the app Compose files. Host ports bind only to 127.0.0.1; containers share a
-separate bridge, with no relay/forwarding configured. Docker 29 suppresses port
-publishing on internal-only networks; this bridge does not block outbound traffic.
-The services have no real sending adapter or account credentials. Mailpit accepts only
-`@example.invalid` recipients. The build allowlist excludes inputs and credentials.
-If a port is occupied, stop here and inspect its owner; do not stop another app.
+The normal command reads **this folder's .env**, processes due contacts, saves
+before/after each attempt and exits. It never reads the app .env or inherited
+SMTP secrets. Current defaults use Mailpit, the local SMS HTTP mock and a fresh
+fictional CSV at `data/local-test/task108/contacts.csv`. That fixture contains
+ten emails and ten confirmed fictional phone-only contacts; its first run sends
+up to five of each. Same-day repeats send zero after the cap; the next day can
+send the remaining contacts. Do not reset sent rows to repeat a demo.
 
-Send the fictional fixture once through both capture services:
-
-```sh
-.venv/Scripts/python.exe send_due_messages.py --local-test --csv data/local-test/ready/contacts.csv --mock-sms-port 8086 --now 2026-12-01T10:00:00Z
-```
-
-The explicit clock is a Tuesday working-time simulation, so you can test on a
-weekend too. Expected first run: five Mailpit emails and five SMS API captures;
-second run: zero resends. This updates only the fictional CSV. The runner checks
-the real clock unless --now is given. Do not reset sent rows for a new test;
-use a fresh fictional fixture instead.
-
-- Emails: http://127.0.0.1:8026
-- SMS captures: http://127.0.0.1:8086/messages (latest 100; count includes all)
+- Mailpit inbox: http://127.0.0.1:8026
+- SMS captures: http://127.0.0.1:8086/messages
 - SMS health: http://127.0.0.1:8086/health
 
-Ignored captures persist below `data/local-test/compose/{mailpit,sms-api}/`.
-The SMS JSONL file is a local capture, not delivery to a phone. The earlier native
-Mailpit binary and offline captures are retained but are not needed for Compose.
+Mock success updates only the fictional CSV. The canonical real contact register
+is never used with loopback SMTP. This prevents test sends from marking real
+contacts contacted before a later live run.
+
+Optional commands:
 
 ```sh
-# Stop only this mock project; saved captures and CSV state remain.
+# Read-only totals or due counts. The override does not change .env.
+.venv/Scripts/python.exe send_due_messages.py --report --csv data/contacts.csv
+.venv/Scripts/python.exe send_due_messages.py --preview --csv data/contacts.csv
+
+# Send just one channel from the configured CSV.
+.venv/Scripts/python.exe send_due_messages.py --channel email
+.venv/Scripts/python.exe send_due_messages.py --channel sms
+
+# Optional configuration inspection; no authentication or sending.
+.venv/Scripts/python.exe send_due_messages.py --check-setup
+```
+
+### Real email: update only the research .env
+
+Use your own provider settings, keeping the confirmed sender:
+
+```dotenv
+CONTACTS_CSV=data/contacts.csv
+RESEARCH_EMAIL_FROM=sanele.hlabisa@roventics.com
+SMTP_HOST=your-provider-smtp-host
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-research-mailbox-username
+SMTP_PASSWORD=your-research-mailbox-password
+```
+
+Then run the **same normal command**. `SMTP_SECURE=false` requires STARTTLS for
+non-loopback servers; `true` uses implicit TLS (commonly port 465). Certificate
+and hostname verification are required. Missing credentials/TLS fail clearly;
+there is no plaintext downgrade. Loopback Mailpit needs no account login and
+never receives stored credentials.
+
+Select both the real SMTP settings and canonical CSV. The runner refuses mock
+CSV history with real SMTP and refuses canonical history with loopback SMTP.
+A simulated `--now` clock is allowed only for read-only views or fictional mock
+runs. Real email uses the actual clock. No real SMTP account was authenticated
+or sent to during implementation; provider permission, signing and domain policy
+still need the owner's verification. The optional setup check reports evidence
+without changing DNS and is not a delivery gate.
+
+**Live SMS is not implemented.** With real SMTP selected the default command
+processes email only; `--channel sms` fails clearly. No Android gateway has been
+chosen or installed. `SMS_GATEWAY_URL=http://127.0.0.1:8086/messages` selects only
+our local capture API with mock SMTP; blank uses offline capture. Remote SMS
+URLs cannot activate a guessed provider adapter. Future credentials remain
+private in this experiment's .env.
+
+### Dates, caps and restart safety
+
+- Hard maximum **five attempted contacts per channel per local day**, including
+  failed/reserved attempts, across repeated invocations. Each row gets at most
+  one automatic attempt/day and three total safe attempts.
+- No working-hour or weekday restriction. Weekends, mornings and nights work.
+- Saved `email_scheduled_at` / `sms_scheduled_at` values are aware UTC timestamps,
+  but eligibility uses their **Africa/Johannesburg calendar date**. A contact
+  scheduled today is due regardless of its old clock time. Future dates wait;
+  blank dates hold. The runner never assigns or rewrites dates.
+- A successful row never sends again. Persist `sending` before transport and
+  save outcomes immediately. Interrupted/unknown acceptance stays held for
+  manual review; it is never automatically resent. SMTP acceptance stays sent
+  even if QUIT fails.
+- A shared CSV lock prevents concurrent senders. External edits stop the run.
+  File permission errors receive at most three atomic-write attempts, with a
+  short delay and a fresh input check each time; persistent failure stops further
+  submissions. These retries do not repeat network delivery.
+
+The real CSV currently contains **643 emails and 917 phones**. Thirty emails are
+reserved across 23-27 and 30 November 2026, five per date; 613 have blank dates
+and remain held. All real attempts/sent fields remain untouched. There is no
+hardcoded batch expiration. SMS is unscheduled because no real phone-only group
+has been confirmed. Later batches require setting dates in the CSV.
+
+### Contact methods and editable wording
+
+The canonical CSV has 30 columns: original research fields plus contact_group,
+email/phone mirrors and per-channel status, scheduled_at, sent_at, attempts,
+last_error and last_attempt_at. Collector upserts preserve delivery state.
+
+Keep a manually confirmed contact_group only for the same contact; do not infer
+identity from domains, documents or nearby names. Any group email takes priority
+over SMS, including failed/not-due email. SMS requires a confirmed complete
+phone-only group and a mobile-capable number. Sent/contacted/replied/suppressed
+or unresolved groups stay held. No automatic fallback or follow-up. Academic
+.ac.za email addresses stay ineligible. Positive replies are handled manually.
+
+Edit `templates/email.txt` (Subject line, blank line, body) and `templates/sms.txt`.
+One literal UTF-8 template per channel is loaded once/run, with no interpolation
+or LLM copy. Invalid/empty/oversized templates stop before attempts. Template
+edits never reset sent state. Logs/captures, credentials, recovery and real CSVs
+remain ignored.
+
+### Capture services and verification
+
+Compose is a separate localhost-only `monitor-research-mocks` project; app Compose
+files and settings are untouched. Build inputs exclude credentials and private
+data. Dedicated ignored captures persist under data/local-test/compose/. Mailpit
+accepts only @example.invalid recipients, with no relay/forwarding. The SMS API
+never forwards to a phone. Its bounded JSON POST /messages accepts fictional
+provenance and controlled test outcomes; unknown acceptance is held by the client.
+Docker 29 suppresses ports on internal-only networks, so the separate bridge
+permits outbound traffic; locality comes from explicit loopback host bindings
+and capture-only adapters, not an outbound firewall claim.
+
+```sh
+# Stop only these mocks, preserving saved captures/state.
 docker compose -f docker-compose.yaml down
 ```
 
-The SMS API accepts `POST /messages` JSON with `phone`, `message` and
-`source_domain: "example.invalid"`. Optional `outcome` supports `success`,
-`temporary` (503), `permanent` (422), or `uncertain` (capture then drop response).
-It never forwards a message. The client connects directly to 127.0.0.1, ignores
-proxy/gateway environment settings and follows no redirects. Unknown acceptance
-stays `sending` for manual review, rather than automatically retrying. No CORS
-access is enabled; browser-origin submissions are rejected.
-
-Task 106 verified five fictional emails and five HTTP SMS captures, controlled
-rejections, an accepted/disconnected request, date/day caps and zero resends
-after both runner and capture-service restarts (63 checks). Captures persisted.
-The original app containers, Compose/config files and real contact CSV stayed
-unchanged. An interrupted fictional fixture is preserved for manual review after
-a local CSV write error; the sender stopped safely. A later fresh run passed.
-Evidence remains private in `data/task106-verification.json`.
-
-### Current schedule
-
-| Local date | Email reservations | SMS reservations |
-| --- | --- | --- |
-| Mon 23 Nov 2026 | 5 | 0 |
-| Tue 24 Nov 2026 | 5 | 0 |
-| Wed 25 Nov 2026 | 5 | 0 |
-| Thu 26 Nov 2026 | 5 | 0 |
-| Fri 27 Nov 2026 | 5 | 0 |
-| Mon 30 Nov 2026 | 5 | 0 |
-
-Each date's local slots: **09:30, 11:00, 12:30, 14:00, 15:30** (Johannesburg,
-UTC+02 for this experiment); UTC slots: 07:30, 09:00, 10:30, 12:00, 13:30.
-The closing 15:30 minute is included. Five/channel/day is the target; six is the
-hard attempted-contact cap. Weekends and outside hours produce no submissions.
-The table is the saved initial batch, not a code-level expiration. Catch-up uses
-the CSV dates and current limits; there is no schedule-generation step at runtime.
-
-Canonical data/contacts.csv has 2,142 rows: 643 emails and 1,499 phones. Thirty
-emails are scheduled, 613 remain new/unscheduled. All real attempt/sent fields
-are zero/empty and legacy contacted flags are unchanged. SMS is unallocated
-because no phone-only identity has been confirmed. Full reservation IDs/times
-are in private data/schedule-proposal.json; before-state audit is private too.
-
-### Contact priority and CSV state
-
-The expanded CSV has 30 columns: original 15 preserved, contact_group, email and
-phone mirrors, then each channel's status, scheduled_at, sent_at, attempts,
-last_error and last_attempt_at. Existing response_status and notes stay intact.
-Known old headers migrate; malformed/unknown schemas are preserved. Collector
-upserts retain all delivery fields. No person records are merged or inferred.
-
-Use the same manually confirmed contact_group on rows for the same person. A
-phone-only group must be complete and explicitly confirm there is no email.
-Leave unknowns blank. An email anywhere in a group always wins, even if failed
-or not due. Do not put a second method into the same row. Unconfirmed phones,
-fixed-line/uncertain SMS candidates, .ac.za email addresses, sent/contacted/
-replied/suppressed groups remain ineligible. No automatic channel fallback or
-follow-up after unanswered/failed email. Positive replies are handled manually.
-
-Current phone metadata is 1,391 mobile, 107 fixed-line and one VoIP, without
-proving ownership or SMS capability. All phone records remain. Publication on
-a university page does not identify its private accommodation contacts as
-university staff; never group by publishing domain or adjacent excerpts.
-
-The runner holds one shared contacts.lock, counts today's per-channel successes
-and reserved attempts, saves before/after each submission, and exits. At most
-one automatic attempt/contact/channel/day and three total safe attempts. It
-rechecks the working window before each attempt; there is no waiting daemon.
-States: new/scheduled/sending/sent/failed/skipped. Interrupted sending/uncertain
-acceptance is held for manual review, never retried automatically. A known
-success remains sent after an SMTP QUIT failure. Persistence errors stop further
-submissions. A stale/conflicting lock requires confirming the prior writer is
-gone before manually removing that exact lock; never reset delivery state blindly.
-
-### Editable templates and SMS boundary
-
-Edit the two UTF-8 plain-text sources:
-
-- [templates/email.txt](templates/email.txt): first line is `Subject: ...`, then
-  a blank line and the email body.
-- [templates/sms.txt](templates/sms.txt): the complete SMS body, with no links.
-
-The original wording is retained. The runner reads the files once per delivery
-run; your edits apply next invocation without Python changes. All recipients
-use that same literal text. No interpolation, per-contact variants, LLM copy or
-HTML execution. Sent/held states remain protected even after you edit a template.
-Blank/malformed/missing/oversized templates stop before an attempt is marked.
-The template files are reviewed source; private captures and CSVs remain ignored.
-
-The typed send_sms(phone_number, message) boundary uses an offline mock by
-default, or the explicit loopback HTTP mock in local-test mode. Neither can
-deliver to a phone. Future environment key names are documented in this folder's
-.env.example. Configure them only in this folder's private .env when a gateway
-is chosen; no live adapter exists and setting a URL cannot activate delivery.
-Keep two Python source scripts only.
-
-### Reporting and readiness
-
-Each run reports emails/SMS sent today and this run, failures, remaining eligible
-contacts, unconfirmed phones and manual-review states. Read-only reports show
-stored failed-state counts; delivery runs show failures from that run. Counters
-represent logical messages, not proof of final inbox/handset delivery or carrier
-segments. Mock results are labelled and only mutate fictional CSVs.
-
-The local demonstration captured **five emails and five mock SMS**, with one
-controlled failure per channel. A fresh-process restart sent zero again; weekend
-execution made no submissions. Exact message text was verified after normalizing
-MIME wire newlines. Captures/results are private in data/local-test/demo/ and
-data/task105-verification.json.
-
-### Independent research configuration
-
-Use **software/research/market-research/.env** for this tool's own SMTP and future
-SMS settings. The runner never loads or falls back to software/.env or process
-SMTP credentials. The app's existing .env was left byte-for-byte unchanged.
-This folder's [.env.example](.env.example) is the safe source template; never
-copy it over the app's configuration or overwrite an existing research .env.
-
-The private research file already exists with the confirmed sender and starting
-server/port/TLS values. **Fill SMTP_USER and SMTP_PASSWORD for your research
-account**; no app username/password was copied. RESEARCH_DKIM_SELECTOR can remain
-blank until confirmed. Future SMS_GATEWAY_URL/USERNAME/PASSWORD/API_KEY are blank
-until you choose/configure a gateway; these values cannot enable real delivery.
-No additional Python script is introduced. Local Mailpit/SMS mocks do not read
-or require these account credentials and remain ready to use.
-
-Readiness checks inspect this research file only, report missing/incomplete own
-credentials and still perform bounded no-auth TLS/public-DNS inspection when the
-nonsecret endpoint settings exist. Earlier checks found TLS verified and SPF
-published, but **DMARC absent, DKIM selector/signing and sender permission
-unverified**. See the current private data/email-readiness.json; older shared-env
-inspection is preserved separately as historical evidence. No authentication or
-real message was attempted. Inspection exit success is not production approval.
-
-Resolve/review these blockers, choose any SMS gateway separately, and obtain
-explicit production authorization before implementing/enabling real transports.
-The survey is not a prerequisite; Task 104 remains deferred.
+The earlier native Mailpit binary and all previous research/captures are retained.
+Historical work: [Task 105](../../../agents/work/105-local-email-scheduling/changes.md),
+[106](../../../agents/work/106-compose-research-mocks/changes.md),
+[107 cleanup](../../../agents/work/107-recover-context-emails/changes.md).
+[Task 108](../../../agents/work/108-configured-research-sender/changes.md) verifies
+configured delivery with fictional captures and controlled TLS/auth doubles.
+Real SMS/gateway selection and the deferred survey remain later work.
