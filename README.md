@@ -39,7 +39,7 @@ Preserve current email accounts, sharing and admin access.
 - **56 — Personal validation:** compare real entries with saved estimates.
 - **70 — Reminder emails:** login HTML is complete; reminder HTML remains.
 - **71.1–71.12 — Market research:** contact cleanup applied; configured SMTP sender verified with local mocks.
-  Research .env selects Mailpit or real email; live SMS awaits a gateway. [Guide](software/research/market-research/README.md).
+  Research .env selects SMTP and Android SMSGate; local mocks remain available. [Guide](software/research/market-research/README.md).
 - **66.1–66.5 — Forecast research:** datasets, plots, simulator, evaluation,
   then integration only if justified. [Research](software/backend/research/forecasting/README.md).
 - **68.5 — Mobile installation:** revisit after beta feedback.

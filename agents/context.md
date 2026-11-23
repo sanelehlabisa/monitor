@@ -86,13 +86,25 @@ Hard cap five attempted contacts/channel/local day across reruns, including
 failures/reservations. No weekday/hour gate. Saved UTC timestamps use their
 Africa/Johannesburg date for eligibility; future dates wait, blank dates hold.
 No date allocation/daemon. Canonical dates/history are unchanged: 30 email slots
-across 23-27 and 30 Nov 2026; 613 blank dates. All real attempts/sent remain zero.
+across 23-27 and 30 Nov 2026; 613 blank dates. On Nov 23 the owner sent email;
+read-only counts show five email attempts/sent and zero SMS. Preserve this history.
 
-Opaque contact groups are manually confirmed only. Any group email takes priority;
-real phone rows are unconfirmed/unscheduled. No inferred identities or automatic
-follow-up/fallback. SMS remains offline/loopback mock only; real SMTP mode sends
-email only. A gateway/API must be chosen before a live SMS adapter can be built.
-Do not install/configure Android software or invent a provider schema.
+Opaque contact groups are owner-confirmed only. Any group email takes priority;
+the owner explicitly confirmed all 917 phone rows for trial and requested sending
+readiness. Stable per-phone groups and SMS due dates are now populated. Existing
+mobile-type validation permits 839; 78 non-mobile/unsupported numbers stay held.
+No inferred names/organisations or automatic
+follow-up/fallback. Task 109 is approved/implemented: owner-installed SMSGate Local
+Server, private Wi-Fi IPv4 URL and Basic username/password in existing .env. No
+API key/Device ID. Base URLs use /messages (installed schema HTTP 202); explicit
+legacy /message stays literal. --channel sms needs no SMTP and sends no email;
+normal all mode can use both live channels. Mock and real histories stay isolated.
+Stable gateway IDs and unknown/conflict holds prevent automatic resubmission.
+Accepted/queued receipts are not handset delivery proof. No SMS was sent by the
+agent. Five are due for the owner's next SMS-only invocation; daily cap stays
+five. Preserve working credentials and email history. Newly imported contacts
+still need owner confirmation/dates; current trial confirmation is not an
+automatic inference feature. The endpoint was normalized to /messages.
 
 Configured remote SMTP requires credentials and verified STARTTLS/implicit TLS;
 no plaintext downgrade or debug/secret-bearing logs. Persist sending before
@@ -122,8 +134,16 @@ not real provider authentication. Failure/cap/held acceptance and file-retry che
 pass. Canonical CSV, app configuration and templates are hash-protected; own mock
 fixture remains unsent. Provider permission/DKIM/DMARC remain unverified; no real
 mail/SMS was submitted. Source/status details are in the work records and README.
-The owner's final instruction normalized 30 pending email statuses to new:
-all 1,560 real methods are unsent with zero attempts, dates preserved. Current
-canonical hash/recovery is recorded in data/task108/unsent-reset.json.
+The earlier owner reset normalized 30 pending email statuses to new before their
+first live send. Its historical hash/recovery is in data/task108/unsent-reset.json;
+current live email history supersedes that baseline. Never reset it for mocks.
 Task 105/106 are on master f6c6917/9065e32. The owner authorized committing and
 pushing Tasks 107/108; live execution is the owner's later configuration step.
+Tasks 107/108 are on master d899ba3. Task 109 has owner publication approval; 74 controlled
+contract/state tests pass and a read-only phone documentation/auth check succeeds.
+Research .env/canonical were unchanged during adapter verification. The owner's
+later explicit activation updated only phone groups/blank SMS dates and the
+gateway URL path. Five email sent records and all credential/SMTP values remain
+unchanged during activation. The owner then ran the real sender: five SMS
+attempts/accepted rows, zero failed/uncertain, alongside five sent emails.
+Preserve this live history. Recovery/hashes: data/task109/activation/.

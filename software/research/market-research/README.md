@@ -4,7 +4,7 @@ Local Python tool collecting public emails and phone numbers for market research
 One bounded command extracts HTML/plain-text/PDF contacts, follows permitted links
 and updates private `data/contacts.csv`. Context uses explicit source evidence
 and optional local LM Studio. The sender supports configured real SMTP, Mailpit
-defaults and offline/local HTTP SMS mocks. Live SMS needs a chosen gateway.
+defaults, offline/local HTTP SMS mocks and SMSGate's Android Local Server.
 
 ## Workspace and privacy
 
@@ -552,7 +552,8 @@ The pending queue remains visible; a bounded run is not complete web coverage.
 | 71.12 | Source-confirmed contact cleanup | Task 107 applied |
 | 71.10.4 | Configured SMTP and five/day cap | Task 108 verified |
 | 71.11 | Sender/TLS/DNS readiness | Provider/signing remain unverified |
-| 71.10.6 / 71.8 | Chosen live SMS gateway / survey | Later |
+| 71.10.6 | Android SMSGate adapter | [Task 109 results](../../../agents/work/109-android-sms-gateway/changes.md), verified |
+| 71.8 | Survey | Later |
 
 Two Python scripts remain: `pipeline.py` collects/imports; `send_due_messages.py`
 sends, reports and serves the local SMS mock. There is one delivery/state loop,
@@ -626,12 +627,67 @@ or sent to during implementation; provider permission, signing and domain policy
 still need the owner's verification. The optional setup check reports evidence
 without changing DNS and is not a delivery gate.
 
-**Live SMS is not implemented.** With real SMTP selected the default command
-processes email only; `--channel sms` fails clearly. No Android gateway has been
-chosen or installed. `SMS_GATEWAY_URL=http://127.0.0.1:8086/messages` selects only
-our local capture API with mock SMTP; blank uses offline capture. Remote SMS
-URLs cannot activate a guessed provider adapter. Future credentials remain
-private in this experiment's .env.
+### Android SMSGate: username/password, no API key
+
+The owner installs the standard [SMSGate APK](https://github.com/capcom6/android-sms-gateway/releases/latest),
+grants SMS permission, selects the company/default SMS SIM and enables
+Local Server / Start Service. Keep phone and computer on the same trusted Wi-Fi.
+Use its **local IPv4 address**, not the public address. Do not expose the phone
+through router port forwarding. [Official local setup](https://docs.sms-gate.app/getting-started/local-server/).
+
+Keep working SMTP settings unchanged; set these existing research .env keys:
+
+```dotenv
+CONTACTS_CSV=data/contacts.csv
+SMS_GATEWAY_URL=http://PHONE_LOCAL_IP:8080
+SMS_GATEWAY_USERNAME=the_app_username
+SMS_GATEWAY_PASSWORD=the_app_password
+```
+
+Use the port shown in the app. No API key or Device ID is needed. A base URL
+automatically uses /messages, as confirmed by the installed app's Swagger;
+an explicit legacy /message path is preserved if configured. Only private
+Wi-Fi IP endpoints are allowed; credentials are not forwarded through proxies
+or redirects. HTTPS, if selected, requires valid certificate verification.
+
+```sh
+# Read-only protected device/docs verification; sends no SMS.
+.venv/Scripts/python.exe send_due_messages.py --check-setup --channel sms
+
+# See eligible SMS count without contacting anyone.
+.venv/Scripts/python.exe send_due_messages.py --preview --channel sms
+
+# Send due, confirmed phone-only records, at most five/day.
+.venv/Scripts/python.exe send_due_messages.py --channel sms
+```
+
+SMS-only mode never sends email or requires unrelated SMTP settings. The normal
+all-channel command can use real SMTP and SMSGate together. Mock and real status
+updates cannot share a CSV: canonical real data is refused by mock transports,
+and a real gateway refuses mock fixture history. In all mode a canonical CSV
+uses only channels with real transports; explicit mock sends require mock data.
+
+The owner subsequently confirmed all 917 phone records for an SMS trial. Blank
+groups received stable per-phone identifiers and blank SMS dates became due on
+23 November 2026. The mobile-type check leaves 839 eligible and 78 held; the next
+SMS-only run selects at most five. Confirmation authorizes an attempt, not proof
+that a number can receive SMS. Existing email/contact history was not reset.
+
+For newly imported contacts, review context and confirm eligibility, then set
+contact_group and an aware UTC sms_scheduled_at date. Blank groups/dates still
+hold new entries; this activation did not change the sender to guess identity.
+The owner may test their own number from the app's /docs UI.
+
+The local API uses Basic Authentication, textMessage.text, one phoneNumbers
+entry/request and a stable message ID. A valid HTTP 202 receipt is recorded as
+accepted/queued in the private attempt log and counted as sent by this pipeline;
+it is not proof of handset delivery. Unknown response/timeout or an existing-ID
+conflict stays held for manual queue review, never automatic resend. The app's
+queue/SIM handles delivery. No cloud SDK, Device ID, API key, inbox polling or
+new CSV field is needed. SMS_GATEWAY_API_KEY, if left in an older .env, is ignored.
+
+The existing loopback /messages URL remains the isolated mock API; blank still
+uses offline capture. Changing SMS configuration never resets sent email history.
 
 ### Dates, caps and restart safety
 
@@ -654,9 +710,11 @@ private in this experiment's .env.
 
 The real CSV currently contains **643 emails and 917 phones**. Thirty emails are
 reserved across 23-27 and 30 November 2026, five per date; 613 have blank dates
-and remain held. All real attempts/sent fields remain untouched. There is no
-hardcoded batch expiration. SMS is unscheduled because no real phone-only group
-has been confirmed. Later batches require setting dates in the CSV.
+and remain held. The owner sent five emails on 23 November; that history is
+preserved. No real SMS was sent by the agent. All 917 phone records now have the
+owner-authorized groups/dates; overdue eligible phones can fill the five/day
+budget on later runs. There is no hardcoded batch expiration. Later email batches
+and new contacts require setting their dates in the CSV.
 
 ### Contact methods and editable wording
 
@@ -700,4 +758,5 @@ Historical work: [Task 105](../../../agents/work/105-local-email-scheduling/chan
 [107 cleanup](../../../agents/work/107-recover-context-emails/changes.md).
 [Task 108](../../../agents/work/108-configured-research-sender/changes.md) verifies
 configured delivery with fictional captures and controlled TLS/auth doubles.
-Real SMS/gateway selection and the deferred survey remain later work.
+The Task 109 adapter supports the configured Local Server. Real recipient
+selection/scheduling is an owner action; the survey remains deferred.

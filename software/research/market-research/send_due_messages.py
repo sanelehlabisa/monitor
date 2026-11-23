@@ -1,6 +1,7 @@
 """Send due CSV contacts using research .env, at most five per channel/day."""
 
 import argparse
+import base64
 from collections import Counter, deque
 from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
@@ -10,6 +11,7 @@ import hashlib
 import http.client
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import ipaddress
 import os
 from pathlib import Path
 import smtplib
@@ -50,13 +52,40 @@ def validate_smtp(values: dict[str, str]) -> None:
         raise ValueError("Non-loopback SMTP requires this research account's username/password and verified TLS.")
 
 
-def load_config() -> dict[str, str]:
+def load_config(*, email: bool = True) -> dict[str, str]:
     from dotenv import dotenv_values
     values = {k: v or "" for k, v in dotenv_values(WORKSPACE / ".env", interpolate=False).items()}
-    validate_smtp(values)
-    if not normalize_email(values.get("RESEARCH_EMAIL_FROM", "")) or not values.get("CONTACTS_CSV"):
-        raise ValueError("Set RESEARCH_EMAIL_FROM and CONTACTS_CSV in market-research/.env.")
+    if email:
+        validate_smtp(values)
+        if not normalize_email(values.get("RESEARCH_EMAIL_FROM", "")):
+            raise ValueError("Set RESEARCH_EMAIL_FROM in market-research/.env.")
+    if not values.get("CONTACTS_CSV"):
+        raise ValueError("Set CONTACTS_CSV in market-research/.env.")
     return values
+
+
+def sms_mode(values: dict[str, str]) -> str:
+    value = values.get("SMS_GATEWAY_URL", "").strip()
+    if not value:
+        return "offline"
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+        if parsed.username or parsed.password or parsed.query or parsed.fragment or (port is not None and not 1 <= port <= 65535):
+            raise ValueError
+        if (parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+                and parsed.path == "/messages" and port is not None):
+            return "mock"
+        address = ipaddress.ip_address(parsed.hostname or "")
+        if (parsed.scheme not in {"http", "https"} or parsed.path not in {"", "/", "/message", "/messages"}
+                or not any(address in ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))):
+            raise ValueError
+    except ValueError:
+        raise ValueError("Use the phone's private Wi-Fi IP/port and /messages, or the existing loopback mock URL.") from None
+    username, password = values.get("SMS_GATEWAY_USERNAME", ""), values.get("SMS_GATEWAY_PASSWORD", "")
+    if not username or not password or ":" in username or any(c in username + password for c in "\r\n\x00"):
+        raise ValueError("SMSGate Local Server needs SMS_GATEWAY_USERNAME and SMS_GATEWAY_PASSWORD; no API key or Device ID.")
+    return "smsgate"
 
 
 def sms_mock_port(values: dict[str, str]) -> int | None:
@@ -216,8 +245,11 @@ def append_log(path: Path, event: dict[str, object]) -> None:
 
 
 def send_sms(phone_number: str, message: str, *, capture: Path | None = None,
-             outcome: str = "success", mock_port: int | None = None) -> str:
-    """Offline by default; an explicit port permits only the loopback HTTP mock."""
+             outcome: str = "success", mock_port: int | None = None,
+             gateway: dict[str, str] | None = None) -> str:
+    """Use the configured SMSGate Local Server, or an explicitly isolated mock."""
+    if gateway is not None:
+        return send_sms_smsgate(phone_number, message, gateway)
     if outcome not in {"success", "temporary", "permanent", "uncertain"}:
         raise ValueError("Unknown mock outcome.")
     if mock_port is not None:
@@ -228,6 +260,93 @@ def send_sms(phone_number: str, message: str, *, capture: Path | None = None,
     if capture is not None:
         append_log(capture, {"mode": "offline_mock", "receipt": receipt, "phone": phone_number, "message": message})
     return receipt
+
+
+def smsgate_connection(values: dict[str, str]) -> tuple[http.client.HTTPConnection, dict[str, str], str]:
+    if sms_mode(values) != "smsgate":
+        raise ValueError("A private SMSGate Local Server endpoint is required.")
+    parsed = urlsplit(values["SMS_GATEWAY_URL"].strip())
+    port = parsed.port if parsed.port is not None else 8080
+    client = (http.client.HTTPSConnection(parsed.hostname, port, timeout=10, context=ssl.create_default_context())
+              if parsed.scheme == "https" else http.client.HTTPConnection(parsed.hostname, port, timeout=10))
+    credentials = (values["SMS_GATEWAY_USERNAME"] + ":" + values["SMS_GATEWAY_PASSWORD"]).encode("utf-8")
+    headers = {"Authorization": "Basic " + base64.b64encode(credentials).decode("ascii"), "Content-Type": "application/json"}
+    return client, headers, parsed.path if parsed.path not in {"", "/"} else "/messages"
+
+
+def send_sms_smsgate(phone: str, message: str, values: dict[str, str]) -> str:
+    if normalize_phone(phone, True)[0] != phone or not message.strip() or len(message.encode("utf-8")) > 32768:
+        raise ValueError("Invalid SMS phone number or message.")
+    client, headers, path = smsgate_connection(values)
+    identity = uuid.uuid5(uuid.NAMESPACE_URL, "roventics-research-sms:" + phone + "\n" + message).hex
+    payload = json.dumps({"id": identity, "textMessage": {"text": message}, "phoneNumbers": [phone]})
+    submitted = False
+    try:
+        client.connect()
+        submitted = True
+        client.request("POST", path, payload.encode("utf-8"), headers)
+        response = client.getresponse()
+        if response.status in {400, 401, 403, 404, 405, 415, 422, 429, 503}:
+            raise DeliveryError(f"SMSGate rejected request ({response.status})", "temporary" if response.status in {429, 503} else "permanent")
+        if response.status != 202:
+            raise DeliveryError(f"SMSGate acceptance unconfirmed ({response.status}); review the phone queue.", "uncertain")
+        content = response.read(16385)
+        if len(content) > 16384:
+            raise ValueError
+        result = json.loads(content)
+        if not isinstance(result, dict) or result.get("id") != identity or not isinstance(result.get("deviceId"), str) or not result["deviceId"]:
+            raise ValueError
+        recipients = result.get("recipients")
+        if not isinstance(recipients, list) or len(recipients) != 1 or not isinstance(recipients[0], dict):
+            raise ValueError
+        returned_phone = recipients[0].get("phoneNumber", "")
+        if not isinstance(returned_phone, str) or returned_phone.lstrip("+") != phone.lstrip("+"):
+            raise ValueError
+        states = {result.get("state"), recipients[0].get("state")}
+        if "Failed" in states:
+            raise DeliveryError("SMSGate reported a failed message; review the phone.", "permanent")
+        if not states <= {"Pending", "Processed", "Sent", "Delivered"}:
+            raise ValueError
+        return identity  # Queued/accepted by Android, not proof of handset delivery.
+    except ssl.SSLError:
+        raise DeliveryError("SMSGate TLS verification/connection failed.", "uncertain" if submitted else "permanent") from None
+    except (ValueError, TypeError, UnicodeError):
+        raise DeliveryError("SMSGate receipt is unconfirmed; review the phone queue.", "uncertain") from None
+    except (OSError, http.client.HTTPException):
+        raise DeliveryError("SMSGate connection interrupted.", "uncertain" if submitted else "temporary") from None
+    finally:
+        client.close()
+
+
+def check_sms_setup(values: dict[str, str]) -> int:
+    if sms_mode(values) != "smsgate":
+        print("SMS mock selected; no real phone request made.")
+        return 0
+    client, headers, path = smsgate_connection(values)
+    try:
+        # Swagger assets can be public; verify auth on a read-only device route.
+        client.request("GET", "/devices", headers=headers)
+        authentication = client.getresponse()
+        if authentication.status != 200 or len(authentication.read(131073)) > 131072:
+            raise ValueError
+        client.request("GET", "/docs/swagger.json", headers=headers)
+        response = client.getresponse()
+        content = response.read(2000001)
+        if response.status != 200 or len(content) > 2000000:
+            raise ValueError
+        schema = json.loads(content)
+        # Legacy /message may be an alias; current installed schemas use /messages.
+        operation = schema.get("paths", {}).get(path, {}).get("post")
+        if operation is None and path == "/message":
+            operation = schema.get("paths", {}).get("/messages", {}).get("post")
+        if not isinstance(operation, dict) or "202" not in operation.get("responses", {}):
+            raise ValueError
+    except (OSError, ValueError, http.client.HTTPException):
+        raise ValueError("Could not verify SMSGate docs/auth; check Local Server, Wi-Fi, port and credentials.") from None
+    finally:
+        client.close()
+    print("SMSGate Local Server documentation/auth verified. Username/password only; no API key/Device ID. No SMS sent.")
+    return 0
 
 
 def send_sms_local_http(phone: str, message: str, port: int, outcome: str = "success") -> str:
@@ -477,26 +596,33 @@ def print_counters(result: dict[str, int], mode: str) -> None:
 
 def run_messages(path: Path, *, port: int = 1026, sender: str = "research@example.invalid",
               clock: Callable[[], datetime] | None = None, channels: tuple[str, ...] = CHANNELS,
-              sms_port: int | None = None, smtp: dict[str, str] | None = None) -> dict[str, int]:
-    if not normalize_email(sender) or not 1 <= port <= 65535 or not channels or any(channel not in CHANNELS for channel in channels):
+              sms_port: int | None = None, smtp: dict[str, str] | None = None,
+              sms_gateway: dict[str, str] | None = None) -> dict[str, int]:
+    if (not channels or any(channel not in CHANNELS for channel in channels)
+            or ("email" in channels and (not normalize_email(sender) or not 1 <= port <= 65535))):
         raise ValueError("Invalid local delivery configuration.")
     if sms_port is not None and not 1 <= sms_port <= 65535:
         raise ValueError("Invalid local SMS mock port.")
-    local = smtp is None or mock_smtp(smtp)
-    if smtp is not None:
+    if smtp is not None and "email" in channels:
         validate_smtp(smtp)
-    if not local and (clock is not None or "sms" in channels):
-        raise ValueError("Configured real SMTP uses the actual clock and email only; live SMS is unavailable.")
+    sms_real = sms_gateway is not None and sms_mode(sms_gateway) == "smsgate"
+    real = {"email": smtp is not None and not mock_smtp(smtp), "sms": sms_real}
+    any_real = any(real[c] for c in channels)
+    if any_real and clock is not None:
+        raise ValueError("Real delivery requires the actual clock.")
+    if any_real and any(not real[c] for c in channels):
+        raise ValueError("Do not mix real delivery with mock status updates in one CSV.")
     clock = clock or (lambda: datetime.now(UTC))
     path = workspace_path(str(path))
     sent_run: Counter[str] = Counter()
     failed_run: Counter[str] = Counter()
     with single_writer(workspace_path("data/contacts.lock")):
         store = ContactFile(path)
-        if local:
+        if not any_real:
             require_test_csv(path, store.rows)
-        elif not path.samefile(workspace_path("data/contacts.csv")):
-            raise ValueError("Real SMTP requires CONTACTS_CSV=data/contacts.csv; mock state cannot be used for live mail.")
+        elif (not path.samefile(workspace_path("data/contacts.csv"))
+                or any(r["source_domain"] == "example.invalid" or r["email"].endswith(".invalid") for r in store.rows)):
+            raise ValueError("Real delivery requires the canonical real CONTACTS_CSV=data/contacts.csv; mock history is refused.")
         subject, email_body, sms_body = load_templates()
         for channel in channels:
             if channel not in CHANNELS:
@@ -518,7 +644,8 @@ def run_messages(path: Path, *, port: int = 1026, sender: str = "research@exampl
                 append_log(path.parent / "attempts.jsonl", event)
                 try:
                     if channel == "sms":
-                        receipt = send_sms(row["phone"], sms_body, capture=path.parent / "sms-capture.jsonl", mock_port=sms_port)
+                        receipt = send_sms(row["phone"], sms_body, capture=path.parent / "sms-capture.jsonl", mock_port=sms_port,
+                                           gateway=sms_gateway if sms_real else None)
                     elif smtp is None:
                         receipt = send_email_local(row["email"], sender, row["id"], port, template=(subject, email_body))
                     else:
@@ -542,10 +669,12 @@ def run_messages(path: Path, *, port: int = 1026, sender: str = "research@exampl
                     row["status"] = "sent"
                     sent_run[channel] += 1
                     event.update(state="sent", receipt=receipt)
+                    if channel == "sms" and sms_real:
+                        event.update(transport="smsgate", acceptance="queued; not handset delivery confirmation")
                 store.save()
                 append_log(path.parent / "attempts.jsonl", event)
         result = counters(store.rows, clock(), sent_run, failed_run)
-        print_counters(result, "MAILPIT / SMS MOCK" if local else "CONFIGURED SMTP / SMS DISABLED")
+        print_counters(result, "CONFIGURED REAL DELIVERY" if any_real else "MAILPIT / SMS MOCK")
         return result
 
 
@@ -672,7 +801,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--report", action="store_true", help="read-only totals")
     mode.add_argument("--preview", action="store_true", help="read-only due selection, no delivery")
     mode.add_argument("--local-test", action="store_true", help="fictional CSV under data/local-test/ only")
-    mode.add_argument("--check-setup", action="store_true", help="read-only SMTP/TLS/DNS checks, no login/mail")
+    mode.add_argument("--check-setup", action="store_true", help="read-only SMTP or SMSGate setup check; no messages")
     mode.add_argument("--mock-sms-api", action="store_true", help="run a capture-only SMS HTTP service")
     parser.add_argument("--csv", help="override .env CONTACTS_CSV; never allocates schedules")
     parser.add_argument("--channel", choices=("all", *CHANNELS), default="all")
@@ -692,6 +821,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.check_setup:
             if args.now:
                 raise ValueError("--now is only for reports/local fixtures.")
+            if args.channel == "sms":
+                return check_sms_setup(load_config(email=False))
             return check_setup()
         fixed = parse_timestamp(args.now) if args.now else None
         channels = CHANNELS if args.channel == "all" else (args.channel,)
@@ -704,7 +835,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.mock_sms_port is not None:
             raise ValueError("Normal sending reads SMS_GATEWAY_URL from research .env.")
-        values = load_config()
+        values = load_config(email="email" in channels)
         path = workspace_path(args.csv or values["CONTACTS_CSV"])
         if args.report or args.preview:
             store = ContactFile(path)
@@ -714,12 +845,14 @@ def main(argv: list[str] | None = None) -> int:
                 for channel in channels:
                     print(f"Due {channel} contacts: {len(due_candidates(store.rows, channel, now))}")
             return 0
-        if not mock_smtp(values):
-            if args.channel == "sms":
-                raise ValueError("Live SMS needs a selected gateway/API; only email delivery is implemented.")
-            channels = ("email",)
-        run_messages(path, sender=values["RESEARCH_EMAIL_FROM"], smtp=values, channels=channels,
-                     sms_port=sms_mock_port(values) if mock_smtp(values) and "sms" in channels else None,
+        mode = sms_mode(values) if "sms" in channels else "offline"
+        if args.channel == "all" and path.samefile(workspace_path("data/contacts.csv")):
+            channels = tuple(c for c in channels if (not mock_smtp(values) if c == "email" else mode == "smsgate"))
+            if not channels:
+                raise ValueError("Canonical contacts require real SMTP/SMSGate; use a fictional CSV for mocks.")
+        run_messages(path, sender=values.get("RESEARCH_EMAIL_FROM", "research@example.invalid"), smtp=values, channels=channels,
+                     sms_port=sms_mock_port(values) if mode == "mock" and "sms" in channels else None,
+                     sms_gateway=values if mode == "smsgate" and "sms" in channels else None,
                      clock=(lambda: fixed) if fixed else None)
         return 0
     except (OSError, ValueError) as error:
