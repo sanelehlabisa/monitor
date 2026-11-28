@@ -108,3 +108,22 @@ Isolated checks use synthetic records and captured mail; they cannot establish
 VPS DNS, certificate issuance or real SMTP delivery. Inspect the existing shared
 Nginx version before deployment; this change does not upgrade its image. Keep
 logs private and never print OTPs, cookies or environment secrets.
+
+## Nginx security updates
+
+The production frontend pins official `nginx:1.30.8-alpine` by digest (Task 111).
+From `software/`, after pulling `master`, replace only the frontend:
+
+```sh
+docker compose -f prod.docker-compose.yaml build --pull frontend
+docker compose -f prod.docker-compose.yaml run --rm --no-deps frontend nginx -t
+docker compose -f prod.docker-compose.yaml up -d --no-deps --wait frontend
+docker compose -f prod.docker-compose.yaml exec -T frontend nginx -v
+```
+
+Upgrade the shared public edge in Roventics too. Its `docs/nginx-security-update.md`
+contains coordinated instructions for all three apps. Preserve certificates,
+environment files, backend/database containers and volumes; do not run `down`.
+Expect a brief frontend interruption. Local build, 44 frontend and 228 backend
+checks, shared-edge OTP/meter/logout and desktop/mobile smoke checks pass.
+VPS TLS and real email remain operator checks. An OS upgrade alone is insufficient.
